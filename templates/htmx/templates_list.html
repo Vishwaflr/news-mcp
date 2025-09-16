@@ -1,0 +1,119 @@
+<div id="templates-list">
+    {% if templates %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Name</th>
+                        <th>Description</th>
+                        <th>URL Patterns</th>
+                        <th>Assignments</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for template in templates %}
+                    <tr>
+                        <td>
+                            <strong>{{ template.name }}</strong>
+                            <br>
+                            <small class="text-muted">
+                                ID: {{ template.id }}
+                                {% if template.is_builtin %}
+                                    <span class="badge bg-info">Built-in</span>
+                                {% endif %}
+                            </small>
+                        </td>
+                        <td>
+                            {% if template.description %}
+                                {{ template.description }}
+                            {% else %}
+                                <em class="text-muted">No description</em>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if template.url_patterns %}
+                                <small>
+                                    {% for pattern in template.url_patterns[:2] %}
+                                        <code>{{ pattern }}</code><br>
+                                    {% endfor %}
+                                    {% if template.url_patterns|length > 2 %}
+                                        <em>+{{ template.url_patterns|length - 2 }} more...</em>
+                                    {% endif %}
+                                </small>
+                            {% else %}
+                                <em class="text-muted">No patterns</em>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if template.assignments %}
+                                <span class="badge bg-success">{{ template.assignments|length }} feeds</span>
+                                <br>
+                                <small class="text-muted">
+                                    {% for assignment in template.assignments[:2] %}
+                                        {{ assignment.feed.title }}<br>
+                                    {% endfor %}
+                                    {% if template.assignments|length > 2 %}
+                                        <em>+{{ template.assignments|length - 2 }} more...</em>
+                                    {% endif %}
+                                </small>
+                            {% else %}
+                                <span class="badge bg-secondary">Not assigned</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if template.is_active %}
+                                <span class="badge bg-success">Active</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group" role="group">
+                                <button class="btn btn-sm btn-outline-primary" onclick="editTemplate({{ template.id }})"
+                                        title="Edit Template">
+                                    <i class="bi bi-pencil"></i> Edit
+                                </button>
+
+                                <div class="btn-group" role="group">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle"
+                                            data-bs-toggle="dropdown" title="Assign to Feed">
+                                        Assign
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        {% for feed in all_feeds %}
+                                            <li>
+                                                <a class="dropdown-item" href="javascript:void(0)"
+                                                   onclick="assignTemplate({{ feed.id }}, {{ template.id }})">
+                                                    {{ feed.title }}
+                                                    {% if feed.id in template.assigned_feed_ids %}
+                                                        <span class="badge bg-success ms-2">✓</span>
+                                                    {% endif %}
+                                                </a>
+                                            </li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+
+                                {% if not template.is_builtin %}
+                                <button class="btn btn-sm btn-outline-danger"
+                                        onclick="deleteTemplate({{ template.id }}, '{{ template.name }}')"
+                                        title="Delete Template">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="text-center py-5">
+            <p class="text-muted">No templates found.</p>
+            <small class="text-muted">Create your first template using the form on the left.</small>
+        </div>
+    {% endif %}
+</div>

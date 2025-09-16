@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Processor Management - News MCP</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <style>
+        .status-healthy { color: #28a745; }
+        .status-degraded { color: #ffc107; }
+        .status-unhealthy { color: #dc3545; }
+        .processor-card { transition: all 0.3s ease; }
+        .processor-card:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .stats-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .health-indicator { width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-right: 8px; }
+        .nav-tabs .nav-link.active { background-color: #667eea; border-color: #667eea; color: white; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="bi bi-newspaper"></i> News MCP
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/admin/feeds">Feeds</a>
+                <a class="nav-link" href="/admin/items">Articles</a>
+                <a class="nav-link active" href="/admin/processors">Processors</a>
+                <a class="nav-link" href="/admin/health">Health</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <div class="col-12">
+                <h1><i class="bi bi-cpu"></i> Content Processor Management</h1>
+                <p class="text-muted">Manage content processing pipelines, configurations, and monitoring</p>
+            </div>
+        </div>
+
+        <!-- Health Status Card -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card stats-card">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-auto">
+                                <i class="bi bi-activity" style="font-size: 2rem;"></i>
+                            </div>
+                            <div class="col">
+                                <h5 class="mb-0">System Health Status</h5>
+                                <div id="health-status"
+                                     hx-get="/api/processors/health"
+                                     hx-trigger="load, every 30s"
+                                     hx-swap="innerHTML">
+                                    <div class="spinner-border spinner-border-sm" role="status"></div>
+                                    Loading health status...
+                                </div>
+                            </div>
+                            <div class="col-auto">
+                                <button class="btn btn-light btn-sm"
+                                        hx-get="/api/processors/health"
+                                        hx-target="#health-status">
+                                    <i class="bi bi-arrow-clockwise"></i> Refresh
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Navigation -->
+        <ul class="nav nav-tabs mb-4" id="processorTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview" type="button">
+                    <i class="bi bi-dashboard"></i> Overview
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="configurations-tab" data-bs-toggle="tab" data-bs-target="#configurations" type="button">
+                    <i class="bi bi-gear"></i> Feed Configurations
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="templates-tab" data-bs-toggle="tab" data-bs-target="#templates" type="button">
+                    <i class="bi bi-collection"></i> Templates
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="statistics-tab" data-bs-toggle="tab" data-bs-target="#statistics" type="button">
+                    <i class="bi bi-graph-up"></i> Statistics
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="reprocessing-tab" data-bs-toggle="tab" data-bs-target="#reprocessing" type="button">
+                    <i class="bi bi-arrow-repeat"></i> Reprocessing
+                </button>
+            </li>
+        </ul>
+
+        <!-- Tab Content -->
+        <div class="tab-content" id="processorTabContent">
+
+            <!-- Overview Tab -->
+            <div class="tab-pane fade show active" id="overview" role="tabpanel">
+                <div class="row">
+                    <!-- Available Processors -->
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5><i class="bi bi-cpu-fill"></i> Available Processors</h5>
+                            </div>
+                            <div class="card-body"
+                                 id="processor-types"
+                                 hx-get="/api/processors/types"
+                                 hx-trigger="load"
+                                 hx-swap="innerHTML">
+                                <div class="text-center">
+                                    <div class="spinner-border" role="status"></div>
+                                    <p class="mt-2">Loading processors...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Stats -->
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5><i class="bi bi-bar-chart"></i> Quick Statistics</h5>
+                            </div>
+                            <div class="card-body"
+                                 id="quick-stats"
+                                 hx-get="/api/processors/stats?days=1"
+                                 hx-trigger="load, every 60s"
+                                 hx-swap="innerHTML">
+                                <div class="text-center">
+                                    <div class="spinner-border" role="status"></div>
+                                    <p class="mt-2">Loading statistics...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Feed Configurations Tab -->
+            <div class="tab-pane fade" id="configurations" role="tabpanel">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5><i class="bi bi-gear-fill"></i> Feed Processor Configurations</h5>
+                        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#newConfigModal">
+                            <i class="bi bi-plus"></i> New Configuration
+                        </button>
+                    </div>
+                    <div class="card-body"
+                         id="feed-configurations"
+                         hx-get="/htmx/processor-configs"
+                         hx-trigger="load"
+                         hx-swap="innerHTML">
+                        <div class="text-center">
+                            <div class="spinner-border" role="status"></div>
+                            <p class="mt-2">Loading configurations...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Templates Tab -->
+            <div class="tab-pane fade" id="templates" role="tabpanel">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5><i class="bi bi-collection-fill"></i> Processor Templates</h5>
+                        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#newTemplateModal">
+                            <i class="bi bi-plus"></i> New Template
+                        </button>
+                    </div>
+                    <div class="card-body"
+                         id="processor-templates"
+                         hx-get="/htmx/processor-templates"
+                         hx-trigger="load"
+                         hx-swap="innerHTML">
+                        <div class="text-center">
+                            <div class="spinner-border" role="status"></div>
+                            <p class="mt-2">Loading templates...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Statistics Tab -->
+            <div class="tab-pane fade" id="statistics" role="tabpanel">
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5><i class="bi bi-graph-up-arrow"></i> Processing Statistics</h5>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button type="button" class="btn btn-outline-secondary" onclick="loadStats(1)">24h</button>
+                                    <button type="button" class="btn btn-outline-secondary active" onclick="loadStats(7)">7d</button>
+                                    <button type="button" class="btn btn-outline-secondary" onclick="loadStats(30)">30d</button>
+                                </div>
+                            </div>
+                            <div class="card-body"
+                                 id="detailed-statistics"
+                                 hx-get="/htmx/processor-stats?days=7"
+                                 hx-trigger="load"
+                                 hx-swap="innerHTML">
+                                <div class="text-center">
+                                    <div class="spinner-border" role="status"></div>
+                                    <p class="mt-2">Loading detailed statistics...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reprocessing Tab -->
+            <div class="tab-pane fade" id="reprocessing" role="tabpanel">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="bi bi-arrow-repeat"></i> Batch Reprocessing</h5>
+                        <p class="text-muted mb-0">Reprocess existing items with updated processor configurations</p>
+                    </div>
+                    <div class="card-body" id="reprocessing-interface">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card border-warning">
+                                    <div class="card-header bg-warning text-dark">
+                                        <h6><i class="bi bi-exclamation-triangle"></i> Feed Reprocessing</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <p>Reprocess all items from a specific feed with current processor configuration.</p>
+                                        <div class="mb-3">
+                                            <label class="form-label">Select Feed:</label>
+                                            <select class="form-select" id="reprocess-feed-select"
+                                                    hx-get="/htmx/feeds-options"
+                                                    hx-trigger="load"
+                                                    hx-swap="innerHTML">
+                                                <option>Loading feeds...</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="force-all">
+                                                <label class="form-check-label" for="force-all">
+                                                    Force reprocess all items (not just failed ones)
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <button class="btn btn-warning" onclick="reprocessFeed()">
+                                            <i class="bi bi-arrow-repeat"></i> Reprocess Feed
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card border-info">
+                                    <div class="card-header bg-info text-white">
+                                        <h6><i class="bi bi-info-circle"></i> Single Item Reprocessing</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <p>Reprocess a specific item by ID.</p>
+                                        <div class="mb-3">
+                                            <label class="form-label">Item ID:</label>
+                                            <input type="number" class="form-control" id="reprocess-item-id" placeholder="Enter item ID">
+                                        </div>
+                                        <button class="btn btn-info" onclick="reprocessItem()">
+                                            <i class="bi bi-arrow-repeat"></i> Reprocess Item
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6><i class="bi bi-list-check"></i> Reprocessing Results</h6>
+                                </div>
+                                <div class="card-body" id="reprocessing-results">
+                                    <p class="text-muted">No reprocessing operations performed yet.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Configuration Modal -->
+    <div class="modal fade" id="newConfigModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">New Feed Processor Configuration</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="new-config-form">
+                    <!-- Form will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Template Modal -->
+    <div class="modal fade" id="newTemplateModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">New Processor Template</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="new-template-form">
+                    <!-- Form will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function loadStats(days) {
+            // Update active button
+            document.querySelectorAll('.btn-group .btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            // Load statistics
+            htmx.ajax('GET', `/htmx/processor-stats?days=${days}`, {target: '#detailed-statistics'});
+        }
+
+        function reprocessFeed() {
+            const feedSelect = document.getElementById('reprocess-feed-select');
+            const forceAll = document.getElementById('force-all').checked;
+            const feedId = feedSelect.value;
+
+            if (!feedId || feedId === 'Loading feeds...') {
+                alert('Please select a feed first');
+                return;
+            }
+
+            if (!confirm(`Are you sure you want to reprocess all items from feed ${feedId}?`)) {
+                return;
+            }
+
+            const url = `/api/processors/reprocess/feed/${feedId}?force_all=${forceAll}`;
+
+            fetch(url, {method: 'POST'})
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('reprocessing-results').innerHTML = `
+                        <div class="alert alert-success">
+                            <strong>Feed Reprocessing Complete:</strong><br>
+                            Feed ID: ${data.feed_id}<br>
+                            Total Items: ${data.total_items}<br>
+                            Successfully Processed: ${data.processed_count}<br>
+                            Failed: ${data.failed_count}
+                        </div>
+                    `;
+                })
+                .catch(error => {
+                    document.getElementById('reprocessing-results').innerHTML = `
+                        <div class="alert alert-danger">
+                            <strong>Error:</strong> ${error.message}
+                        </div>
+                    `;
+                });
+        }
+
+        function reprocessItem() {
+            const itemId = document.getElementById('reprocess-item-id').value;
+
+            if (!itemId) {
+                alert('Please enter an item ID');
+                return;
+            }
+
+            if (!confirm(`Are you sure you want to reprocess item ${itemId}?`)) {
+                return;
+            }
+
+            fetch(`/api/processors/reprocess/item/${itemId}`, {method: 'POST'})
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('reprocessing-results').innerHTML = `
+                        <div class="alert alert-success">
+                            <strong>Item Reprocessing Complete:</strong><br>
+                            Item ID: ${data.item_id}<br>
+                            Status: ${data.message}
+                        </div>
+                    `;
+                })
+                .catch(error => {
+                    document.getElementById('reprocessing-results').innerHTML = `
+                        <div class="alert alert-danger">
+                            <strong>Error:</strong> ${error.message}
+                        </div>
+                    `;
+                });
+        }
+
+        function exportStats() {
+            const currentDays = document.querySelector('.btn-group .btn.active').textContent.replace('d', '');
+            window.location.href = `/api/processors/export?days=${currentDays}&format=csv`;
+        }
+
+        // Auto-refresh health status
+        setInterval(() => {
+            htmx.ajax('GET', '/api/processors/health', {target: '#health-status'});
+        }, 30000);
+    </script>
+</body>
+</html>

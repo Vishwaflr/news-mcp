@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+
+{% block title %}Feed Verwaltung - News MCP{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Feed Verwaltung</h1>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addFeedModal">
+        <i class="bi bi-plus"></i> Feed hinzufügen
+    </button>
+</div>
+
+<div class="row mb-3">
+    <div class="col-md-6">
+        <input type="text" class="form-control" placeholder="Feeds durchsuchen..."
+               hx-get="/htmx/feeds-list" hx-trigger="keyup changed delay:300ms" hx-target="#feeds-list">
+    </div>
+    <div class="col-md-3">
+        <select class="form-select" name="category_id" hx-get="/htmx/feeds-list" hx-trigger="change" hx-target="#feeds-list" hx-include="[name='status']">
+            <option value="">Alle Kategorien</option>
+        </select>
+    </div>
+    <div class="col-md-3">
+        <select class="form-select" name="status" hx-get="/htmx/feeds-list" hx-trigger="change" hx-target="#feeds-list" hx-include="[name='category_id']">
+            <option value="">Alle Status</option>
+            <option value="active">Aktiv</option>
+            <option value="inactive">Inaktiv</option>
+            <option value="error">Fehler</option>
+        </select>
+    </div>
+</div>
+
+<div id="feeds-list" hx-get="/htmx/feeds-list" hx-trigger="load">
+    <div class="text-center">
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Feeds werden geladen...</span>
+        </div>
+    </div>
+</div>
+
+<!-- Add Feed Modal -->
+<div class="modal fade" id="addFeedModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Neuen Feed hinzufügen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form hx-post="/api/feeds" hx-target="#feeds-list" hx-trigger="submit" hx-on="htmx:afterRequest: if(event.detail.successful) { bootstrap.Modal.getInstance(document.getElementById('addFeedModal')).hide(); }">
+                <div class="modal-body">
+                    <!-- Step 1: URL Input with Live Test -->
+                    <div class="mb-3">
+                        <label for="feedUrl" class="form-label">Feed URL</label>
+                        <div class="input-group">
+                            <input type="url" class="form-control" id="feedUrl" name="url" required>
+                            <button type="button" class="btn btn-outline-primary"
+                                    hx-post="/htmx/feed-url-test"
+                                    hx-include="#feedUrl"
+                                    hx-target="#feed-preview">
+                                <i class="bi bi-search"></i> Test Feed
+                            </button>
+                        </div>
+                        <div class="form-text">Enter RSS/Atom feed URL to test and preview</div>
+                    </div>
+
+                    <!-- Feed Preview Area -->
+                    <div id="feed-preview" class="mb-3">
+                        <!-- Preview content will be loaded here -->
+                    </div>
+
+                    <!-- Auto-filled or Manual Fields -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="feed-title" class="form-label">Titel</label>
+                                <input type="text" class="form-control" id="feed-title" name="title">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="feed-type" class="form-label">Feed Typ</label>
+                                <select class="form-select" id="feed-type" name="feed_type_id"
+                                        hx-get="/htmx/feed-types-options" hx-trigger="load" hx-target="this">
+                                    <option value="">Loading...</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="feed-description" class="form-label">Beschreibung</label>
+                        <textarea class="form-control" id="feed-description" name="description" rows="2"></textarea>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="feed-interval" class="form-label">Abruf-Intervall (Minuten)</label>
+                                <input type="number" class="form-control" id="feed-interval" name="fetch_interval_minutes" value="15" min="5">
+                                <div class="form-text">Recommended interval will be auto-set based on feed type</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="sourceId" class="form-label">Quelle</label>
+                                <select class="form-select" id="sourceId" name="source_id" required
+                                        hx-get="/htmx/sources-options" hx-trigger="load" hx-target="this">
+                                    <option value="">Loading sources...</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Advanced Settings Toggle -->
+                    <div class="accordion" id="advancedSettings">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                        data-bs-target="#advancedPanel">
+                                    <i class="bi bi-gear me-2"></i> Erweiterte Einstellungen
+                                </button>
+                            </h2>
+                            <div id="advancedPanel" class="accordion-collapse collapse">
+                                <div class="accordion-body">
+                                    <div class="mb-3">
+                                        <label class="form-label">Verfügbare Templates</label>
+                                        <div id="templates-preview"
+                                             hx-get="/htmx/available-templates"
+                                             hx-trigger="click from:.accordion-button">
+                                            <div class="text-muted">Click to load available templates...</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Feed hinzufügen</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Feed Modal -->
+<div class="modal fade" id="editFeedModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content" id="edit-modal-content">
+            <!-- Content will be loaded dynamically -->
+            <div class="text-center p-4">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Feed wird geladen...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

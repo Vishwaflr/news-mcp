@@ -1,0 +1,28 @@
+[Unit]
+Description=News MCP Server
+After=network.target
+
+[Service]
+Type=simple
+User=news-mcp
+Group=news-mcp
+WorkingDirectory=/opt/news-mcp
+Environment=PYTHONPATH=/opt/news-mcp
+ExecStart=/opt/news-mcp/venv/bin/python mcp_server/server.py
+Restart=always
+RestartSec=5
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/news-mcp
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=news-mcp
+
+[Install]
+WantedBy=multi-user.target
