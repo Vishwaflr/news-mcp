@@ -5,6 +5,70 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [2.1.0] - 2025-01-17 - PostgreSQL Migration & UI Fixes
+
+### ✨ Major Features Added
+
+#### Database Migration to PostgreSQL
+- **Local Project Database**: PostgreSQL now runs locally in `./data/postgres/` directory
+- **Docker Compose Integration**: Simple setup with `docker compose up -d`
+- **Automatic Migration**: Seamless transition from SQLite to PostgreSQL
+- **Production-Ready**: Enhanced performance and scalability with PostgreSQL
+
+#### Bug Fixes & UI Improvements
+- **Feed Interval Editing**: Fixed critical bug where interval changes via UI weren't working
+- **Form-Based API Endpoints**: Added `/api/feeds/{feed_id}/form` for proper form data handling
+- **HTMX Form Updates**: Updated all HTMX forms to use form data instead of JSON
+- **User Experience**: Fully tested 5-minute interval changes through UI
+
+### 🔧 Changed
+- **Default Database**: PostgreSQL is now the default database (was: SQLite)
+- **Configuration Files**: Updated .env.example with PostgreSQL settings
+- **API Host**: Changed default host to 192.168.178.72 for local network access
+- **Fetch Intervals**: Reduced default interval from 60 to 15 minutes
+- **Concurrent Fetches**: Increased from 5 to 10 for better performance
+- **Docker Compose**: Updated for local PostgreSQL storage in project directory
+
+### 🐛 Fixed
+- **Feed Interval Update Bug**: Fixed UI bug where interval changes weren't being saved
+  - Added form-based PUT endpoint for proper form data handling
+  - Updated HTMX forms to submit form data instead of JSON
+  - Tested and verified 5-minute interval changes work correctly
+- **Database Session Issues**: Improved session handling in feed processing
+- **Content Processing Isolation**: Enhanced transaction isolation for better error handling
+- **SQLite Dependencies**: Removed all SQLite-specific connection parameters
+
+### 🗑️ Removed
+- **SQLite Support**: Complete migration to PostgreSQL-only setup
+- **SQLite Files**: Cleaned up all .db and .sqlite files from project
+- **Legacy Configuration**: Removed SQLite-specific database parameters
+- **Python Cache**: Cleaned up __pycache__ directories and temp files
+
+### 📚 Documentation Updates
+- **README.md**: Complete rewrite with PostgreSQL setup instructions
+- **DEPLOYMENT.md**: Added PostgreSQL deployment options and local database setup
+- **.env.example**: Updated with current PostgreSQL configuration
+- **.gitignore**: Enhanced data directory handling with proper exclusions
+
+### 🧪 Testing Completed
+- ✅ Backend API health endpoints functionality
+- ✅ Frontend admin interfaces with Playwright MCP automation
+- ✅ Heise.de feed processing and template assignment
+- ✅ Dynamic scheduler functionality and hot-reload
+- ✅ Feed interval editing through UI (5-minute test)
+- ✅ MCP server integration and tools
+- ✅ PostgreSQL database migration and performance
+- ✅ Docker Compose local development setup
+
+### Technical Details
+- **Files Modified**: 17 files updated including core config, API endpoints, and documentation
+- **Database**: Moved from SQLite to PostgreSQL with local project storage
+- **Session Handling**: Improved database session isolation in feed processing
+- **Error Recovery**: Enhanced error handling in content processing pipeline
+- **Architecture**: Maintained microservices approach with better database integration
+
 ## [2.0.0] - 2025-09-16 - Dynamic Template Management
 
 ### 🔥 Major Features Added
