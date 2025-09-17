@@ -1,465 +1,309 @@
 # News MCP - Dynamic RSS Management & Content Processing System
 
-Ein vollständiger MCP-kompatibler Newsreader mit dynamischem Template-Management, intelligenter Inhaltsverarbeitung und Hot-Reload-Fähigkeit für Enterprise-Ready RSS-Feed-Aggregation.
+A comprehensive MCP-compatible news reader with dynamic template management, intelligent content processing, and hot-reload capabilities for enterprise-ready RSS feed aggregation.
 
-## 🚀 Hauptfunktionen
+## 🚀 Key Features
 
-### 🔥 Dynamic Template Management (Phase 2 - NEU!)
-- **Database-driven Templates**: Alle Templates in der Datenbank, keine statischen YAML-Dateien
-- **Hot-Reload Capability**: Konfigurationsänderungen ohne Service-Neustart
-- **Web UI Management**: Vollständige Template-Verwaltung über moderne Web-Oberfläche
-- **Auto-Assignment**: Automatische Template-Zuweisung basierend auf URL-Patterns
-- **Built-in Templates**: Vorkonfigurierte Templates für Heise, Cointelegraph, Wall Street Journal
-- **Configuration Change Tracking**: Vollständige Audit-Historie aller Template-Änderungen
+### 🔥 Dynamic Template Management (Phase 2 - NEW!)
+- **Database-driven Templates**: All templates stored in database, no static YAML files
+- **Hot-Reload Capability**: Configuration changes without service restart
+- **Web UI Management**: Complete template management via modern web interface
+- **Auto-Assignment**: Automatic template assignment based on URL patterns
+- **Built-in Templates**: Pre-configured templates for Heise, Cointelegraph, Wall Street Journal
+- **Configuration Change Tracking**: Complete audit history of all template changes
 
 ### Core RSS Management
-- **RSS Feed Management**: Feeds hinzufügen, kategorisieren und verwalten
-- **Dynamic Scheduler**: Separater Scheduler-Service mit automatischer Konfigurationserkennung
-- **Health Monitoring**: Überwachung der Feed-Gesundheit mit Metriken
-- **Deduplizierung**: Automatische Erkennung doppelter Artikel
-- **MCP Integration**: Vollständige MCP-Server-Implementation mit Tools
+- **RSS Feed Management**: Add, categorize and manage feeds
+- **Dynamic Scheduler**: Separate scheduler service with automatic configuration detection
+- **Health Monitoring**: Feed health monitoring with metrics
+- **Deduplication**: Automatic detection of duplicate articles
+- **MCP Integration**: Complete MCP server implementation with tools
 
 ### Advanced Content Processing
-- **Template-based Processing**: Flexible Feldmappings und Content-Regeln
-- **Content Rules**: HTML-Extraktion, Text-Normalisierung, Tracking-Entfernung
-- **Quality Filters**: Titel-Längen-Validierung und Content-Qualitätsprüfung
-- **Multi-Source Support**: Universelle Template-Engine für verschiedene RSS-Formate
-- **Real-time Configuration**: Sofortige Anwendung von Template-Änderungen
+- **Template-based Processing**: Flexible field mappings and content rules
+- **Content Rules**: HTML extraction, text normalization, tracking removal
+- **Quality Filters**: Title length validation and content quality checks
+- **Multi-Source Support**: Universal template engine for various RSS formats
+- **Real-time Configuration**: Immediate application of template changes
 
 ### 🎛️ Enterprise Management Interface
-- **Template Management**: HTMX-basierte Template-Erstellung und -Bearbeitung
-- **Feed Assignment**: Drag-and-Drop Template-Zuweisung zu Feeds
-- **Configuration Dashboard**: Real-time Status aller Templates und Zuweisungen
-- **Statistics & Analytics**: Detaillierte Auswertungen der Template-Performance
-- **Health Monitoring**: Real-time Status aller Feeds und Scheduler-Instanzen
+- **Template Management**: HTMX-based template creation and editing
+- **Feed Assignment**: Drag-and-drop template assignment to feeds
+- **Configuration Dashboard**: Real-time status of all templates and assignments
+- **Statistics & Analytics**: Detailed analysis of template performance
+- **Health Monitoring**: Real-time status of all feeds and scheduler instances
 
-### 🏗️ Robuste Architektur
-- **Microservices**: Separate Services für Web-UI und Scheduler
-- **Configuration Drift Detection**: Automatische Erkennung von Konfigurationsänderungen
-- **Concurrent Processing**: Batch-limitierte parallele Feed-Verarbeitung
-- **Error Recovery**: Automatische Wiederherstellung bei Service-Fehlern
-- **Production-Ready**: PostgreSQL-Unterstützung und Skalierbarkeit
+### 🏗️ Robust Architecture
+- **Microservices**: Separate services for web UI and scheduler
+- **Configuration Drift Detection**: Automatic detection of configuration changes
+- **Concurrent Processing**: Batch-limited parallel feed processing
+- **Error Recovery**: Automatic recovery from service errors
+- **Production-Ready**: PostgreSQL support and scalability
 
-## 🏛️ Architektur
+## 🏛️ Architecture
 
 ```
-├── data/                    # 🗄️ Lokale Datenbank-Speicherung
-│   └── postgres/            # PostgreSQL Datenverzeichnis (automatisch erstellt)
-├── app/                     # FastAPI Web-API und Admin-Interface
-│   ├── api/                # REST API Endpunkte
-│   │   ├── feeds.py           # Feed Management API
-│   │   ├── items.py           # Artikel API
-│   │   ├── health.py          # Health Monitoring API
-│   │   ├── categories.py      # Kategorien API
-│   │   ├── sources.py         # Quellen API
-│   │   └── htmx.py           # HTMX Interface Endpunkte
-│   ├── routes/             # 🔥 Template Management Routes
-│   │   └── templates.py       # Template CRUD Operations
-│   ├── services/           # 🔥 Core Services (NEU!)
-│   │   ├── dynamic_template_manager.py    # Template Management
-│   │   ├── configuration_watcher.py       # Config Change Detection
-│   │   ├── feed_change_tracker.py         # Change Audit System
-│   │   └── content_processing/            # Content Processing Pipeline
-│   ├── models.py           # SQLModel Datenmodelle (erweitert)
-│   ├── database.py         # Datenbank-Setup
-│   └── main.py             # FastAPI App
-├── jobs/                   # 🔥 Dynamic Background Services
-│   ├── fetcher.py             # RSS Feed Fetcher (mit Dynamic Templates)
-│   ├── dynamic_scheduler.py   # Hot-Reload Scheduler Service
-│   └── scheduler_manager.py   # Scheduler CLI Management
-├── mcp_server/             # MCP Server Implementation
-│   └── server.py              # MCP Tools und Server
-├── templates/              # Jinja2 Templates
-│   ├── admin/              # Enterprise Admin Interface
-│   │   ├── templates.html     # 🔥 Template Management UI
-│   │   ├── feeds.html         # Feed Management
-│   │   ├── items.html         # Artikel Stream
-│   │   └── health.html        # Health Dashboard
-│   └── htmx/               # 🔥 HTMX Partial Templates
-│       └── templates_list.html # Dynamic Template Lists
-└── systemd/                # Systemd Service Units
+├── data/                    # 🗄️ Local database storage
+│   └── postgres/            # PostgreSQL data directory (automatically created)
+├── app/                     # FastAPI Web API and Admin Interface
+│   ├── api/                # REST API endpoints
+│   │   ├── feeds.py        # Feed Management API
+│   │   ├── items.py        # Article/Item API
+│   │   ├── categories.py   # Category Management
+│   │   ├── sources.py      # Source Management
+│   │   ├── processors.py   # Content Processor API
+│   │   ├── statistics.py   # Analytics & Metrics
+│   │   ├── health.py       # Health Check Endpoints
+│   │   ├── htmx.py         # HTMX Templates Management
+│   │   └── database.py     # Database Management API
+│   ├── models.py           # SQLModel Database Models
+│   ├── database.py         # Database Configuration
+│   ├── config.py           # Application Configuration
+│   ├── schemas.py          # Pydantic Response Schemas
+│   ├── processors/         # Content Processing Engine
+│   │   ├── base.py         # Base Processor Classes
+│   │   ├── factory.py      # Processor Factory
+│   │   ├── manager.py      # Processing Manager
+│   │   ├── validator.py    # Content Validation
+│   │   ├── universal.py    # Universal Template Processor
+│   │   ├── heise.py        # Heise-specific Processor
+│   │   └── cointelegraph.py # Cointelegraph Processor
+│   ├── services/           # Business Logic Services
+│   │   ├── dynamic_template_manager.py  # Template Management
+│   │   ├── feed_change_tracker.py       # Change Detection
+│   │   └── configuration_watcher.py     # Config Monitoring
+│   └── utils/              # Utility Functions
+│       ├── content_normalizer.py        # Content Normalization
+│       └── feed_detector.py             # Feed Type Detection
+├── jobs/                   # 🔄 Background Processing
+│   ├── scheduler.py        # Basic AsyncIO Scheduler
+│   ├── scheduler_manager.py # Production Scheduler Manager
+│   ├── dynamic_scheduler.py # Advanced Dynamic Scheduler
+│   └── fetcher.py          # RSS Feed Fetcher
+├── mcp_server/             # 🔌 MCP Protocol Implementation
+│   ├── server.py           # Basic MCP Server
+│   └── comprehensive_server.py # Full-featured MCP Server
+├── windows-bridge/         # 🪟 Windows Integration
+│   ├── direct-http-mcp-client.js    # Direct HTTP-MCP Client
+│   ├── mcp-news-bridge.js           # MCP Bridge Server
+│   └── *.md                         # Setup Documentation
+├── templates/              # 🎨 HTMX/Jinja2 Templates
+│   ├── base.html          # Base Layout
+│   ├── dashboard.html     # Main Dashboard
+│   ├── feeds/             # Feed Management Templates
+│   ├── templates/         # Template Management UI
+│   └── components/        # Reusable Components
+├── static/                 # 📦 Static Assets (CSS, JS)
+├── systemd/                # 🔧 System Service Configuration
+├── scripts/                # 🛠️ Deployment & Utility Scripts
+└── test_mcp_server.py     # 🧪 MCP Server Testing
 ```
 
-## Schnellstart
+## 🚀 Quick Start
 
-### 1. Installation
+### Prerequisites
+- Python 3.8+
+- PostgreSQL (or SQLite for development)
+- Virtual environment recommended
 
+### Installation
+
+1. **Clone and setup virtual environment:**
 ```bash
-# Repository klonen
 git clone <repository-url>
 cd news-mcp
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+# or
+venv\Scripts\activate     # Windows
+```
 
-# Python Virtual Environment
-python3 -m venv venv
-source venv/bin/activate
+2. **Install dependencies:**
+```bash
 pip install -r requirements.txt
 ```
 
-### 2. Datenbank starten
-
-```bash
-# PostgreSQL mit Docker Compose starten
-docker compose up -d
-
-# Warten bis PostgreSQL bereit ist
-sleep 5
-```
-
-### 3. Konfiguration
-
+3. **Configure environment:**
 ```bash
 cp .env.example .env
-# .env bearbeiten nach Bedarf (PostgreSQL ist bereits konfiguriert)
+# Edit .env with your database settings
 ```
 
-### 4. Services starten
-
+4. **Initialize database:**
 ```bash
-# Python Virtual Environment aktivieren
-source venv/bin/activate
-
-# Web-API Server (Terminal 1)
-PYTHONPATH=/home/cytrex/news-mcp python3 app/main.py
-
-# Dynamic Scheduler (Terminal 2)
-python3 jobs/scheduler_manager.py start
-
-# Optional: MCP Server (Terminal 3)
-python3 mcp_server/server.py
+# Database will be automatically initialized on first run
+python app/main.py
 ```
 
-### 5. Web Interface öffnen
+### Running the System
 
+#### Development Mode
 ```bash
-# Template Management
-http://localhost:8000/admin/templates
+# Terminal 1: Start Web UI
+python app/main.py
 
-# Feed Management
-http://localhost:8000/admin/feeds
-
-# Dashboard
-http://localhost:8000/
-```
-
-## 🔥 Dynamic Template System
-
-### Template Erstellung über Web UI
-
-1. **Web Interface öffnen**: http://localhost:8000/admin/templates
-2. **Template erstellen**:
-   - **Name**: Eindeutiger Template-Name
-   - **Description**: Optionale Beschreibung
-   - **URL Patterns**: Regex-Patterns für Auto-Assignment (z.B. `.*heise\.de.*`)
-   - **Field Mappings**: RSS-zu-DB Feldmappings (z.B. `entry.title` → `title`)
-   - **Content Rules**: HTML-Extraktion, Text-Normalisierung, Tracking-Entfernung
-   - **Quality Filters**: Min/Max Titel-Länge
-
-3. **Template zuweisen**:
-   - Automatisch via URL-Patterns
-   - Manuell über Assign-Dropdown
-
-### CLI Template Management
-
-```bash
-# Scheduler Status anzeigen
-python jobs/scheduler_manager.py status
-
-# Detaillierte Konfiguration
-python jobs/scheduler_manager.py config
-
-# Scheduler mit Debug-Logging starten
+# Terminal 2: Start Scheduler
 python jobs/scheduler_manager.py start --debug
+
+# Terminal 3: Start MCP Server (optional)
+python start_mcp_server.py
 ```
 
-### Built-in Templates
-
-Das System enthält vorkonfigurierte Templates für:
-
-- **Heise Online** (`.*heise\.de.*`)
-- **Cointelegraph** (`.*cointelegraph\.com.*`)
-- **Wall Street Journal** (`.*feeds\.content\.dowjones\.io.*`)
-
-## 🗄️ Datenmodell
-
-### 🔥 Dynamic Template System (NEU!)
-
-#### DynamicFeedTemplate
-```sql
-- id: Primary Key
-- name: Eindeutiger Template-Name
-- description: Optionale Beschreibung
-- url_patterns: JSON Array von URL-Patterns
-- field_mappings: JSON Object mit RSS→DB Feldmappings
-- content_processing_rules: JSON Array von Processing-Regeln
-- is_active: Aktivitätsstatus
-- is_builtin: Built-in Template Marker
-- created_at/updated_at: Zeitstempel
-```
-
-#### FeedTemplateAssignment
-```sql
-- id: Primary Key
-- feed_id: Foreign Key zu feeds
-- template_id: Foreign Key zu dynamic_feed_templates
-- assigned_by: Zuweisender User/System
-- is_active: Aktivitätsstatus
-- created_at: Zuweisungszeitpunkt
-```
-
-#### FeedConfigurationChange
-```sql
-- id: Primary Key
-- change_type: ENUM (feed_created, template_assigned, etc.)
-- feed_id: Optional Foreign Key
-- template_id: Optional Foreign Key
-- change_data: JSON mit Details
-- changed_by: User/System
-- created_at: Änderungszeitpunkt
-```
-
-#### FeedSchedulerState
-```sql
-- instance_id: Scheduler-Instanz ID
-- is_active: Aktivitätsstatus
-- last_heartbeat: Letzter Heartbeat
-- configuration_hash: Hash der aktuellen Konfiguration
-- feeds_count/templates_count: Konfigurationsmetriken
-```
-
-### Bestehende Tabellen (erweitert)
-- **sources**: Übergeordnete Quellen
-- **feeds**: RSS-Feeds (erweitert um next_fetch_scheduled, configuration_hash)
-- **categories**: Feed-Kategorien
-- **items**: Nachrichtenartikel
-- **fetch_log**: Feed-Abruf-Historie
-- **feed_health**: Health-Metriken
-
-## MCP Tools
-
-### Template Management
-```json
-{
-  "tool": "list_templates",
-  "parameters": {
-    "active_only": true,
-    "include_assignments": true
-  }
-}
-```
-
-### Feed Management
-```json
-{
-  "tool": "add_feed",
-  "parameters": {
-    "url": "https://example.com/rss",
-    "categories": ["tech", "news"],
-    "title": "Tech News",
-    "fetch_interval_minutes": 60
-  }
-}
-```
-
-### Content Retrieval
-```json
-{
-  "tool": "fetch_latest",
-  "parameters": {
-    "limit": 20,
-    "categories": ["crypto"],
-    "since_hours": 24
-  }
-}
-```
-
-## 🚀 Deployment
-
-### Production Setup
-
-1. **PostgreSQL Datenbank** (lokal im Projekt):
+#### Production Mode
 ```bash
-# Daten werden automatisch in ./data/postgres/ gespeichert
-docker compose up -d
-```
-
-2. **Systemd Services**:
-```bash
+# Install systemd services
 sudo cp systemd/*.service /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable news-api news-scheduler news-mcp
-sudo systemctl start news-api news-scheduler news-mcp
+sudo systemctl enable news-mcp-web news-mcp-scheduler
+sudo systemctl start news-mcp-web news-mcp-scheduler
 ```
 
-3. **Monitoring**:
+## 🎯 Usage
+
+### Web Interface
+- Access dashboard: `http://localhost:8000`
+- Manage feeds: `http://localhost:8000/feeds`
+- Template management: `http://localhost:8000/templates`
+- Health monitoring: `http://localhost:8000/health`
+
+### MCP Integration
+```json
+// Claude Desktop configuration
+{
+  "mcpServers": {
+    "news-mcp": {
+      "command": "python",
+      "args": ["/path/to/news-mcp/start_mcp_server.py"]
+    }
+  }
+}
+```
+
+### API Usage
 ```bash
-# Service Status
-sudo systemctl status news-api news-scheduler news-mcp
+# Add a new feed
+curl -X POST "http://localhost:8000/api/feeds" \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://example.com/rss", "title": "Example Feed"}'
 
-# Logs
-sudo journalctl -u news-api -f
-sudo journalctl -u news-scheduler -f
+# Get recent articles
+curl "http://localhost:8000/api/items?limit=10"
+
+# Health check
+curl "http://localhost:8000/api/health"
 ```
 
-### Docker Deployment
+## 🔧 Configuration
 
-```dockerfile
-# Dockerfile für Web-API
-FROM python:3.12-slim
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-COPY . .
-CMD ["python", "app/main.py"]
+### Environment Variables (.env)
+```env
+# Database
+DATABASE_URL=postgresql://user:pass@localhost/news_mcp
+# or for SQLite: DATABASE_URL=sqlite:///./news.db
+
+# API Configuration
+API_HOST=0.0.0.0
+API_PORT=8000
+LOG_LEVEL=INFO
+
+# MCP Server
+MCP_SERVER_HOST=localhost
+MCP_SERVER_PORT=3001
+
+# Scheduler
+SCHEDULER_INTERVAL_MINUTES=5
+MAX_CONCURRENT_FEEDS=3
 ```
 
-```yaml
-# docker-compose.yml
-version: '3.8'
-services:
-  web:
-    build: .
-    ports:
-      - "8000:8000"
-    environment:
-      - DATABASE_URL=postgresql://user:pass@db/newsdb
-    depends_on:
-      - db
+### Adding Custom Feed Templates
+1. Access template management: `http://localhost:8000/templates`
+2. Create new template with field mappings
+3. Assign to feeds via URL patterns
+4. Templates take effect immediately (hot-reload)
 
-  scheduler:
-    build: .
-    command: python jobs/scheduler_manager.py start
-    depends_on:
-      - db
+## 📊 Monitoring & Analytics
 
-  db:
-    image: postgres:15
-    environment:
-      POSTGRES_DB: newsdb
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: pass
-```
+### Health Endpoints
+- `/api/health` - Overall system health
+- `/api/health/feeds` - Feed-specific health metrics
+- `/api/health/scheduler` - Scheduler status
 
-## 🔧 Entwicklung
+### Metrics Available
+- Feed fetch success rates
+- Article processing statistics
+- Template performance metrics
+- Error rates and recovery statistics
 
-### Development Setup
+## 🐳 Docker Deployment
+
 ```bash
-# Development Server mit Auto-Reload
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+# Start with Docker Compose
+docker-compose up -d
 
-# Scheduler Development Mode
-python jobs/scheduler_manager.py start --debug
-
-# Template Testing
-python -c "
-from app.services.dynamic_template_manager import get_dynamic_template_manager
-from app.database import engine
-from sqlmodel import Session
-
-with Session(engine) as session:
-    with get_dynamic_template_manager(session) as manager:
-        templates = manager.get_all_templates()
-        print(f'Found {len(templates)} templates')
-"
+# Check logs
+docker-compose logs -f
 ```
 
-### Testing
+## 🔌 MCP Tools Available
+
+When running as MCP server, the following tools are available:
+- `search_feeds` - Search and filter RSS feeds
+- `get_recent_articles` - Get recent articles with filtering
+- `add_feed` - Add new RSS feeds
+- `get_feed_health` - Check feed health status
+- `search_articles` - Full-text search in articles
+- `get_categories` - List available categories
+- `manage_templates` - Template management operations
+
+## 🧪 Testing
+
 ```bash
-# Unit Tests (wenn implementiert)
-pytest tests/
+# Test MCP server functionality
+python test_mcp_server.py
 
-# Integration Tests
-python jobs/scheduler_manager.py config --json
-
-# Template Validation
-curl -X GET http://localhost:8000/htmx/templates-list
+# Test individual components
+python -m pytest tests/  # (if test suite exists)
 ```
 
-## 📈 Monitoring & Analytics
+## 🔐 Security
 
-### Web Dashboard
-- **Template Performance**: http://localhost:8000/admin/templates
-- **Feed Health**: http://localhost:8000/admin/health
-- **System Status**: http://localhost:8000/admin/feeds
+- All external requests use proper user-agent headers
+- Input validation on all API endpoints
+- SQL injection protection via SQLModel/SQLAlchemy
+- Environment-based configuration (no hardcoded secrets)
+- Optional SSL/TLS support for production
 
-### CLI Monitoring
-```bash
-# Scheduler Status
-python jobs/scheduler_manager.py status
+## 📝 Contributing
 
-# Configuration Details
-python jobs/scheduler_manager.py config
+1. Fork the repository
+2. Create feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open Pull Request
 
-# Real-time Logs
-tail -f /tmp/news-mcp-scheduler.log
-```
+## 📄 License
 
-### API Monitoring
-```bash
-# Health Check
-curl http://localhost:8000/api/health
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-# Template Status
-curl http://localhost:8000/htmx/templates-list
+## 🆘 Support
 
-# System Statistics
-curl http://localhost:8000/htmx/system-status
-```
+- 📖 Documentation: See `/docs` directory
+- 🐛 Issues: Create issue on GitHub
+- 💬 Discussions: GitHub Discussions tab
 
-## 🔒 Security
+## 🚀 Roadmap
 
-- **Input Validation**: Alle Template-Parameter werden validiert
-- **SQL Injection Protection**: SQLModel/SQLAlchemy ORM
-- **XSS Protection**: Template-Output wird escaped
-- **CORS Configuration**: Konfigurierbare CORS-Einstellungen
-- **Rate Limiting**: Optional für API-Endpunkte
+### Phase 3 (Upcoming)
+- [ ] Advanced analytics dashboard
+- [ ] Machine learning content classification
+- [ ] Multi-tenant support
+- [ ] Advanced caching strategies
+- [ ] Real-time WebSocket feeds
+- [ ] Mobile-responsive design improvements
 
-## 📝 Changelog
-
-### Phase 2 - Dynamic Template Management (Aktuell)
-- ✅ Database-driven Template System
-- ✅ Hot-Reload Scheduler Service
-- ✅ Web UI für Template Management
-- ✅ Configuration Change Tracking
-- ✅ Automated Template Assignment
-- ✅ Built-in Templates für Major Sources
-
-### Phase 1 - Core RSS Management
-- ✅ Basic RSS Feed Management
-- ✅ Content Processing Pipeline
-- ✅ MCP Server Implementation
-- ✅ Web Interface
-- ✅ Health Monitoring
-
-## 🚧 Roadmap (Phase 3)
-
-### Advanced Analytics & Monitoring
-- Feed Performance Dashboards
-- Content Analysis & Trending
-- Advanced Health Monitoring
-- Usage Analytics
-
-### Content Intelligence
-- AI-based Categorization
-- Cross-Feed Duplicate Detection
-- Content Quality Scoring
-- Automatic Summarization
-
-### Multi-User & API Extensions
-- User Management & Authentication
-- External API Integration
-- Feed Sharing & Collaboration
-- API Rate Limiting & Caching
-
-## 📄 Lizenz
-
-MIT License - siehe [LICENSE](LICENSE) für Details.
-
-## 🤝 Contributing
-
-Contributions sind willkommen! Bitte lesen Sie [CONTRIBUTING.md](CONTRIBUTING.md) für Details.
-
-## 📞 Support
-
-- **Issues**: [GitHub Issues](https://github.com/your-repo/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-repo/discussions)
-- **Documentation**: [Wiki](https://github.com/your-repo/wiki)
+### Current Status: Phase 2 Complete ✅
+- ✅ Dynamic template management
+- ✅ Hot-reload configuration
+- ✅ Web-based template editor
+- ✅ Production-ready scheduler
+- ✅ Comprehensive monitoring

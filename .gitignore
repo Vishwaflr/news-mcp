@@ -108,8 +108,8 @@ dmypy.json
 .pytype/
 
 # News MCP Specific
-# Runtime data
-/data/
+# Runtime data (PostgreSQL)
+/data/postgres/
 !/data/.gitkeep
 /backups/
 /uploads/

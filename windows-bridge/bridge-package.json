@@ -1,0 +1,17 @@
+{
+  "name": "news-mcp-bridge",
+  "version": "1.0.0",
+  "description": "MCP-HTTP Bridge for News-MCP Server",
+  "main": "mcp-news-bridge.js",
+  "scripts": {
+    "start": "node mcp-news-bridge.js",
+    "test": "node test-bridge.js"
+  },
+  "dependencies": {},
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "keywords": ["mcp", "news", "bridge", "claude"],
+  "author": "News-MCP Team",
+  "license": "MIT"
+}

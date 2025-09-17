@@ -7,15 +7,39 @@
     <script src="https://unpkg.com/htmx.org@1.9.8"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    {% block extra_head %}{% endblock %}
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
-            <a class="navbar-brand" href="/">News MCP</a>
-            <div class="navbar-nav ms-auto">
-                <a class="nav-link" href="/admin/feeds">Feeds</a>
-                <a class="nav-link" href="/admin/items">Artikel</a>
-                <a class="nav-link" href="/admin/health">Health</a>
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-rss"></i> News MCP
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <div class="navbar-nav ms-auto">
+                    <a class="nav-link" href="/admin/feeds">
+                        <i class="fas fa-rss"></i> Feeds
+                    </a>
+                    <a class="nav-link" href="/admin/items">
+                        <i class="fas fa-newspaper"></i> Artikel
+                    </a>
+                    <a class="nav-link" href="/admin/templates">
+                        <i class="fas fa-cogs"></i> Templates
+                    </a>
+                    <a class="nav-link" href="/admin/statistics">
+                        <i class="fas fa-chart-line"></i> Statistiken
+                    </a>
+                    <a class="nav-link" href="/admin/database">
+                        <i class="fas fa-database"></i> Datenbank
+                    </a>
+                    <a class="nav-link" href="/admin/health">
+                        <i class="fas fa-heartbeat"></i> Health
+                    </a>
+                </div>
             </div>
         </div>
     </nav>

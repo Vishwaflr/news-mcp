@@ -1,0 +1,558 @@
+{% extends "base.html" %}
+
+{% block title %}Database Browser{% endblock %}
+
+{% block extra_head %}
+<style>
+.query-editor {
+    font-family: 'Monaco', 'Consolas', 'Courier New', monospace;
+    font-size: 14px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    min-height: 200px;
+}
+
+.table-list {
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.query-result {
+    max-height: 400px;
+    overflow: auto;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.quick-query-btn {
+    margin: 2px;
+    font-size: 0.85rem;
+}
+
+.schema-info {
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    padding: 10px;
+    margin-bottom: 10px;
+}
+
+.column-type {
+    font-family: monospace;
+    font-size: 0.85rem;
+    color: #6c757d;
+}
+
+.result-table {
+    font-size: 0.85rem;
+}
+
+.query-history {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.query-stats {
+    font-size: 0.9rem;
+    color: #6c757d;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="fas fa-database"></i> Database Browser</h1>
+        <div class="alert alert-warning alert-sm mb-0">
+            <i class="fas fa-shield-alt"></i> Read-only access • SELECT queries only
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Left Sidebar: Tables and Schema -->
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="fas fa-table"></i> Tables</h6>
+                    <button class="btn btn-sm btn-outline-primary" onclick="refreshTables()">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-list" id="tables-list">
+                        <div class="text-center p-3">
+                            <div class="spinner-border spinner-border-sm" role="status"></div>
+                            <div>Loading tables...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Table Schema Info -->
+            <div class="card mt-3" id="schema-card" style="display: none;">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="fas fa-info-circle"></i> Schema</h6>
+                </div>
+                <div class="card-body" id="schema-info">
+                    <!-- Schema details will be loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content: Query Editor and Results -->
+        <div class="col-md-9">
+            <!-- Quick Queries -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="fas fa-bolt"></i> Quick Queries</h6>
+                </div>
+                <div class="card-body" id="quick-queries">
+                    <div class="text-center">
+                        <div class="spinner-border spinner-border-sm" role="status"></div>
+                        <div>Loading quick queries...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Query Editor -->
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="fas fa-code"></i> SQL Query Editor</h6>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-success" onclick="executeQuery()">
+                            <i class="fas fa-play"></i> Execute
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="clearEditor()">
+                            <i class="fas fa-trash"></i> Clear
+                        </button>
+                        <button class="btn btn-outline-info" onclick="formatQuery()">
+                            <i class="fas fa-magic"></i> Format
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <form id="query-form">
+                        <div class="mb-3">
+                            <textarea class="form-control query-editor" id="sql-query" name="query"
+                                      placeholder="SELECT * FROM feeds LIMIT 10;" rows="8"></textarea>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label for="result-limit" class="form-label">Result Limit:</label>
+                                <select class="form-select form-select-sm" id="result-limit" name="limit">
+                                    <option value="50">50 rows</option>
+                                    <option value="100" selected>100 rows</option>
+                                    <option value="500">500 rows</option>
+                                    <option value="1000">1000 rows</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check mt-4">
+                                    <input class="form-check-input" type="checkbox" id="auto-execute" checked>
+                                    <label class="form-check-label" for="auto-execute">
+                                        Auto-execute on query selection
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Query Results -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="fas fa-table"></i> Query Results</h6>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-success" onclick="exportResults('csv')"
+                                id="export-csv-btn" disabled>
+                            <i class="fas fa-file-csv"></i> CSV
+                        </button>
+                        <button class="btn btn-outline-primary" onclick="exportResults('json')"
+                                id="export-json-btn" disabled>
+                            <i class="fas fa-file-code"></i> JSON
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="query-status" class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> Enter a SELECT query above and click Execute to see results.
+                    </div>
+                    <div id="query-results" class="query-result" style="display: none;">
+                        <!-- Results will be populated here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Query History -->
+            <div class="card mt-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="fas fa-history"></i> Query History</h6>
+                    <button class="btn btn-sm btn-outline-danger" onclick="clearHistory()">
+                        <i class="fas fa-trash"></i> Clear
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="query-history" id="query-history">
+                        <div class="text-muted">No queries executed yet.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let tablesData = [];
+let queryHistory = JSON.parse(localStorage.getItem('queryHistory') || '[]');
+let currentResults = null;
+
+// Load initial data
+document.addEventListener('DOMContentLoaded', function() {
+    loadTables();
+    loadQuickQueries();
+    displayQueryHistory();
+});
+
+async function loadTables() {
+    try {
+        const response = await fetch('/api/database/tables');
+        const data = await response.json();
+        tablesData = data.tables;
+        renderTables();
+    } catch (error) {
+        console.error('Error loading tables:', error);
+        document.getElementById('tables-list').innerHTML =
+            '<div class="alert alert-danger m-2">Error loading tables</div>';
+    }
+}
+
+function renderTables() {
+    const container = document.getElementById('tables-list');
+    let html = '';
+
+    tablesData.forEach(table => {
+        html += `
+            <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+                 onclick="selectTable('${table.name}')" style="cursor: pointer;">
+                <div>
+                    <i class="fas fa-table text-primary"></i>
+                    <strong>${table.name}</strong>
+                    <br>
+                    <small class="text-muted">${table.row_count.toLocaleString()} rows</small>
+                </div>
+                <button class="btn btn-sm btn-outline-secondary"
+                        onclick="event.stopPropagation(); quickSelect('${table.name}')"
+                        title="Quick SELECT">
+                    <i class="fas fa-eye"></i>
+                </button>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+async function selectTable(tableName) {
+    try {
+        const response = await fetch(`/api/database/schema/${tableName}`);
+        const data = await response.json();
+
+        let schemaHtml = `<h6>${tableName}</h6>`;
+        schemaHtml += '<div class="table-responsive"><table class="table table-sm">';
+        schemaHtml += '<thead><tr><th>Column</th><th>Type</th><th>Nullable</th></tr></thead><tbody>';
+
+        data.columns.forEach(col => {
+            const nullable = col.nullable ? '✓' : '';
+            schemaHtml += `
+                <tr>
+                    <td><strong>${col.name}</strong></td>
+                    <td><span class="column-type">${col.type}</span></td>
+                    <td>${nullable}</td>
+                </tr>
+            `;
+        });
+
+        schemaHtml += '</tbody></table></div>';
+
+        document.getElementById('schema-info').innerHTML = schemaHtml;
+        document.getElementById('schema-card').style.display = 'block';
+    } catch (error) {
+        console.error('Error loading schema:', error);
+    }
+}
+
+function quickSelect(tableName) {
+    const query = `SELECT * FROM ${tableName} LIMIT 10;`;
+    document.getElementById('sql-query').value = query;
+
+    if (document.getElementById('auto-execute').checked) {
+        executeQuery();
+    }
+}
+
+async function loadQuickQueries() {
+    try {
+        const response = await fetch('/api/database/quick-queries');
+        const data = await response.json();
+
+        let html = '';
+        data.queries.forEach(query => {
+            html += `
+                <button class="btn btn-outline-primary quick-query-btn"
+                        onclick="loadQuickQuery('${query.name}')"
+                        title="${query.description}">
+                    ${query.name}
+                </button>
+            `;
+        });
+
+        document.getElementById('quick-queries').innerHTML = html;
+
+        // Store queries for later use
+        window.quickQueries = data.queries;
+    } catch (error) {
+        console.error('Error loading quick queries:', error);
+        document.getElementById('quick-queries').innerHTML =
+            '<div class="alert alert-danger">Error loading quick queries</div>';
+    }
+}
+
+function loadQuickQuery(name) {
+    const query = window.quickQueries.find(q => q.name === name);
+    if (query) {
+        document.getElementById('sql-query').value = query.query;
+
+        if (document.getElementById('auto-execute').checked) {
+            executeQuery();
+        }
+    }
+}
+
+async function executeQuery() {
+    const form = document.getElementById('query-form');
+    const formData = new FormData(form);
+    const query = formData.get('query').trim();
+
+    if (!query) {
+        showStatus('Please enter a query', 'warning');
+        return;
+    }
+
+    showStatus('Executing query...', 'info');
+    document.getElementById('export-csv-btn').disabled = true;
+    document.getElementById('export-json-btn').disabled = true;
+
+    try {
+        const response = await fetch('/api/database/query', {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            currentResults = result;
+            displayResults(result);
+            addToHistory(query, result);
+            document.getElementById('export-csv-btn').disabled = false;
+            document.getElementById('export-json-btn').disabled = false;
+        } else {
+            showStatus(`Query Error: ${result.error}`, 'danger');
+            document.getElementById('query-results').style.display = 'none';
+        }
+    } catch (error) {
+        console.error('Error executing query:', error);
+        showStatus('Network error occurred', 'danger');
+    }
+}
+
+function displayResults(result) {
+    const container = document.getElementById('query-results');
+
+    if (result.data.length === 0) {
+        container.innerHTML = '<div class="alert alert-info">Query executed successfully but returned no results.</div>';
+        showStatus(`Query executed successfully - 0 rows returned`, 'success');
+    } else {
+        let html = '<table class="table table-striped table-hover result-table"><thead class="table-dark"><tr>';
+
+        // Headers
+        result.columns.forEach(col => {
+            html += `<th>${col}</th>`;
+        });
+        html += '</tr></thead><tbody>';
+
+        // Rows
+        result.data.forEach(row => {
+            html += '<tr>';
+            result.columns.forEach(col => {
+                let value = row[col];
+                if (value === null) {
+                    value = '<span class="text-muted">NULL</span>';
+                } else if (typeof value === 'string' && value.length > 100) {
+                    value = value.substring(0, 100) + '...';
+                }
+                html += `<td>${value}</td>`;
+            });
+            html += '</tr>';
+        });
+
+        html += '</tbody></table>';
+        container.innerHTML = html;
+
+        showStatus(`Query executed successfully - ${result.row_count} rows returned`, 'success');
+    }
+
+    container.style.display = 'block';
+}
+
+function showStatus(message, type) {
+    const statusDiv = document.getElementById('query-status');
+    statusDiv.className = `alert alert-${type}`;
+    statusDiv.innerHTML = `<i class="fas fa-${getStatusIcon(type)}"></i> ${message}`;
+    statusDiv.style.display = 'block';
+}
+
+function getStatusIcon(type) {
+    const icons = {
+        'info': 'info-circle',
+        'success': 'check-circle',
+        'warning': 'exclamation-triangle',
+        'danger': 'exclamation-circle'
+    };
+    return icons[type] || 'info-circle';
+}
+
+function addToHistory(query, result) {
+    const historyItem = {
+        query: query,
+        timestamp: new Date().toISOString(),
+        rowCount: result.row_count,
+        success: result.success
+    };
+
+    queryHistory.unshift(historyItem);
+    if (queryHistory.length > 50) {
+        queryHistory = queryHistory.slice(0, 50);
+    }
+
+    localStorage.setItem('queryHistory', JSON.stringify(queryHistory));
+    displayQueryHistory();
+}
+
+function displayQueryHistory() {
+    const container = document.getElementById('query-history');
+
+    if (queryHistory.length === 0) {
+        container.innerHTML = '<div class="text-muted">No queries executed yet.</div>';
+        return;
+    }
+
+    let html = '';
+    queryHistory.slice(0, 10).forEach((item, index) => {
+        const time = new Date(item.timestamp).toLocaleString();
+        const statusIcon = item.success ? 'check-circle text-success' : 'exclamation-circle text-danger';
+
+        html += `
+            <div class="border rounded p-2 mb-2" style="cursor: pointer;"
+                 onclick="loadFromHistory(${index})">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <code class="small">${item.query.substring(0, 80)}${item.query.length > 80 ? '...' : ''}</code>
+                    </div>
+                    <div class="text-end">
+                        <i class="fas fa-${statusIcon}"></i>
+                        <small class="text-muted">${time}</small>
+                    </div>
+                </div>
+                <div class="query-stats mt-1">
+                    <small>Returned ${item.rowCount} rows</small>
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+function loadFromHistory(index) {
+    const item = queryHistory[index];
+    document.getElementById('sql-query').value = item.query;
+}
+
+function clearEditor() {
+    document.getElementById('sql-query').value = '';
+    document.getElementById('query-results').style.display = 'none';
+    showStatus('Enter a SELECT query above and click Execute to see results.', 'info');
+}
+
+function formatQuery() {
+    const textarea = document.getElementById('sql-query');
+    let query = textarea.value;
+
+    // Simple query formatting
+    query = query.replace(/\s+/g, ' ');
+    query = query.replace(/\s*,\s*/g, ',\n  ');
+    query = query.replace(/\s+FROM\s+/gi, '\nFROM ');
+    query = query.replace(/\s+WHERE\s+/gi, '\nWHERE ');
+    query = query.replace(/\s+ORDER\s+BY\s+/gi, '\nORDER BY ');
+    query = query.replace(/\s+GROUP\s+BY\s+/gi, '\nGROUP BY ');
+    query = query.replace(/\s+LIMIT\s+/gi, '\nLIMIT ');
+
+    textarea.value = query;
+}
+
+function clearHistory() {
+    queryHistory = [];
+    localStorage.removeItem('queryHistory');
+    displayQueryHistory();
+}
+
+function refreshTables() {
+    loadTables();
+}
+
+function exportResults(format) {
+    if (!currentResults) return;
+
+    if (format === 'csv') {
+        let csv = currentResults.columns.join(',') + '\n';
+        currentResults.data.forEach(row => {
+            const values = currentResults.columns.map(col => {
+                let value = row[col];
+                if (value === null) value = '';
+                if (typeof value === 'string' && value.includes(',')) {
+                    value = `"${value}"`;
+                }
+                return value;
+            });
+            csv += values.join(',') + '\n';
+        });
+
+        downloadFile(csv, 'query_results.csv', 'text/csv');
+    } else if (format === 'json') {
+        const json = JSON.stringify(currentResults.data, null, 2);
+        downloadFile(json, 'query_results.json', 'application/json');
+    }
+}
+
+function downloadFile(content, filename, contentType) {
+    const blob = new Blob([content], { type: contentType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    if (e.ctrlKey && e.key === 'Enter') {
+        e.preventDefault();
+        executeQuery();
+    }
+});
+</script>
+{% endblock %}

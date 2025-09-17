@@ -6,7 +6,7 @@ import logging
 
 from app.config import settings
 from app.database import create_db_and_tables
-from app.api import feeds, items, health, categories, sources, htmx, processors
+from app.api import feeds, items, health, categories, sources, htmx, processors, statistics, database
 from app.routes import templates as template_routes
 
 logging.basicConfig(level=settings.log_level)
@@ -27,6 +27,8 @@ app.include_router(health.router, prefix="/api")
 app.include_router(categories.router, prefix="/api")
 app.include_router(sources.router, prefix="/api")
 app.include_router(processors.router, prefix="/api")
+app.include_router(statistics.router)
+app.include_router(database.router)
 app.include_router(htmx.router)
 app.include_router(template_routes.router)
 
@@ -54,6 +56,14 @@ async def admin_health(request: Request):
 @app.get("/admin/processors", response_class=HTMLResponse)
 async def admin_processors(request: Request):
     return templates.TemplateResponse("admin/processors.html", {"request": request})
+
+@app.get("/admin/statistics", response_class=HTMLResponse)
+async def admin_statistics(request: Request):
+    return templates.TemplateResponse("admin/statistics.html", {"request": request})
+
+@app.get("/admin/database", response_class=HTMLResponse)
+async def admin_database(request: Request):
+    return templates.TemplateResponse("admin/database.html", {"request": request})
 
 if __name__ == "__main__":
     import uvicorn

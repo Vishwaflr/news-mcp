@@ -1,0 +1,495 @@
+{% extends "base.html" %}
+
+{% block title %}Statistics Dashboard{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+.stats-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.stats-number {
+    font-size: 2.5rem;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.stats-label {
+    font-size: 0.9rem;
+    opacity: 0.8;
+}
+
+.chart-container {
+    position: relative;
+    height: 400px;
+    margin-bottom: 30px;
+}
+
+.table-responsive {
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.status-badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+}
+
+.refresh-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="fas fa-chart-line"></i> Statistics Dashboard</h1>
+        <div class="btn-group">
+            <button class="btn btn-outline-primary" onclick="refreshDashboard()">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+            <button class="btn btn-outline-success" onclick="exportData('feeds')">
+                <i class="fas fa-download"></i> Export Feeds
+            </button>
+            <button class="btn btn-outline-info" onclick="exportData('items')">
+                <i class="fas fa-download"></i> Export Items
+            </button>
+        </div>
+    </div>
+
+    <!-- Loading Indicator -->
+    <div id="loading" class="text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading statistics...</span>
+        </div>
+        <p class="mt-2">Loading dashboard data...</p>
+    </div>
+
+    <!-- Dashboard Content -->
+    <div id="dashboard-content" style="display: none;">
+        <!-- Overview Cards -->
+        <div class="row mb-4" id="overview-cards">
+            <!-- Cards will be populated by JavaScript -->
+        </div>
+
+        <!-- Charts Row -->
+        <div class="row mb-4">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-chart-area"></i> Hourly Activity (24h)</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="hourlyChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-chart-pie"></i> Feed Status</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="statusChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Feed Performance Table -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5><i class="fas fa-rss"></i> Feed Performance</h5>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-secondary" onclick="sortTable('total_items')">
+                                Sort by Items
+                            </button>
+                            <button class="btn btn-outline-secondary" onclick="sortTable('items_24h')">
+                                Sort by 24h Activity
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="feed-performance-table">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Feed</th>
+                                        <th>Source</th>
+                                        <th>Status</th>
+                                        <th>Total Items</th>
+                                        <th>24h Activity</th>
+                                        <th>1h Activity</th>
+                                        <th>Latest Item</th>
+                                        <th>Interval</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="feed-performance-body">
+                                    <!-- Populated by JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Category Statistics -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-tags"></i> Category Statistics</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Category</th>
+                                        <th>Feeds</th>
+                                        <th>Total Items</th>
+                                        <th>24h Items</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="category-stats-body">
+                                    <!-- Populated by JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-heartbeat"></i> Health Overview</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Status</th>
+                                        <th>Feed Count</th>
+                                        <th>Avg Success Rate</th>
+                                        <th>Avg Response Time</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="health-stats-body">
+                                    <!-- Populated by JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Refresh Button -->
+    <button class="btn btn-primary btn-lg refresh-btn" onclick="refreshDashboard()" title="Refresh Dashboard">
+        <i class="fas fa-sync-alt"></i>
+    </button>
+</div>
+
+<!-- Feed Details Modal -->
+<div class="modal fade" id="feedDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Feed Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="feed-details-content">
+                <!-- Populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let dashboardData = null;
+let hourlyChart = null;
+let statusChart = null;
+
+async function loadDashboard() {
+    document.getElementById('loading').style.display = 'block';
+    document.getElementById('dashboard-content').style.display = 'none';
+
+    try {
+        const response = await fetch('/api/statistics/dashboard');
+        dashboardData = await response.json();
+
+        renderOverviewCards();
+        renderHourlyChart();
+        renderStatusChart();
+        renderFeedPerformanceTable();
+        renderCategoryStats();
+        renderHealthStats();
+
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('dashboard-content').style.display = 'block';
+    } catch (error) {
+        console.error('Error loading dashboard:', error);
+        document.getElementById('loading').innerHTML =
+            '<div class="alert alert-danger">Error loading dashboard data</div>';
+    }
+}
+
+function renderOverviewCards() {
+    const overview = dashboardData.overview;
+    const cardsHtml = `
+        <div class="col-md-3">
+            <div class="stats-card">
+                <div class="stats-number">${overview.total_feeds}</div>
+                <div class="stats-label">Total Feeds</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card">
+                <div class="stats-number">${overview.total_items.toLocaleString()}</div>
+                <div class="stats-label">Total Items</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card">
+                <div class="stats-number">${overview.items_24h}</div>
+                <div class="stats-label">Items (24h)</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card">
+                <div class="stats-number">${overview.total_sources}</div>
+                <div class="stats-label">Sources</div>
+            </div>
+        </div>
+    `;
+    document.getElementById('overview-cards').innerHTML = cardsHtml;
+}
+
+function renderHourlyChart() {
+    const ctx = document.getElementById('hourlyChart').getContext('2d');
+    const hourlyData = dashboardData.hourly_activity.reverse();
+
+    if (hourlyChart) {
+        hourlyChart.destroy();
+    }
+
+    hourlyChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: hourlyData.map(d => new Date(d.hour).toLocaleTimeString()),
+            datasets: [{
+                label: 'Items per Hour',
+                data: hourlyData.map(d => d.items),
+                borderColor: 'rgb(75, 192, 192)',
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                tension: 0.1,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+function renderStatusChart() {
+    const ctx = document.getElementById('statusChart').getContext('2d');
+    const healthData = dashboardData.health_overview;
+
+    if (statusChart) {
+        statusChart.destroy();
+    }
+
+    statusChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: healthData.map(d => d.status),
+            datasets: [{
+                data: healthData.map(d => d.feed_count),
+                backgroundColor: [
+                    '#28a745', // ACTIVE - green
+                    '#dc3545', // ERROR - red
+                    '#ffc107', // PAUSED - yellow
+                    '#6c757d'  // other - gray
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false
+        }
+    });
+}
+
+function renderFeedPerformanceTable() {
+    const tbody = document.getElementById('feed-performance-body');
+    let html = '';
+
+    dashboardData.feed_performance.forEach(feed => {
+        const statusBadge = getStatusBadge(feed.status);
+        const latestItem = feed.latest_item ?
+            new Date(feed.latest_item).toLocaleString() : 'Never';
+
+        html += `
+            <tr>
+                <td>
+                    <strong>${feed.title}</strong><br>
+                    <small class="text-muted">${feed.url.substring(0, 50)}...</small>
+                </td>
+                <td>${feed.source || 'Unknown'}</td>
+                <td>${statusBadge}</td>
+                <td><span class="badge bg-primary">${feed.total_items}</span></td>
+                <td><span class="badge bg-info">${feed.items_24h}</span></td>
+                <td><span class="badge bg-success">${feed.items_1h}</span></td>
+                <td><small>${latestItem}</small></td>
+                <td>${feed.interval_minutes}min</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-primary"
+                            onclick="showFeedDetails(${feed.id})" title="View Details">
+                        <i class="fas fa-info-circle"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = html;
+}
+
+function renderCategoryStats() {
+    const tbody = document.getElementById('category-stats-body');
+    let html = '';
+
+    dashboardData.category_stats.forEach(cat => {
+        html += `
+            <tr>
+                <td>${cat.category}</td>
+                <td><span class="badge bg-secondary">${cat.feed_count}</span></td>
+                <td><span class="badge bg-primary">${cat.total_items}</span></td>
+                <td><span class="badge bg-info">${cat.items_24h}</span></td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = html;
+}
+
+function renderHealthStats() {
+    const tbody = document.getElementById('health-stats-body');
+    let html = '';
+
+    dashboardData.health_overview.forEach(health => {
+        const successRate = health.avg_success_rate.toFixed(1);
+        const responseTime = Math.round(health.avg_response_time);
+
+        html += `
+            <tr>
+                <td>${getStatusBadge(health.status)}</td>
+                <td><span class="badge bg-secondary">${health.feed_count}</span></td>
+                <td>${successRate}%</td>
+                <td>${responseTime}ms</td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = html;
+}
+
+function getStatusBadge(status) {
+    const badges = {
+        'ACTIVE': '<span class="badge bg-success">Active</span>',
+        'ERROR': '<span class="badge bg-danger">Error</span>',
+        'PAUSED': '<span class="badge bg-warning">Paused</span>'
+    };
+    return badges[status] || `<span class="badge bg-secondary">${status}</span>`;
+}
+
+async function showFeedDetails(feedId) {
+    try {
+        const response = await fetch(`/api/statistics/feed/${feedId}`);
+        const data = await response.json();
+
+        const modalContent = document.getElementById('feed-details-content');
+        modalContent.innerHTML = `
+            <h6>Feed Information</h6>
+            <table class="table table-sm">
+                <tr><td><strong>Title:</strong></td><td>${data.feed.title}</td></tr>
+                <tr><td><strong>URL:</strong></td><td><a href="${data.feed.url}" target="_blank">${data.feed.url}</a></td></tr>
+                <tr><td><strong>Status:</strong></td><td>${getStatusBadge(data.feed.status)}</td></tr>
+                <tr><td><strong>Interval:</strong></td><td>${data.feed.interval_minutes} minutes</td></tr>
+            </table>
+
+            <h6 class="mt-3">Recent Items</h6>
+            <div style="max-height: 200px; overflow-y: auto;">
+                <table class="table table-sm">
+                    ${data.recent_items.map(item => `
+                        <tr>
+                            <td>${item.title}</td>
+                            <td><small>${new Date(item.created_at).toLocaleString()}</small></td>
+                        </tr>
+                    `).join('')}
+                </table>
+            </div>
+
+            ${data.health ? `
+            <h6 class="mt-3">Health Metrics</h6>
+            <table class="table table-sm">
+                <tr><td><strong>Success Rate:</strong></td><td>${data.health.success_rate}%</td></tr>
+                <tr><td><strong>Avg Response Time:</strong></td><td>${data.health.avg_response_time}ms</td></tr>
+                <tr><td><strong>Last Success:</strong></td><td>${data.health.last_success || 'Never'}</td></tr>
+                ${data.health.last_error ? `<tr><td><strong>Last Error:</strong></td><td class="text-danger">${data.health.last_error}</td></tr>` : ''}
+            </table>
+            ` : ''}
+        `;
+
+        new bootstrap.Modal(document.getElementById('feedDetailsModal')).show();
+    } catch (error) {
+        console.error('Error loading feed details:', error);
+    }
+}
+
+function sortTable(column) {
+    dashboardData.feed_performance.sort((a, b) => b[column] - a[column]);
+    renderFeedPerformanceTable();
+}
+
+function refreshDashboard() {
+    loadDashboard();
+}
+
+function exportData(table) {
+    window.open(`/api/statistics/export/csv?table=${table}`, '_blank');
+}
+
+// Load dashboard on page load
+document.addEventListener('DOMContentLoaded', loadDashboard);
+
+// Auto-refresh every 5 minutes
+setInterval(refreshDashboard, 5 * 60 * 1000);
+</script>
+{% endblock %}

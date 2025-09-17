@@ -1,0 +1,69 @@
+{
+  "news-mcp-server": {
+    "description": "Comprehensive News MCP Server for LAN Access",
+    "version": "1.0.0",
+    "command": "python3",
+    "args": ["/home/cytrex/news-mcp/start_mcp_server.py"],
+    "env": {
+      "PYTHONPATH": "/home/cytrex/news-mcp"
+    },
+    "features": [
+      "Feed Management",
+      "Article Analytics",
+      "Database Queries",
+      "Health Monitoring",
+      "Template Management",
+      "Data Export",
+      "System Maintenance"
+    ],
+    "tools": {
+      "feed_management": [
+        "list_feeds",
+        "add_feed",
+        "update_feed",
+        "delete_feed",
+        "test_feed",
+        "refresh_feed"
+      ],
+      "analytics": [
+        "get_dashboard",
+        "feed_performance",
+        "latest_articles",
+        "search_articles",
+        "trending_topics",
+        "export_data"
+      ],
+      "templates": [
+        "list_templates",
+        "template_performance",
+        "assign_template"
+      ],
+      "database": [
+        "execute_query",
+        "table_info",
+        "quick_queries"
+      ],
+      "monitoring": [
+        "system_health",
+        "feed_diagnostics",
+        "error_analysis",
+        "scheduler_status"
+      ],
+      "administration": [
+        "maintenance_tasks",
+        "log_analysis",
+        "usage_stats"
+      ]
+    },
+    "security": {
+      "read_only_queries": true,
+      "sql_validation": true,
+      "safe_operations_only": true
+    },
+    "network": {
+      "protocol": "stdio",
+      "accessibility": "LAN",
+      "firewall_requirements": "None (uses stdio transport)"
+    }
+  }
+}
