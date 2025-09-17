@@ -32,7 +32,7 @@ class FeedCreate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     fetch_interval_minutes: int = 60
-    source_id: int
+    source_id: Optional[int] = None
     category_ids: Optional[List[int]] = []
 
 class FeedUpdate(BaseModel):

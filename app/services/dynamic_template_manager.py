@@ -282,6 +282,10 @@ class DynamicTemplateManager:
 
         return config
 
+    def get_active_template_for_feed(self, feed_id: int) -> Optional[DynamicFeedTemplate]:
+        """Get the active template for a feed - alias for get_template_for_feed for compatibility"""
+        return self.get_template_for_feed(feed_id)
+
     def create_builtin_templates(self):
         """Create built-in templates for common feed sources"""
         builtin_templates = [

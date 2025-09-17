@@ -41,9 +41,19 @@ def create_feed(
     title: Optional[str] = Form(None),
     description: Optional[str] = Form(None),
     fetch_interval_minutes: int = Form(60),
-    source_id: int = Form(...),
+    source_id: Optional[int] = Form(None),
     session: Session = Depends(get_session)
 ):
+    # If no source_id provided, use the first available RSS source
+    if source_id is None:
+        from app.models import SourceType
+        default_source = session.exec(
+            select(Source).where(Source.type == SourceType.RSS)
+        ).first()
+        if not default_source:
+            raise HTTPException(status_code=400, detail="No RSS source available and none specified")
+        source_id = default_source.id
+
     source = session.get(Source, source_id)
     if not source:
         raise HTTPException(status_code=404, detail="Source not found")
@@ -81,6 +91,38 @@ def update_feed(feed_id: int, feed_update: FeedUpdate, session: Session = Depend
     session.commit()
     session.refresh(feed)
     return feed
+
+@router.put("/{feed_id}/form", response_class=HTMLResponse)
+def update_feed_form(
+    feed_id: int,
+    title: Optional[str] = Form(None),
+    description: Optional[str] = Form(None),
+    fetch_interval_minutes: Optional[int] = Form(None),
+    status: Optional[str] = Form(None),
+    session: Session = Depends(get_session)
+):
+    feed = session.get(Feed, feed_id)
+    if not feed:
+        raise HTTPException(status_code=404, detail="Feed not found")
+
+    # Update only provided fields
+    if title is not None:
+        feed.title = title
+    if description is not None:
+        feed.description = description
+    if fetch_interval_minutes is not None:
+        feed.fetch_interval_minutes = fetch_interval_minutes
+    if status is not None:
+        from app.models import FeedStatus
+        feed.status = FeedStatus(status)
+
+    session.add(feed)
+    session.commit()
+    session.refresh(feed)
+
+    # Return updated feed list as HTML
+    from app.api.htmx import get_feeds_list
+    return get_feeds_list(session)
 
 @router.delete("/{feed_id}", response_class=HTMLResponse)
 def delete_feed(feed_id: int, session: Session = Depends(get_session)):

@@ -23,7 +23,7 @@ class ContentProcessingManager:
 
     def process_item(self, raw_item: Dict[str, Any], feed: Feed,
                     force_reprocess: bool = False) -> Optional[Item]:
-        """Process a raw RSS item and return a cleaned Item"""
+        """Process a raw RSS item and return a cleaned Item without session binding"""
 
         # Convert raw item to ContentItem
         content_item = self._dict_to_content_item(raw_item)
@@ -64,20 +64,20 @@ class ContentProcessingManager:
             logger.error(f"Content validation failed for feed {feed.id}: {validation_result['errors']}")
             return None
 
-        # Create Item from processed content
+        # Create Item from processed content (but don't add to session)
         item = self._create_item_from_processed(processed, feed)
 
+        # Store processing metadata for later logging if needed
         if item:
-            # Save the item first to get an ID
-            self.session.add(item)
-            self.session.flush()  # This assigns the ID without committing
-
-            # Log the processing including validation results
-            self._log_processing(
-                item, feed, processor.processor_name,
-                processing_status, content_item, processed,
-                error_message, processing_time, validation_result
-            )
+            item._processing_metadata = {
+                'processor_name': processor.processor_name,
+                'processing_status': processing_status,
+                'content_item': content_item,
+                'processed': processed,
+                'error_message': error_message,
+                'processing_time': processing_time,
+                'validation_result': validation_result
+            }
 
         return item
 

@@ -89,8 +89,7 @@ class FeedFetcher:
                 with get_dynamic_template_manager(session) as template_manager:
                     template = template_manager.get_template_for_feed(feed_db.id)
 
-                # Process all entries, checking for duplicates before insertion
-                processed_items = []
+                # Process each entry individually with isolated transactions
                 for entry in parsed.entries:
                     try:
                         # Use template-based field mapping instead of hardcoded extraction
@@ -106,38 +105,25 @@ class FeedFetcher:
                         processed_item = content_manager.process_item(raw_item, feed_db)
 
                         if processed_item:
-                            processed_items.append(processed_item)
+                            # Extract item data to decouple from session
+                            item_data = processed_item.model_dump()
+
+                            # Ensure feed_id is set correctly (not relying on ORM relationship)
+                            item_data['feed_id'] = feed_db.id
+
+                            # Extract processing metadata if available
+                            processing_metadata = getattr(processed_item, '_processing_metadata', None)
+
+                            # Process this item in an isolated transaction
+                            if self._save_item_isolated(item_data, processing_metadata):
+                                items_new += 1
 
                     except Exception as e:
                         # Log individual item processing errors but continue with other items
                         logger.warning(f"Error processing entry '{entry.get('title', 'Unknown')[:50]}...': {e}")
                         continue
 
-                # Insert processed items in batch, skipping duplicates
-                for processed_item in processed_items:
-                    try:
-                        # Check for duplicates
-                        existing = session.exec(
-                            select(Item).where(Item.content_hash == processed_item.content_hash)
-                        ).first()
-
-                        if not existing:
-                            session.add(processed_item)
-                            session.flush()  # Flush to get any immediate constraint errors
-                            items_new += 1
-                            logger.debug(f"Added new item: {processed_item.title[:50]}...")
-                        else:
-                            logger.debug(f"Skipping existing item: {processed_item.title[:50]}...")
-
-                    except Exception as e:
-                        session.rollback()
-                        if "UNIQUE constraint failed" in str(e):
-                            # Race condition or duplicate - continue processing
-                            logger.debug(f"Skipping duplicate item: {processed_item.title[:50]}...")
-                        else:
-                            # Log unexpected database errors
-                            logger.warning(f"Database error processing item '{processed_item.title[:50]}...': {e}")
-
+                # Update feed and log after all items are processed
                 log.completed_at = datetime.utcnow()
                 log.status = "success"
                 log.items_found = items_found
@@ -147,9 +133,14 @@ class FeedFetcher:
                 # Ensure feed status is set to ACTIVE on successful fetch
                 feed_db.status = FeedStatus.ACTIVE
 
-                session.add(feed_db)
-                session.add(log)
-                session.commit()
+                # Final commit for feed and log updates
+                try:
+                    session.add(feed_db)
+                    session.add(log)
+                    session.commit()
+                except Exception as e:
+                    logger.warning(f"Error updating feed metadata: {e}")
+                    session.rollback()
 
             await self._update_health(feed.id, True, response_time)
             logger.info(f"Feed {feed.id} fetched successfully: {items_new}/{items_found} new items")
@@ -337,6 +328,99 @@ class FeedFetcher:
 
             session.add(health)
             session.commit()
+
+    def _save_item_isolated(self, item_data: dict, processing_metadata: dict = None) -> bool:
+        """
+        Save an item in an isolated transaction using the get_session context manager.
+
+        Args:
+            item_data: Dictionary containing item data from model_dump()
+            processing_metadata: Optional processing metadata for logging
+
+        Returns:
+            bool: True if item was saved successfully, False if skipped (duplicate/error)
+        """
+        from app.database import get_session
+        from sqlalchemy.exc import IntegrityError
+        from app.models import ContentProcessingLog, ProcessorType, ProcessingStatus
+
+        try:
+            # Use get_session context manager for isolated transaction
+            with next(get_session()) as session:
+                # Check for duplicates first
+                existing = session.exec(
+                    select(Item).where(Item.content_hash == item_data.get('content_hash'))
+                ).first()
+
+                if existing:
+                    logger.debug(f"Skipping existing item: {item_data.get('title', 'Unknown')[:50]}...")
+                    return False
+
+                # Create fresh Item object from data dictionary
+                new_item = Item(**item_data)
+
+                # Add and commit the item first to get an ID
+                session.add(new_item)
+                session.flush()  # Get the ID without committing
+
+                # Create processing log if metadata is available
+                if processing_metadata:
+                    try:
+                        # Determine processor type from name
+                        processor_name = processing_metadata.get('processor_name', '')
+                        processor_type = ProcessorType.UNIVERSAL
+                        if "Heise" in processor_name:
+                            processor_type = ProcessorType.HEISE
+                        elif "Cointelegraph" in processor_name:
+                            processor_type = ProcessorType.COINTELEGRAPH
+
+                        # Get processing data
+                        content_item = processing_metadata.get('content_item')
+                        processed = processing_metadata.get('processed')
+                        validation_result = processing_metadata.get('validation_result', {})
+
+                        # Include validation information in transformations
+                        transformations = processed.transformations.copy() if processed and processed.transformations else []
+                        if validation_result.get("warnings"):
+                            transformations.extend([f"validation_warning: {w}" for w in validation_result["warnings"][:3]])
+                        if validation_result.get("quality_adjustments"):
+                            adjustments = list(validation_result["quality_adjustments"].keys())[:3]
+                            transformations.extend([f"quality_adjustment: {adj}" for adj in adjustments])
+
+                        log_entry = ContentProcessingLog(
+                            item_id=new_item.id,
+                            feed_id=item_data.get('feed_id'),
+                            processor_type=processor_type,
+                            processing_status=processing_metadata.get('processing_status', ProcessingStatus.SUCCESS),
+                            original_title=content_item.title if content_item else None,
+                            processed_title=processed.title if processed else None,
+                            original_description=content_item.description if content_item else None,
+                            processed_description=processed.description if processed else None,
+                            transformations=transformations,
+                            error_message=processing_metadata.get('error_message'),
+                            processing_time_ms=processing_metadata.get('processing_time', 0)
+                        )
+
+                        session.add(log_entry)
+                    except Exception as log_error:
+                        # Don't fail item saving due to logging issues
+                        logger.warning(f"Failed to create processing log: {log_error}")
+
+                # Commit everything together
+                session.commit()
+
+                logger.debug(f"Successfully saved item: {item_data.get('title', 'Unknown')[:50]}...")
+                return True
+
+        except IntegrityError as e:
+            # Handle duplicate key constraints gracefully
+            logger.debug(f"Skipping duplicate item (race condition): {item_data.get('title', 'Unknown')[:50]}...")
+            return False
+
+        except Exception as e:
+            # Log other unexpected errors but don't break the feed processing
+            logger.error(f"Unexpected error saving item '{item_data.get('title', 'Unknown')[:50]}...': {e}")
+            return False
 
     async def close(self):
         await self.client.aclose()

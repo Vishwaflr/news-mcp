@@ -1098,7 +1098,7 @@ def get_feed_edit_form(feed_id: int, session: Session = Depends(get_session)):
         <h5 class="modal-title">Feed bearbeiten: {feed.title or feed.url}</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
     </div>
-    <form hx-put="/api/feeds/{feed.id}" hx-target="#feeds-list"
+    <form hx-put="/api/feeds/{feed.id}/form" hx-target="#feeds-list"
           hx-on="htmx:afterRequest: if(event.detail.successful) {{ bootstrap.Modal.getInstance(document.getElementById('editFeedModal')).hide(); }}">
         <div class="modal-body">
             <div class="mb-3">

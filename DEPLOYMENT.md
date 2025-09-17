@@ -49,7 +49,17 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-### 2. Konfiguration
+### 2. Database Setup
+
+```bash
+# PostgreSQL mit Docker Compose starten
+docker compose up -d
+
+# Warten bis PostgreSQL bereit ist
+sleep 5
+```
+
+### 3. Konfiguration
 
 ```bash
 # Konfigurationsdatei erstellen
@@ -59,7 +69,7 @@ cp .env.example .env
 nano .env
 ```
 
-### 3. Services starten
+### 4. Services starten
 
 ```bash
 # Terminal 1: Web-API Server
@@ -73,7 +83,7 @@ python jobs/scheduler_manager.py start --debug
 python mcp_server/server.py
 ```
 
-### 4. Zugriff testen
+### 5. Zugriff testen
 
 ```bash
 # Web Interface
@@ -100,8 +110,18 @@ sudo useradd -m -s /bin/bash newsmcp
 sudo usermod -aG sudo newsmcp
 ```
 
-### 2. Database Setup (PostgreSQL)
+### 2. Database Setup
 
+#### Option A: Local PostgreSQL (Projekt-Datenbank)
+```bash
+# Docker Compose für lokale Entwicklung nutzen
+cd /opt/news-mcp
+docker compose up -d
+
+# Daten werden automatisch in ./data/postgres/ gespeichert
+```
+
+#### Option B: System PostgreSQL (Production)
 ```bash
 # PostgreSQL konfigurieren
 sudo -u postgres createuser newsmcp
@@ -154,8 +174,11 @@ sudo -u newsmcp nano .env
 
 Production `.env`:
 ```bash
-# Database
-DATABASE_URL=postgresql://newsmcp:secure_password_here@localhost/newsdb
+# Database (Option A: Projekt-lokale Datenbank)
+DATABASE_URL=postgresql://news_user:news_password@localhost:5432/news_db
+
+# Database (Option B: System PostgreSQL)
+# DATABASE_URL=postgresql://newsmcp:secure_password_here@localhost/newsdb
 
 # Security
 API_HOST=127.0.0.1
@@ -312,18 +335,19 @@ CMD ["python", "app/main.py"]
 version: '3.8'
 
 services:
-  # Database
+  # Database (local project storage)
   db:
     image: postgres:15-alpine
     environment:
-      POSTGRES_DB: newsdb
-      POSTGRES_USER: newsmcp
-      POSTGRES_PASSWORD: secure_password_here
+      POSTGRES_DB: news_db
+      POSTGRES_USER: news_user
+      POSTGRES_PASSWORD: news_password
+    ports:
+      - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./data/postgres:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U newsmcp -d newsdb"]
+      test: ["CMD-SHELL", "pg_isready -U news_user -d news_db"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -348,7 +372,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql://newsmcp:secure_password_here@db/newsdb
+      - DATABASE_URL=postgresql://news_user:news_password@db/news_db
       - REDIS_URL=redis://redis:6379
     depends_on:
       db:
@@ -364,7 +388,7 @@ services:
     build: .
     command: python jobs/scheduler_manager.py start
     environment:
-      - DATABASE_URL=postgresql://newsmcp:secure_password_here@db/newsdb
+      - DATABASE_URL=postgresql://news_user:news_password@db/news_db
       - SCHEDULER_INSTANCE_ID=docker_scheduler
     depends_on:
       db:
@@ -387,7 +411,6 @@ services:
     restart: unless-stopped
 
 volumes:
-  postgres_data:
   redis_data:
 ```
 

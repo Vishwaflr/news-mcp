@@ -92,23 +92,10 @@
                         <textarea class="form-control" id="feed-description" name="description" rows="2"></textarea>
                     </div>
 
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="feed-interval" class="form-label">Abruf-Intervall (Minuten)</label>
-                                <input type="number" class="form-control" id="feed-interval" name="fetch_interval_minutes" value="15" min="5">
-                                <div class="form-text">Recommended interval will be auto-set based on feed type</div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="sourceId" class="form-label">Quelle</label>
-                                <select class="form-select" id="sourceId" name="source_id" required
-                                        hx-get="/htmx/sources-options" hx-trigger="load" hx-target="this">
-                                    <option value="">Loading sources...</option>
-                                </select>
-                            </div>
-                        </div>
+                    <div class="mb-3">
+                        <label for="feed-interval" class="form-label">Abruf-Intervall (Minuten)</label>
+                        <input type="number" class="form-control" id="feed-interval" name="fetch_interval_minutes" value="15" min="5">
+                        <div class="form-text">Recommended interval will be auto-set based on feed type</div>
                     </div>
 
                     <!-- Advanced Settings Toggle -->

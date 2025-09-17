@@ -110,6 +110,7 @@ dmypy.json
 # News MCP Specific
 # Runtime data
 /data/
+!/data/.gitkeep
 /backups/
 /uploads/
 

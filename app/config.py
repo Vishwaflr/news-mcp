@@ -2,7 +2,7 @@ from pydantic_settings import BaseSettings
 from typing import Optional
 
 class Settings(BaseSettings):
-    database_url: str = "sqlite:///./news.db"
+    database_url: str = "postgresql://news_user:news_password@localhost:5432/news_db"
     api_host: str = "192.168.178.72"
     api_port: int = 8000
     mcp_port: int = 8001

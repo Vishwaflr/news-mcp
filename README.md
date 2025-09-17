@@ -43,6 +43,8 @@ Ein vollständiger MCP-kompatibler Newsreader mit dynamischem Template-Managemen
 ## 🏛️ Architektur
 
 ```
+├── data/                    # 🗄️ Lokale Datenbank-Speicherung
+│   └── postgres/            # PostgreSQL Datenverzeichnis (automatisch erstellt)
 ├── app/                     # FastAPI Web-API und Admin-Interface
 │   ├── api/                # REST API Endpunkte
 │   │   ├── feeds.py           # Feed Management API
@@ -93,27 +95,40 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. Konfiguration
+### 2. Datenbank starten
+
+```bash
+# PostgreSQL mit Docker Compose starten
+docker compose up -d
+
+# Warten bis PostgreSQL bereit ist
+sleep 5
+```
+
+### 3. Konfiguration
 
 ```bash
 cp .env.example .env
-# .env bearbeiten nach Bedarf
+# .env bearbeiten nach Bedarf (PostgreSQL ist bereits konfiguriert)
 ```
 
-### 3. Services starten
+### 4. Services starten
 
 ```bash
+# Python Virtual Environment aktivieren
+source venv/bin/activate
+
 # Web-API Server (Terminal 1)
-PYTHONPATH=/home/cytrex/news-mcp python app/main.py
+PYTHONPATH=/home/cytrex/news-mcp python3 app/main.py
 
 # Dynamic Scheduler (Terminal 2)
-python jobs/scheduler_manager.py start
+python3 jobs/scheduler_manager.py start
 
 # Optional: MCP Server (Terminal 3)
-python mcp_server/server.py
+python3 mcp_server/server.py
 ```
 
-### 4. Web Interface öffnen
+### 5. Web Interface öffnen
 
 ```bash
 # Template Management
@@ -261,9 +276,10 @@ Das System enthält vorkonfigurierte Templates für:
 
 ### Production Setup
 
-1. **PostgreSQL Datenbank**:
+1. **PostgreSQL Datenbank** (lokal im Projekt):
 ```bash
-DATABASE_URL=postgresql://user:pass@localhost/newsdb
+# Daten werden automatisch in ./data/postgres/ gespeichert
+docker compose up -d
 ```
 
 2. **Systemd Services**:
