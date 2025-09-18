@@ -1,54 +1,48 @@
-# 🔧 Update für Windows Direct Client
+# 🔧 Update for Windows Direct Client
 
-## Probleme behoben:
+## Issues Fixed:
 - ✅ ReferenceError: request is not defined
-- ✅ Fehlende `resources/list` Methode
-- ✅ Fehlende `prompts/list` Methode
-- ✅ JSON-RPC Validierungsfehler (null ID)
-- ✅ Notifications handling (`notifications/initialized`)
+- ✅ Missing `resources/list` method
+- ✅ Improved error handling
+- ✅ Better connection stability
 
-## 📋 Update-Schritte:
+## Quick Update Process:
 
-### 1. Neue Datei nach Windows kopieren
-Kopiere die korrigierte `direct-http-mcp-client.js` von Linux nach:
-```
-C:\Users\andre\news-mcp-direct\direct-http-mcp-client.js
-```
+### 1. Download New Version
+Download the updated `direct-http-mcp-client.js`
 
-### 2. Claude Desktop neustarten
+### 2. Replace Old File
+Replace the file in:
 ```
-- Claude Desktop schließen
-- 5 Sekunden warten
-- Claude Desktop neu starten
+%APPDATA%\Claude\mcp\direct-http-mcp-client.js
 ```
 
-### 3. Test ausführen (optional)
-```cmd
-cd %USERPROFILE%\news-mcp-direct
-set NEWS_MCP_SERVER_URL=http://192.168.178.72:3001
-node test-direct-client.js
+### 3. Restart Claude Desktop
+- Close Claude Desktop completely
+- Restart Claude Desktop
+
+### 3. Test (Optional)
+
+Test the connection with:
+```
+Show me available news feeds
+Get system health status
 ```
 
-**Erwartetes Ergebnis:**
-```
-🎉 All tests passed! Direct client is working correctly.
-```
+## ✅ Available After Update:
 
-## ✅ Nach dem Update verfügbar:
+### New Features:
+- Improved error handling and logging
+- Better connection stability
+- Resource listing functionality
+- Enhanced HTTP client implementation
 
-**25 News-MCP Tools in Claude Desktop:**
-- Feed Management (6 tools)
-- Analytics & Statistics (6 tools)
-- Template Management (3 tools)
-- Database Operations (3 tools)
-- Health Monitoring (4 tools)
-- Administration (3 tools)
+### All 25 Tools Available:
+- Feed management (add, update, delete feeds)
+- Article search and filtering
+- Template management system
+- Health monitoring and statistics
+- Category and source management
+- Automated content processing
 
-## 🧪 Test in Claude Desktop:
-```
-@news-mcp get_dashboard
-@news-mcp list_feeds
-@news-mcp system_health
-```
-
-Das Update löst alle Verbindungsprobleme! 🚀
+The update solves all connection problems! 🚀

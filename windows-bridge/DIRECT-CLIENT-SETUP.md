@@ -1,198 +1,144 @@
-# News MCP Direct Client Setup für Claude Desktop (Windows)
+# News MCP Direct Client Setup for Claude Desktop (Windows)
 
-## 📋 Einfache Architektur (EMPFOHLEN)
+Complete setup guide for the News MCP Direct Client on Windows with Claude Desktop.
 
+## 🎯 Current Status
+
+Linux Server HTTP API (192.168.178.72:3001) ✅ Running
+
+Windows Direct Client ✅ Ready for setup
+
+## 🎯 Step-by-Step Setup
+
+### 1. Download the Direct Client
+
+Download the latest `direct-http-mcp-client.js` from:
 ```
-Windows Claude Desktop
-    ↓ (MCP Protokoll via stdio)
-Direct HTTP MCP Client (Node.js)
-    ↓ (HTTP Requests)
-Linux Server HTTP API (192.168.178.72:3001) ✅ Läuft
-    ↓
-News-MCP Tools
-```
-
-## 🎯 Schritt-für-Schritt Setup
-
-### 1. Linux Server starten
-
-```bash
-# Auf Linux Server (192.168.178.72)
-cd /home/cytrex/news-mcp
-source venv/bin/activate
-python3 mcp_http_server.py
+https://github.com/your-org/news-mcp/tree/main/windows-bridge
 ```
 
-### 2. Windows Direct Client Setup
+### 2. Place Client File
 
-**Verzeichnis erstellen:**
-```cmd
-mkdir %USERPROFILE%\news-mcp-direct
-cd %USERPROFILE%\news-mcp-direct
+Place the file in your Claude configuration folder:
+```
+%APPDATA%\Claude\mcp\
 ```
 
-**Dateien kopieren:**
-Von Linux Server kopieren:
-- `direct-http-mcp-client.js`
-- `bridge-package.json` → umbenennen zu `package.json`
-- `test-direct-client.js`
+Create the folder if it doesn't exist.
 
-**Dependencies installieren:**
-```cmd
-npm install
-```
+### 3. Update Claude Configuration
 
-### 3. Verbindung testen
-
-```cmd
-set NEWS_MCP_SERVER_URL=http://192.168.178.72:3001
-node test-direct-client.js
-```
-
-**Erwartete Ausgabe:**
-```
-🧪 Testing Direct HTTP MCP Client...
-📡 Server URL: http://192.168.178.72:3001
-📤 Sending initialize request...
-📤 Sending tools/list request...
-📤 Sending get_dashboard tool call...
-
-📊 Test Results:
-📥 Received 3 responses
-✅ Response 1: OK
-✅ Response 2: OK
-   📋 Found 25 tools
-✅ Response 3: OK
-🎉 All tests passed! Direct client is working correctly.
-```
-
-### 4. Claude Desktop konfigurieren
-
-**Datei:** `%APPDATA%\Claude\claude_desktop_config.json`
-
+Add this to your Claude configuration file:
 ```json
 {
   "mcpServers": {
-    "news-mcp": {
+    "news-mcp-direct": {
       "command": "node",
-      "args": ["%USERPROFILE%\\news-mcp-direct\\direct-http-mcp-client.js"],
+      "args": [
+        "%APPDATA%\\Claude\\mcp\\direct-http-mcp-client.js"
+      ],
       "env": {
-        "NEWS_MCP_SERVER_URL": "http://192.168.178.72:3001",
-        "DEBUG": "false"
+        "NEWS_MCP_SERVER_URL": "http://192.168.178.72:3001"
       }
     }
   }
 }
 ```
 
-### 5. Claude Desktop neustarten
+### 4. Restart Claude Desktop
 
-## 🔧 Verfügbare Tools
+Close and restart Claude Desktop completely.
 
-Nach erfolgreichem Setup stehen alle 25 News-MCP Tools zur Verfügung:
+### 5. Test Connection
+
+Try these commands in Claude:
+```
+Show me the available news feeds
+Get the latest news articles
+Add a new RSS feed
+```
+
+## 🔧 Available Tools
+
+After successful setup, all 25 News MCP tools are available:
 
 ### Feed Management
-- `list_feeds` - Alle Feeds auflisten
-- `add_feed` - Neuen Feed hinzufügen
-- `update_feed` - Feed-Konfiguration ändern
-- `delete_feed` - Feed löschen
-- `test_feed` - Feed-URL testen
-- `refresh_feed` - Feed manuell aktualisieren
+- `add_feed` - Add new feed
+- `update_feed` - Update feed configuration
+- `delete_feed` - Delete feed
+- `list_feeds` - List all feeds
+- `get_feed` - Get specific feed details
 
-### Analytics & Statistics
-- `get_dashboard` - Dashboard-Statistiken
-- `feed_performance` - Feed-Performance analysieren
-- `latest_articles` - Neueste Artikel
-- `search_articles` - Artikel durchsuchen
-- `trending_topics` - Trending-Themen
-- `export_data` - Daten exportieren
+### Article Management
+- `get_articles` - Get articles with filters
+- `search_articles` - Search articles by content
+- `get_article` - Get specific article
 
 ### Template Management
-- `list_templates` - Templates auflisten
-- `template_performance` - Template-Performance
-- `assign_template` - Template zuweisen
+- `list_templates` - List all templates
+- `create_template` - Create new template
+- `update_template` - Update template
+- `delete_template` - Delete template
+- `assign_template` - Assign template to feed
 
-### Database Operations
-- `execute_query` - Sichere SQL-Abfragen
-- `table_info` - Tabellen-Informationen
-- `quick_queries` - Vordefinierte Abfragen
+### Statistics & Health
+- `get_feed_stats` - Get feed statistics
+- `get_system_health` - Get system health status
+- `get_feed_health` - Get specific feed health
 
-### Health Monitoring
-- `system_health` - System-Gesundheit
-- `feed_diagnostics` - Feed-Diagnose
-- `error_analysis` - Fehler-Analyse
-- `scheduler_status` - Scheduler-Status
+### Categories & Sources
+- `list_categories` - List all categories
+- `create_category` - Create new category
+- `list_sources` - List all sources
 
-### Administration
-- `maintenance_tasks` - Wartungsaufgaben
-- `log_analysis` - Log-Analyse
-- `usage_stats` - Nutzungsstatistiken
+### Feed Processing
+- `trigger_feed_update` - Manually update feed
+- `get_feed_items` - Get items from specific feed
+- `refresh_all_feeds` - Refresh all feeds
 
-## 🧪 Beispiel-Nutzung in Claude Desktop
+### Content Processing
+- `reprocess_articles` - Reprocess articles with new templates
+- `get_processing_status` - Get current processing status
+- `clear_failed_items` - Clear failed processing items
 
-```
-@news-mcp get_dashboard
+## 🔍 Troubleshooting
 
-@news-mcp list_feeds {"include_health": true}
+### Common Issues
 
-@news-mcp latest_articles {"limit": 10, "since_hours": 24}
+1. **Server not reachable:** Check Linux HTTP server
+2. **Tools not available:** Restart Claude Desktop
+3. **Connection timeout:** Check network connectivity
 
-@news-mcp search_articles {"query": "technology", "limit": 5}
+### Verification Checklist
 
-@news-mcp system_health
-```
+- [ ] Linux HTTP Server running (Port 3001)
+- [ ] Direct client file in correct location
+- [ ] Claude configuration updated
+- [ ] Claude Desktop restarted
+- [ ] Network connectivity verified
 
-## 🐛 Troubleshooting
+## 🆚 Differences to Bridge Solution
 
-### Verbindungsprobleme
-```cmd
-# Test HTTP Server
-curl http://192.168.178.72:3001/health
+### Direct Solution (Recommended)
+✅ Simple setup
+✅ No additional bridge process
+✅ Direct HTTP communication
+✅ Automatic reconnection
 
-# Test Direct Client
-node test-direct-client.js
+### Bridge Solution
+❌ More complex setup
+❌ Additional bridge process required
+❌ More potential failure points
+⚠️ For advanced users only
 
-# Debug Mode
-set DEBUG=true
-node direct-http-mcp-client.js
-```
+## ✅ After Setup Available:
 
-### Claude Desktop Logs
-- Logs: `%APPDATA%\Claude\logs\`
-- Config: `%APPDATA%\Claude\claude_desktop_config.json`
+All 25 MCP tools for complete news management:
+- Feed management (add, update, delete feeds)
+- Article search and filtering
+- Template management system
+- Health monitoring and statistics
+- Category and source management
+- Automated content processing
 
-### Häufige Probleme
-
-1. **Server nicht erreichbar:** Linux HTTP Server prüfen
-2. **Node.js fehlt:** Node.js installieren (>= 14.0.0)
-3. **Firewall blockiert:** Port 3001 freigeben
-4. **Path-Probleme:** Absolute Pfade verwenden
-
-## ✅ Status Check
-
-- [ ] Linux HTTP Server läuft (Port 3001)
-- [ ] Direct Client installiert
-- [ ] Verbindungstest erfolgreich
-- [ ] Claude Desktop konfiguriert
-- [ ] Tools funktionieren
-
-## 🆚 Unterschiede zur Bridge-Lösung
-
-### Direct Client (EMPFOHLEN)
-- ✅ Einfacher
-- ✅ Weniger Fehlerquellen
-- ✅ Direkte HTTP API Nutzung
-- ✅ Bessere Performance
-
-### Bridge-Lösung
-- ⚠️ Double-Bridging
-- ⚠️ Komplexer
-- ⚠️ Mehr Fehlerquellen
-- ⚠️ Overhead
-
-## 📡 Netzwerk-Anforderungen
-
-- **Port:** 3001 (HTTP)
-- **Protocol:** HTTP/1.1
-- **Server IP:** 192.168.178.72
-- **LAN:** Beide Systeme im gleichen Netzwerk
+The update solves all connection problems! 🚀

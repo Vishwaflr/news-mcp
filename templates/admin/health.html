@@ -6,7 +6,7 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1>System Health</h1>
     <button class="btn btn-success" hx-post="/api/feeds/refresh" hx-target="#health-overview">
-        <i class="bi bi-arrow-clockwise"></i> Alle Feeds aktualisieren
+        <i class="bi bi-arrow-clockwise"></i> Refresh All Feeds
     </button>
 </div>
 
@@ -14,12 +14,12 @@
     <div class="col-12">
         <div class="card">
             <div class="card-header">
-                <h5>Übersicht</h5>
+                <h5>Overview</h5>
             </div>
             <div class="card-body" id="health-overview" hx-get="/api/health/status" hx-trigger="load, every 60s">
                 <div class="text-center">
                     <div class="spinner-border" role="status">
-                        <span class="visually-hidden">Status wird geladen...</span>
+                        <span class="visually-hidden">Loading status...</span>
                     </div>
                 </div>
             </div>
@@ -29,23 +29,23 @@
 
 <div class="row mb-3">
     <div class="col-md-6">
-        <input type="text" class="form-control" placeholder="Feeds durchsuchen..."
+        <input type="text" class="form-control" placeholder="Search feeds..."
                hx-get="/api/health/feeds" hx-trigger="keyup changed delay:300ms" hx-target="#health-list">
     </div>
     <div class="col-md-3">
         <select class="form-select" hx-get="/api/health/feeds" hx-trigger="change" hx-target="#health-list">
-            <option value="">Alle Status</option>
-            <option value="healthy">Gesund</option>
-            <option value="warning">Warnung</option>
-            <option value="error">Fehler</option>
+            <option value="">All Status</option>
+            <option value="healthy">Healthy</option>
+            <option value="warning">Warning</option>
+            <option value="error">Error</option>
         </select>
     </div>
     <div class="col-md-3">
         <select class="form-select" hx-get="/api/health/feeds" hx-trigger="change" hx-target="#health-list">
-            <option value="">Sortierung</option>
-            <option value="uptime">Nach Uptime</option>
-            <option value="response_time">Nach Antwortzeit</option>
-            <option value="last_failure">Nach letztem Fehler</option>
+            <option value="">Sort by</option>
+            <option value="uptime">By Uptime</option>
+            <option value="response_time">By Response Time</option>
+            <option value="last_failure">By Last Failure</option>
         </select>
     </div>
 </div>
@@ -53,7 +53,7 @@
 <div id="health-list" hx-get="/api/health/feeds" hx-trigger="load">
     <div class="text-center">
         <div class="spinner-border" role="status">
-            <span class="visually-hidden">Health-Daten werden geladen...</span>
+            <span class="visually-hidden">Loading health data...</span>
         </div>
     </div>
 </div>

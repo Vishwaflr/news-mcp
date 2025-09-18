@@ -4,7 +4,7 @@
 <div class="row">
     <div class="col-12">
         <h1>News MCP Dashboard</h1>
-        <p class="lead">Willkommen beim MCP-kompatiblen Newsreader</p>
+        <p class="lead">Welcome to the MCP-compatible Newsreader</p>
     </div>
 </div>
 
@@ -13,10 +13,10 @@
         <div class="card">
             <div class="card-body">
                 <h5 class="card-title">
-                    <i class="bi bi-rss"></i> Feeds verwalten
+                    <i class="bi bi-rss"></i> Manage Feeds
                 </h5>
-                <p class="card-text">RSS-Feeds hinzufügen, bearbeiten und verwalten</p>
-                <a href="/admin/feeds" class="btn btn-primary">Zu den Feeds</a>
+                <p class="card-text">Add, edit and manage RSS feeds</p>
+                <a href="/admin/feeds" class="btn btn-primary">Go to Feeds</a>
             </div>
         </div>
     </div>
@@ -25,10 +25,10 @@
         <div class="card">
             <div class="card-body">
                 <h5 class="card-title">
-                    <i class="bi bi-newspaper"></i> Artikel
+                    <i class="bi bi-newspaper"></i> Articles
                 </h5>
-                <p class="card-text">Neueste Artikel durchsuchen und verwalten</p>
-                <a href="/admin/items" class="btn btn-primary">Zu den Artikeln</a>
+                <p class="card-text">Browse and manage latest articles</p>
+                <a href="/admin/items" class="btn btn-primary">Go to Articles</a>
             </div>
         </div>
     </div>
@@ -39,8 +39,8 @@
                 <h5 class="card-title">
                     <i class="bi bi-heart-pulse"></i> System Health
                 </h5>
-                <p class="card-text">Überwachung der Feed-Gesundheit</p>
-                <a href="/admin/health" class="btn btn-primary">Zum Health Check</a>
+                <p class="card-text">Monitor feed health and status</p>
+                <a href="/admin/health" class="btn btn-primary">Go to Health Check</a>
             </div>
         </div>
     </div>
@@ -55,7 +55,7 @@
             <div class="card-body" id="system-status" hx-get="/htmx/system-status" hx-trigger="load, every 30s">
                 <div class="text-center">
                     <div class="spinner-border" role="status">
-                        <span class="visually-hidden">Laden...</span>
+                        <span class="visually-hidden">Loading...</span>
                     </div>
                 </div>
             </div>

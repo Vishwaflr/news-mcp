@@ -309,6 +309,7 @@ class DynamicScheduler:
     async def _fetch_feed(self, scheduled_feed: ScheduledFeed):
         """Fetch a single feed"""
         scheduled_feed.is_running = True
+        current_time = datetime.utcnow()  # Define current_time
 
         try:
             # Load feed from database to get latest configuration
@@ -323,30 +324,40 @@ class DynamicScheduler:
                 # Perform the fetch
                 fetch_log = await self.fetcher.fetch_feed(feed)
 
-                # Update scheduling based on result
-                if fetch_log.status == "success":
-                    scheduled_feed.consecutive_failures = 0
-                    # Schedule next fetch based on configured interval
-                    scheduled_feed.next_fetch = current_time + timedelta(
-                        minutes=scheduled_feed.interval_minutes
-                    )
-                    logger.debug(f"Scheduled next fetch for {scheduled_feed.title} "
-                                f"at {scheduled_feed.next_fetch}")
-                else:
-                    # Handle failures with exponential backoff
-                    scheduled_feed.consecutive_failures += 1
-                    backoff_minutes = min(
-                        scheduled_feed.interval_minutes * (2 ** scheduled_feed.consecutive_failures),
-                        240  # Max 4 hours
-                    )
-                    scheduled_feed.next_fetch = current_time + timedelta(minutes=backoff_minutes)
-                    logger.warning(f"Feed fetch failed: {scheduled_feed.title} "
-                                  f"(failures: {scheduled_feed.consecutive_failures}, "
-                                  f"next try in {backoff_minutes} minutes)")
+                # Extract status before session closes
+                fetch_status = fetch_log.status if fetch_log else "error"
+                fetch_success = fetch_status == "success"
+
+            # Update scheduling based on result (outside session)
+            if fetch_success:
+                scheduled_feed.consecutive_failures = 0
+                # Schedule next fetch based on configured interval
+                scheduled_feed.next_fetch = current_time + timedelta(
+                    minutes=scheduled_feed.interval_minutes
+                )
+                logger.debug(f"Scheduled next fetch for {scheduled_feed.title} "
+                            f"at {scheduled_feed.next_fetch}")
+            else:
+                # Handle failures with exponential backoff
+                scheduled_feed.consecutive_failures += 1
+                backoff_minutes = min(
+                    scheduled_feed.interval_minutes * (2 ** scheduled_feed.consecutive_failures),
+                    240  # Max 4 hours
+                )
+                scheduled_feed.next_fetch = current_time + timedelta(minutes=backoff_minutes)
+                logger.warning(f"Feed fetch failed: {scheduled_feed.title} "
+                              f"(failures: {scheduled_feed.consecutive_failures}, "
+                              f"next try in {backoff_minutes} minutes)")
 
         except Exception as e:
             logger.error(f"Error fetching feed {scheduled_feed.title}: {e}")
             scheduled_feed.consecutive_failures += 1
+            # Schedule retry with backoff
+            backoff_minutes = min(
+                scheduled_feed.interval_minutes * (2 ** scheduled_feed.consecutive_failures),
+                240  # Max 4 hours
+            )
+            scheduled_feed.next_fetch = current_time + timedelta(minutes=backoff_minutes)
 
         finally:
             scheduled_feed.is_running = False

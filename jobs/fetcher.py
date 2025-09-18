@@ -24,16 +24,18 @@ class FeedFetcher:
         )
 
     async def fetch_feed(self, feed: Feed) -> FetchLog:
-        log = FetchLog(
-            feed_id=feed.id,
-            started_at=datetime.utcnow(),
-            status="running"
-        )
-
+        # Create initial log entry
+        log_id = None
         with Session(engine) as session:
+            log = FetchLog(
+                feed_id=feed.id,
+                started_at=datetime.utcnow(),
+                status="running"
+            )
             session.add(log)
             session.commit()
             session.refresh(log)
+            log_id = log.id
 
         try:
             start_time = datetime.utcnow()
@@ -48,13 +50,14 @@ class FeedFetcher:
             response_time = int((datetime.utcnow() - start_time).total_seconds() * 1000)
 
             if response.status_code == 304:
-                log.completed_at = datetime.utcnow()
-                log.status = "not_modified"
-                log.response_time_ms = response_time
-
                 with Session(engine) as session:
+                    log = session.get(FetchLog, log_id)
+                    log.completed_at = datetime.utcnow()
+                    log.status = "not_modified"
+                    log.response_time_ms = response_time
                     session.add(log)
                     session.commit()
+                    session.refresh(log)
 
                 await self._update_health(feed.id, True, response_time)
                 return log
@@ -123,24 +126,22 @@ class FeedFetcher:
                         logger.warning(f"Error processing entry '{entry.get('title', 'Unknown')[:50]}...': {e}")
                         continue
 
-                # Update feed and log after all items are processed
+                # Update feed metadata
+                feed_db.status = FeedStatus.ACTIVE
+                session.add(feed_db)
+                session.commit()
+
+            # Update log in separate session to avoid detached instance issues
+            with Session(engine) as log_session:
+                log = log_session.get(FetchLog, log_id)
                 log.completed_at = datetime.utcnow()
                 log.status = "success"
                 log.items_found = items_found
                 log.items_new = items_new
                 log.response_time_ms = response_time
-
-                # Ensure feed status is set to ACTIVE on successful fetch
-                feed_db.status = FeedStatus.ACTIVE
-
-                # Final commit for feed and log updates
-                try:
-                    session.add(feed_db)
-                    session.add(log)
-                    session.commit()
-                except Exception as e:
-                    logger.warning(f"Error updating feed metadata: {e}")
-                    session.rollback()
+                log_session.add(log)
+                log_session.commit()
+                log_session.refresh(log)
 
             await self._update_health(feed.id, True, response_time)
             logger.info(f"Feed {feed.id} fetched successfully: {items_new}/{items_found} new items")
@@ -153,18 +154,22 @@ class FeedFetcher:
                 logger.warning(f"Session error after successful processing of {items_new} items in feed {feed.id}: {error_msg}")
 
                 # Mark as successful since items were processed
-                log.completed_at = datetime.utcnow()
-                log.status = "success"
-                log.items_found = items_found
-                log.items_new = items_new
-
                 with Session(engine) as session:
                     feed_db = session.get(Feed, feed.id)
                     feed_db.status = FeedStatus.ACTIVE
                     feed_db.last_fetched = datetime.utcnow()
                     session.add(feed_db)
-                    session.add(log)
                     session.commit()
+
+                with Session(engine) as log_session:
+                    log = log_session.get(FetchLog, log_id)
+                    log.completed_at = datetime.utcnow()
+                    log.status = "success"
+                    log.items_found = items_found
+                    log.items_new = items_new
+                    log_session.add(log)
+                    log_session.commit()
+                    log_session.refresh(log)
 
                 await self._update_health(feed.id, True, response_time if 'response_time' in locals() else None)
                 logger.info(f"Feed {feed.id} completed successfully despite session error: {items_new}/{items_found} new items")
@@ -172,23 +177,45 @@ class FeedFetcher:
                 # Real errors
                 logger.error(f"Error fetching feed {feed.id}: {error_msg}")
 
-                log.completed_at = datetime.utcnow()
-                log.status = "error"
-                log.error_message = error_msg
-                log.items_found = items_found if 'items_found' in locals() else 0
-                log.items_new = items_new if 'items_new' in locals() else 0
-
                 with Session(engine) as session:
                     feed_db = session.get(Feed, feed.id)
                     feed_db.status = FeedStatus.ERROR
                     feed_db.last_fetched = datetime.utcnow()
                     session.add(feed_db)
-                    session.add(log)
                     session.commit()
+
+                with Session(engine) as log_session:
+                    log = log_session.get(FetchLog, log_id)
+                    log.completed_at = datetime.utcnow()
+                    log.status = "error"
+                    log.error_message = error_msg
+                    log.items_found = items_found if 'items_found' in locals() else 0
+                    log.items_new = items_new if 'items_new' in locals() else 0
+                    log_session.add(log)
+                    log_session.commit()
+                    log_session.refresh(log)
 
                 await self._update_health(feed.id, False, response_time if 'response_time' in locals() else None)
 
-        return log
+        # Return final log state - create new instance to avoid session issues
+        with Session(engine) as session:
+            final_log = session.get(FetchLog, log_id)
+            if final_log:
+                # Create detached copy to avoid session binding issues
+                from copy import deepcopy
+                log_copy = FetchLog(
+                    id=final_log.id,
+                    feed_id=final_log.feed_id,
+                    started_at=final_log.started_at,
+                    completed_at=final_log.completed_at,
+                    status=final_log.status,
+                    items_found=final_log.items_found,
+                    items_new=final_log.items_new,
+                    response_time_ms=final_log.response_time_ms,
+                    error_message=final_log.error_message
+                )
+                return log_copy
+            return None
 
     def _generate_content_hash(self, entry) -> str:
         content = f"{entry.get('title', '')}{entry.get('link', '')}{entry.get('summary', '')}"

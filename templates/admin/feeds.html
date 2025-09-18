@@ -1,31 +1,31 @@
 {% extends "base.html" %}
 
-{% block title %}Feed Verwaltung - News MCP{% endblock %}
+{% block title %}Feed Management - News MCP{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h1>Feed Verwaltung</h1>
+    <h1>Feed Management</h1>
     <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addFeedModal">
-        <i class="bi bi-plus"></i> Feed hinzufügen
+        <i class="bi bi-plus"></i> Add Feed
     </button>
 </div>
 
 <div class="row mb-3">
     <div class="col-md-6">
-        <input type="text" class="form-control" placeholder="Feeds durchsuchen..."
+        <input type="text" class="form-control" placeholder="Search feeds..."
                hx-get="/htmx/feeds-list" hx-trigger="keyup changed delay:300ms" hx-target="#feeds-list">
     </div>
     <div class="col-md-3">
         <select class="form-select" name="category_id" hx-get="/htmx/feeds-list" hx-trigger="change" hx-target="#feeds-list" hx-include="[name='status']">
-            <option value="">Alle Kategorien</option>
+            <option value="">All Categories</option>
         </select>
     </div>
     <div class="col-md-3">
         <select class="form-select" name="status" hx-get="/htmx/feeds-list" hx-trigger="change" hx-target="#feeds-list" hx-include="[name='category_id']">
-            <option value="">Alle Status</option>
-            <option value="active">Aktiv</option>
-            <option value="inactive">Inaktiv</option>
-            <option value="error">Fehler</option>
+            <option value="">All Status</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+            <option value="error">Error</option>
         </select>
     </div>
 </div>
@@ -33,7 +33,7 @@
 <div id="feeds-list" hx-get="/htmx/feeds-list" hx-trigger="load">
     <div class="text-center">
         <div class="spinner-border" role="status">
-            <span class="visually-hidden">Feeds werden geladen...</span>
+            <span class="visually-hidden">Loading feeds...</span>
         </div>
     </div>
 </div>
@@ -43,7 +43,7 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Neuen Feed hinzufügen</h5>
+                <h5 class="modal-title">Add New Feed</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form hx-post="/api/feeds" hx-target="#feeds-list" hx-trigger="submit" hx-on="htmx:afterRequest: if(event.detail.successful) { bootstrap.Modal.getInstance(document.getElementById('addFeedModal')).hide(); }">
@@ -72,13 +72,13 @@
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="feed-title" class="form-label">Titel</label>
+                                <label for="feed-title" class="form-label">Title</label>
                                 <input type="text" class="form-control" id="feed-title" name="title">
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="feed-type" class="form-label">Feed Typ</label>
+                                <label for="feed-type" class="form-label">Feed Type</label>
                                 <select class="form-select" id="feed-type" name="feed_type_id"
                                         hx-get="/htmx/feed-types-options" hx-trigger="load" hx-target="this">
                                     <option value="">Loading...</option>
@@ -88,12 +88,12 @@
                     </div>
 
                     <div class="mb-3">
-                        <label for="feed-description" class="form-label">Beschreibung</label>
+                        <label for="feed-description" class="form-label">Description</label>
                         <textarea class="form-control" id="feed-description" name="description" rows="2"></textarea>
                     </div>
 
                     <div class="mb-3">
-                        <label for="feed-interval" class="form-label">Abruf-Intervall (Minuten)</label>
+                        <label for="feed-interval" class="form-label">Fetch Interval (Minutes)</label>
                         <input type="number" class="form-control" id="feed-interval" name="fetch_interval_minutes" value="15" min="5">
                         <div class="form-text">Recommended interval will be auto-set based on feed type</div>
                     </div>
@@ -104,13 +104,13 @@
                             <h2 class="accordion-header">
                                 <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
                                         data-bs-target="#advancedPanel">
-                                    <i class="bi bi-gear me-2"></i> Erweiterte Einstellungen
+                                    <i class="bi bi-gear me-2"></i> Advanced Settings
                                 </button>
                             </h2>
                             <div id="advancedPanel" class="accordion-collapse collapse">
                                 <div class="accordion-body">
                                     <div class="mb-3">
-                                        <label class="form-label">Verfügbare Templates</label>
+                                        <label class="form-label">Available Templates</label>
                                         <div id="templates-preview"
                                              hx-get="/htmx/available-templates"
                                              hx-trigger="click from:.accordion-button">
@@ -123,8 +123,8 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
-                    <button type="submit" class="btn btn-primary">Feed hinzufügen</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Feed</button>
                 </div>
             </form>
         </div>
@@ -138,7 +138,7 @@
             <!-- Content will be loaded dynamically -->
             <div class="text-center p-4">
                 <div class="spinner-border" role="status">
-                    <span class="visually-hidden">Feed wird geladen...</span>
+                    <span class="visually-hidden">Loading feed...</span>
                 </div>
             </div>
         </div>

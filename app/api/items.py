@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, select, and_, or_
+from sqlalchemy import desc, case
 from typing import List, Optional
 from datetime import datetime, timedelta
 from app.database import get_session
@@ -40,7 +41,14 @@ def list_items(
             )
         )
 
-    query = query.order_by(Item.created_at.desc()).offset(skip).limit(limit)
+    # Order by published date first (actual article date), then by created_at (when added to our system)
+    # This ensures articles are sorted by their real publication date, not when we fetched them
+    query = query.order_by(
+        desc(case(
+            (Item.published.is_(None), Item.created_at),
+            else_=Item.published
+        ))
+    ).offset(skip).limit(limit)
     items = session.exec(query).all()
     return items
 

@@ -756,28 +756,65 @@ class ComprehensiveNewsServer:
             if existing:
                 return [TextContent(type="text", text=f"Feed already exists with ID {existing.id}: {existing.title or 'Untitled'}")]
 
-            # Create new feed
+            # Ensure we have a source (required for database schema)
+            from app.models import SourceType
+            rss_source = session.exec(select(Source).where(Source.type == SourceType.RSS)).first()
+            if not rss_source:
+                rss_source = Source(name="RSS", type=SourceType.RSS, description="RSS feeds")
+                session.add(rss_source)
+                session.commit()
+                session.refresh(rss_source)
+
+            # Create new feed with source_id
             feed = Feed(
                 url=url,
                 title=title,
                 fetch_interval_minutes=fetch_interval_minutes,
-                status="ACTIVE"
+                status="ACTIVE",
+                source_id=rss_source.id
             )
             session.add(feed)
             session.commit()
             session.refresh(feed)
 
-            result = {
-                "status": "success",
-                "message": f"Feed added successfully with ID {feed.id}",
-                "feed": {
-                    "id": feed.id,
-                    "title": feed.title or "Untitled",
-                    "url": feed.url,
-                    "interval_minutes": feed.fetch_interval_minutes,
-                    "status": feed.status
+            # Trigger immediate initial fetch for new feed
+            try:
+                from app.services.feed_fetcher_sync import SyncFeedFetcher
+                fetcher = SyncFeedFetcher()
+                success, items_count = fetcher.fetch_feed_sync(feed.id)
+
+                result = {
+                    "status": "success",
+                    "message": f"Feed added successfully with ID {feed.id}",
+                    "feed": {
+                        "id": feed.id,
+                        "title": feed.title or "Untitled",
+                        "url": feed.url,
+                        "interval_minutes": feed.fetch_interval_minutes,
+                        "status": feed.status
+                    },
+                    "initial_fetch": {
+                        "success": success,
+                        "articles_loaded": items_count if success else 0
+                    }
                 }
-            }
+            except Exception as e:
+                result = {
+                    "status": "success",
+                    "message": f"Feed added successfully with ID {feed.id} (initial fetch failed: {e})",
+                    "feed": {
+                        "id": feed.id,
+                        "title": feed.title or "Untitled",
+                        "url": feed.url,
+                        "interval_minutes": feed.fetch_interval_minutes,
+                        "status": feed.status
+                    },
+                    "initial_fetch": {
+                        "success": False,
+                        "articles_loaded": 0,
+                        "error": str(e)
+                    }
+                }
 
             return [TextContent(type="text", text=safe_json_dumps(result, indent=2))]
 
@@ -830,25 +867,50 @@ class ComprehensiveNewsServer:
                 return [TextContent(type="text", text=f"Feed with ID {feed_id} not found")]
 
             # Count items before deletion
-            item_count = session.exec(select(func.count(Item.id)).where(Item.feed_id == feed_id)).one()
+            try:
+                item_count = session.exec(select(func.count(Item.id)).where(Item.feed_id == feed_id)).one()
+            except:
+                item_count = 0
 
-            # Delete items first (foreign key constraint)
-            session.exec(text("DELETE FROM items WHERE feed_id = :feed_id"), {"feed_id": feed_id})
+            # Delete all related data with individual commits to avoid transaction issues
+            deleted_tables = []
 
-            # Delete feed health data
-            session.exec(text("DELETE FROM feed_health WHERE feed_id = :feed_id"), {"feed_id": feed_id})
+            # List of tables to clean up in order (most dependent first)
+            cleanup_tables = [
+                ("items", "DELETE FROM items WHERE feed_id = :feed_id"),
+                ("fetch_log", "DELETE FROM fetch_log WHERE feed_id = :feed_id"),
+                ("feed_health", "DELETE FROM feed_health WHERE feed_id = :feed_id"),
+                ("feed_categories", "DELETE FROM feed_categories WHERE feed_id = :feed_id"),
+                ("content_processing_log", "DELETE FROM content_processing_log WHERE feed_id = :feed_id"),
+                ("feed_template_assignments", "DELETE FROM feed_template_assignments WHERE feed_id = :feed_id"),
+                ("feed_configuration_changes", "DELETE FROM feed_configuration_changes WHERE feed_id = :feed_id")
+            ]
 
-            # Delete feed categories
-            session.exec(text("DELETE FROM feed_categories WHERE feed_id = :feed_id"), {"feed_id": feed_id})
+            # Delete from each table with individual transactions
+            for table_name, delete_sql in cleanup_tables:
+                try:
+                    session.execute(text(delete_sql), {"feed_id": feed_id})
+                    session.commit()
+                    deleted_tables.append(table_name)
+                except Exception as e:
+                    session.rollback()
+                    logger.warning(f"Failed to delete from {table_name}: {e}")
 
-            # Delete feed
-            session.delete(feed)
-            session.commit()
+            # Finally delete the feed itself
+            try:
+                session.delete(feed)
+                session.commit()
+                deleted_tables.append("feed")
+            except Exception as e:
+                session.rollback()
+                return [TextContent(type="text", text=f"Failed to delete feed: {str(e)}")]
 
             result = {
                 "status": "success",
-                "message": f"Feed {feed_id} deleted successfully",
+                "message": f"Feed {feed_id} ({feed.title or 'Untitled'}) deleted successfully",
                 "deleted_items": item_count,
+                "deleted_tables": deleted_tables,
+                "feed_id": feed_id,
                 "feed_title": feed.title or "Untitled"
             }
 

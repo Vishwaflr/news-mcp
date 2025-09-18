@@ -1,50 +1,50 @@
 # 🚀 News MCP Deployment Guide
 
-Komplettes Deployment-Guide für das News MCP Dynamic Template System in verschiedenen Umgebungen.
+Complete deployment guide for the News MCP Dynamic Template System in various environments.
 
-## 📋 Inhaltsverzeichnis
+## 📋 Table of Contents
 
-- [🔧 Systemanforderungen](#-systemanforderungen)
-- [⚡ Schnellstart (Development)](#-schnellstart-development)
+- [🔧 System Requirements](#-system-requirements)
+- [⚡ Quick Start (Development)](#-quick-start-development)
 - [🏢 Production Deployment](#-production-deployment)
 - [🐳 Docker Deployment](#-docker-deployment)
 - [☁️ Cloud Deployment](#️-cloud-deployment)
 - [📊 Monitoring & Logging](#-monitoring--logging)
-- [🔄 Updates & Wartung](#-updates--wartung)
+- [🔄 Updates & Maintenance](#-updates--maintenance)
 - [🛠️ Troubleshooting](#️-troubleshooting)
 
-## 🔧 Systemanforderungen
+## 🔧 System Requirements
 
 ### Minimum Requirements
-- **OS**: Linux, macOS, oder Windows
-- **Python**: 3.11+ (empfohlen: 3.12)
-- **RAM**: 2 GB (4 GB empfohlen)
-- **Storage**: 5 GB (10 GB empfohlen)
-- **CPU**: 2 Cores (4 Cores empfohlen)
+- **OS**: Linux, macOS, or Windows
+- **Python**: 3.11+ (recommended: 3.12)
+- **RAM**: 2 GB (4 GB recommended)
+- **Storage**: 5 GB (10 GB recommended)
+- **CPU**: 2 Cores (4 Cores recommended)
 
 ### Production Requirements
-- **OS**: Linux (Ubuntu 22.04+ oder RHEL 8+)
+- **OS**: Linux (Ubuntu 22.04+ or RHEL 8+)
 - **Python**: 3.12
-- **RAM**: 8 GB (16 GB für >500 Feeds)
+- **RAM**: 8 GB (16 GB for >500 Feeds)
 - **Storage**: 50 GB SSD
-- **CPU**: 4 Cores (8 Cores für >500 Feeds)
+- **CPU**: 4 Cores (8 Cores for >500 Feeds)
 - **Database**: PostgreSQL 15+
 
-## ⚡ Schnellstart (Development)
+## ⚡ Quick Start (Development)
 
 ### 1. Repository Setup
 
 ```bash
-# Repository klonen
+# Clone repository
 git clone https://github.com/your-org/news-mcp.git
 cd news-mcp
 
-# Virtual Environment erstellen
+# Create virtual environment
 python3.12 -m venv venv
 source venv/bin/activate  # Linux/macOS
 # venv\\Scripts\\activate  # Windows
 
-# Dependencies installieren
+# Install dependencies
 pip install --upgrade pip
 pip install -r requirements.txt
 ```
@@ -52,24 +52,24 @@ pip install -r requirements.txt
 ### 2. Database Setup
 
 ```bash
-# PostgreSQL mit Docker Compose starten
+# Start PostgreSQL with Docker Compose
 docker compose up -d
 
-# Warten bis PostgreSQL bereit ist
+# Wait until PostgreSQL is ready
 sleep 5
 ```
 
-### 3. Konfiguration
+### 3. Configuration
 
 ```bash
-# Konfigurationsdatei erstellen
+# Create configuration file
 cp .env.example .env
 
-# .env anpassen (optional für Development)
+# Adjust .env (optional for development)
 nano .env
 ```
 
-### 4. Services starten
+### 4. Start Services
 
 ```bash
 # Terminal 1: Web-API Server
@@ -83,7 +83,7 @@ python jobs/scheduler_manager.py start --debug
 python mcp_server/server.py
 ```
 
-### 5. Zugriff testen
+### 5. Test Access
 
 ```bash
 # Web Interface
@@ -98,727 +98,293 @@ curl http://localhost:8000/htmx/templates-list
 
 ## 🏢 Production Deployment
 
-### 1. Server Setup
+### Server Setup
 
 ```bash
-# Ubuntu 22.04 Setup
+# System updates
 sudo apt update && sudo apt upgrade -y
-sudo apt install -y python3.12 python3.12-venv python3-pip nginx postgresql-15 systemd supervisor
 
-# User erstellen
-sudo useradd -m -s /bin/bash newsmcp
-sudo usermod -aG sudo newsmcp
+# Install Python 3.12
+sudo apt install python3.12 python3.12-venv python3.12-dev -y
+
+# Install PostgreSQL
+sudo apt install postgresql postgresql-contrib -y
+
+# Install Redis (optional for caching)
+sudo apt install redis-server -y
+
+# Install Nginx
+sudo apt install nginx -y
 ```
 
-### 2. Database Setup
-
-#### Option A: Local PostgreSQL (Projekt-Datenbank)
-```bash
-# Docker Compose für lokale Entwicklung nutzen
-cd /opt/news-mcp
-docker compose up -d
-
-# Daten werden automatisch in ./data/postgres/ gespeichert
-```
-
-#### Option B: System PostgreSQL (Production)
-```bash
-# PostgreSQL konfigurieren
-sudo -u postgres createuser newsmcp
-sudo -u postgres createdb newsdb -O newsmcp
-sudo -u postgres psql -c "ALTER USER newsmcp PASSWORD 'secure_password_here';"
-
-# PostgreSQL Tuning
-sudo nano /etc/postgresql/15/main/postgresql.conf
-```
-
-PostgreSQL Tuning Einstellungen:
-```conf
-# /etc/postgresql/15/main/postgresql.conf
-shared_buffers = 256MB
-effective_cache_size = 1GB
-maintenance_work_mem = 64MB
-checkpoint_completion_target = 0.9
-wal_buffers = 16MB
-default_statistics_target = 100
-random_page_cost = 1.1
-effective_io_concurrency = 200
-work_mem = 4MB
-min_wal_size = 1GB
-max_wal_size = 4GB
-max_connections = 100
-```
-
-### 3. Application Setup
+### Application Setup
 
 ```bash
-# Application deployen
+# Create app user
+sudo useradd -r -s /bin/false newsapp
 sudo mkdir -p /opt/news-mcp
-sudo chown newsmcp:newsmcp /opt/news-mcp
-sudo -u newsmcp git clone https://github.com/your-org/news-mcp.git /opt/news-mcp
+sudo chown newsapp:newsapp /opt/news-mcp
 
-# Dependencies installieren
+# Clone and setup application
 cd /opt/news-mcp
-sudo -u newsmcp python3.12 -m venv venv
-sudo -u newsmcp venv/bin/pip install --upgrade pip
-sudo -u newsmcp venv/bin/pip install -r requirements.txt
+sudo -u newsapp git clone https://github.com/your-org/news-mcp.git .
+sudo -u newsapp python3.12 -m venv venv
+sudo -u newsapp ./venv/bin/pip install -r requirements.txt
 ```
 
-### 4. Konfiguration
+### Database Configuration
 
 ```bash
-# Production Konfiguration
-sudo -u newsmcp cp .env.example .env
-sudo -u newsmcp nano .env
+# Switch to postgres user
+sudo -u postgres psql
+
+-- Create database and user
+CREATE DATABASE news_mcp;
+CREATE USER news_mcp_user WITH PASSWORD 'secure_password_here';
+GRANT ALL PRIVILEGES ON DATABASE news_mcp TO news_mcp_user;
+\\q
 ```
 
-Production `.env`:
-```bash
-# Database (Option A: Projekt-lokale Datenbank)
-DATABASE_URL=postgresql://news_user:news_password@localhost:5432/news_db
-
-# Database (Option B: System PostgreSQL)
-# DATABASE_URL=postgresql://newsmcp:secure_password_here@localhost/newsdb
-
-# Security
-API_HOST=127.0.0.1
-CORS_ORIGINS=["https://yourdomain.com"]
-CORS_ALLOW_CREDENTIALS=false
-DEBUG=false
-
-# Performance
-MAX_CONCURRENT_FETCHES=10
-CONFIG_CHECK_INTERVAL_SECONDS=60
-SQLALCHEMY_POOL_SIZE=20
-SQLALCHEMY_MAX_OVERFLOW=30
-
-# Logging
-LOG_LEVEL=WARNING
-LOG_FILE_PATH=/var/log/news-mcp/app.log
-```
-
-### 5. Systemd Services
+### Environment Configuration
 
 ```bash
-# Service-Dateien kopieren
-sudo cp systemd/*.service /etc/systemd/system/
+# Create production environment file
+sudo -u newsapp cp .env.example .env
 
-# Services konfigurieren
-sudo systemctl daemon-reload
-sudo systemctl enable news-api news-scheduler
-sudo systemctl start news-api news-scheduler
-
-# Status prüfen
-sudo systemctl status news-api news-scheduler
-```
-
-### 6. Nginx Reverse Proxy
-
-```bash
-# Nginx konfigurieren
-sudo nano /etc/nginx/sites-available/news-mcp
-```
-
-Nginx Konfiguration:
-```nginx
-server {
-    listen 80;
-    server_name yourdomain.com;
-
-    # SSL Redirect
-    return 301 https://$server_name$request_uri;
-}
-
-server {
-    listen 443 ssl http2;
-    server_name yourdomain.com;
-
-    ssl_certificate /etc/letsencrypt/live/yourdomain.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/yourdomain.com/privkey.pem;
-
-    # Security Headers
-    add_header X-Content-Type-Options nosniff;
-    add_header X-Frame-Options DENY;
-    add_header X-XSS-Protection "1; mode=block";
-    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
-
-    location / {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-
-        # WebSocket Support
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-    }
-
-    # Static Files
-    location /static {
-        alias /opt/news-mcp/static;
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-    }
-
-    # Rate Limiting
-    limit_req_zone $binary_remote_addr zone=api:10m rate=10r/s;
-    location /api {
-        limit_req zone=api burst=20 nodelay;
-        proxy_pass http://127.0.0.1:8000;
-    }
-}
-```
-
-```bash
-# Nginx aktivieren
-sudo ln -s /etc/nginx/sites-available/news-mcp /etc/nginx/sites-enabled/
-sudo nginx -t
-sudo systemctl reload nginx
-```
-
-### 7. SSL Certificate (Let's Encrypt)
-
-```bash
-# Certbot installieren
-sudo apt install -y certbot python3-certbot-nginx
-
-# SSL Certificate generieren
-sudo certbot --nginx -d yourdomain.com
-
-# Auto-Renewal testen
-sudo certbot renew --dry-run
+# Edit with production settings
+sudo -u newsapp nano .env
 ```
 
 ## 🐳 Docker Deployment
 
-### 1. Dockerfile
-
-```dockerfile
-# Dockerfile
-FROM python:3.12-slim
-
-# System Dependencies
-RUN apt-get update && apt-get install -y \
-    gcc \
-    libpq-dev \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
-# Working Directory
-WORKDIR /app
-
-# Python Dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Application Code
-COPY . .
-
-# Non-root User
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
-USER appuser
-
-# Health Check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/api/health || exit 1
-
-# Default Command
-CMD ["python", "app/main.py"]
-```
-
-### 2. Docker Compose
+### Docker Compose for Local Development
 
 ```yaml
-# docker-compose.yml
 version: '3.8'
 
 services:
-  # Database (local project storage)
-  db:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_DB: news_db
-      POSTGRES_USER: news_user
-      POSTGRES_PASSWORD: news_password
-    ports:
-      - "5432:5432"
-    volumes:
-      - ./data/postgres:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U news_user -d news_db"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-
-  # Redis (optional für Caching)
-  redis:
-    image: redis:7-alpine
-    command: redis-server --appendonly yes
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-    restart: unless-stopped
-
-  # Web API
-  web:
+  app:
     build: .
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql://news_user:news_password@db/news_db
-      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://user:pass@db:5432/news_mcp
     depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    volumes:
-      - ./logs:/app/logs
-    restart: unless-stopped
+      - db
+      - redis
 
-  # Dynamic Scheduler
-  scheduler:
-    build: .
-    command: python jobs/scheduler_manager.py start
+  db:
+    image: postgres:15
     environment:
-      - DATABASE_URL=postgresql://news_user:news_password@db/news_db
-      - SCHEDULER_INSTANCE_ID=docker_scheduler
-    depends_on:
-      db:
-        condition: service_healthy
+      POSTGRES_DB: news_mcp
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
     volumes:
-      - ./logs:/app/logs
-    restart: unless-stopped
+      - postgres_data:/var/lib/postgresql/data
 
-  # Nginx Reverse Proxy
-  nginx:
-    image: nginx:alpine
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./certs:/etc/nginx/certs:ro
-    depends_on:
-      - web
-    restart: unless-stopped
+  redis:
+    image: redis:7-alpine
 
 volumes:
-  redis_data:
+  postgres_data:
 ```
 
-### 3. Docker Deployment
+### Production Docker Setup
 
 ```bash
-# Production Build
-docker-compose -f docker-compose.yml build --no-cache
+# Build production image
+docker build -t news-mcp:latest .
 
-# Services starten
-docker-compose up -d
-
-# Logs überwachen
-docker-compose logs -f
-
-# Services skalieren
-docker-compose up -d --scale scheduler=2
+# Run with production settings
+docker run -d \
+  --name news-mcp-prod \
+  -p 8000:8000 \
+  -e DATABASE_URL="postgresql://user:pass@localhost:5432/news_mcp" \
+  news-mcp:latest
 ```
 
 ## ☁️ Cloud Deployment
 
 ### AWS Deployment
 
-```bash
-# ECS Task Definition
-{
-  "family": "news-mcp",
-  "networkMode": "awsvpc",
-  "requiresCompatibilities": ["FARGATE"],
-  "cpu": "1024",
-  "memory": "2048",
-  "executionRoleArn": "arn:aws:iam::account:role/ecsTaskExecutionRole",
-  "taskRoleArn": "arn:aws:iam::account:role/ecsTaskRole",
-  "containerDefinitions": [
-    {
-      "name": "web",
-      "image": "your-account.dkr.ecr.region.amazonaws.com/news-mcp:latest",
-      "portMappings": [{"containerPort": 8000}],
-      "environment": [
-        {"name": "DATABASE_URL", "value": "postgresql://..."}
-      ],
-      "logConfiguration": {
-        "logDriver": "awslogs",
-        "options": {
-          "awslogs-group": "/ecs/news-mcp",
-          "awslogs-region": "us-east-1"
-        }
-      }
-    }
-  ]
-}
-```
+1. **EC2 Instance Setup**
+   - Use Ubuntu 22.04 LTS
+   - t3.medium or larger
+   - Configure security groups for ports 80, 443, 8000
 
-### Google Cloud Run
+2. **RDS PostgreSQL**
+   - PostgreSQL 15
+   - Multi-AZ for production
+   - Automated backups enabled
 
-```bash
-# Cloud Run Deployment
-gcloud run deploy news-mcp \
-  --image gcr.io/your-project/news-mcp:latest \
-  --platform managed \
-  --region us-central1 \
-  --allow-unauthenticated \
-  --set-env-vars DATABASE_URL=postgresql://... \
-  --memory 2Gi \
-  --cpu 2 \
-  --concurrency 80 \
-  --max-instances 10
-```
+3. **Application Load Balancer**
+   - SSL termination
+   - Health checks on /api/health
 
-### DigitalOcean App Platform
+### Azure Deployment
 
-```yaml
-# .do/app.yaml
-name: news-mcp
-services:
-- name: web
-  source_dir: /
-  github:
-    repo: your-org/news-mcp
-    branch: main
-  run_command: python app/main.py
-  environment_slug: python
-  instance_count: 1
-  instance_size_slug: basic-xxs
-  envs:
-  - key: DATABASE_URL
-    value: ${db.DATABASE_URL}
-  http_port: 8000
+1. **App Service**
+   - Python 3.12 runtime
+   - B2 or higher tier
 
-- name: scheduler
-  source_dir: /
-  github:
-    repo: your-org/news-mcp
-    branch: main
-  run_command: python jobs/scheduler_manager.py start
-  environment_slug: python
-  instance_count: 1
-  instance_size_slug: basic-xxs
-  envs:
-  - key: DATABASE_URL
-    value: ${db.DATABASE_URL}
-
-databases:
-- name: db
-  engine: PG
-  version: "15"
-  size: basic-xs
-```
+2. **Azure Database for PostgreSQL**
+   - Flexible Server
+   - PostgreSQL 15
 
 ## 📊 Monitoring & Logging
 
-### 1. Application Monitoring
+### System Monitoring
 
-```python
-# app/monitoring.py
-import logging
-import time
-from functools import wraps
-from prometheus_client import Counter, Histogram, start_http_server
+```bash
+# Install monitoring tools
+pip install psutil prometheus-client
 
-# Metrics
-REQUEST_COUNT = Counter('http_requests_total', 'Total HTTP requests', ['method', 'endpoint'])
-REQUEST_LATENCY = Histogram('http_request_duration_seconds', 'HTTP request latency')
+# Monitor logs
+sudo journalctl -u news-mcp -f
 
-def monitor_endpoint(func):
-    @wraps(func)
-    async def wrapper(*args, **kwargs):
-        start_time = time.time()
-        try:
-            result = await func(*args, **kwargs)
-            REQUEST_COUNT.labels(method='GET', endpoint=func.__name__).inc()
-            return result
-        finally:
-            REQUEST_LATENCY.observe(time.time() - start_time)
-    return wrapper
-
-# Start Prometheus metrics server
-start_http_server(8090)
+# Check system resources
+htop
+df -h
 ```
 
-### 2. Log Configuration
+### Health Checks
 
-```python
-# app/logging_config.py
-import logging.config
+```bash
+# API health check
+curl http://localhost:8000/api/health
 
-LOGGING_CONFIG = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'detailed': {
-            'format': '%(asctime)s - %(name)s - %(levelname)s - %(module)s:%(lineno)d - %(message)s'
-        },
-        'json': {
-            'format': '{"timestamp": "%(asctime)s", "level": "%(levelname)s", "module": "%(module)s", "message": "%(message)s"}'
-        }
-    },
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'level': 'INFO',
-            'formatter': 'detailed'
-        },
-        'file': {
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': '/var/log/news-mcp/app.log',
-            'maxBytes': 10485760,  # 10MB
-            'backupCount': 5,
-            'formatter': 'json'
-        }
-    },
-    'loggers': {
-        'news_mcp': {
-            'level': 'INFO',
-            'handlers': ['console', 'file']
-        }
-    }
+# Database connection test
+python -c "from app.database import get_db; print('DB OK')"
+
+# Feed processing status
+curl http://localhost:8000/api/statistics/feeds
+```
+
+### Log Management
+
+```bash
+# Configure logrotate
+sudo nano /etc/logrotate.d/news-mcp
+
+# Content:
+/opt/news-mcp/logs/*.log {
+    daily
+    missingok
+    rotate 52
+    compress
+    delaycompress
+    notifempty
+    create 644 newsapp newsapp
 }
-
-logging.config.dictConfig(LOGGING_CONFIG)
 ```
 
-### 3. Health Checks
+## 🔄 Updates & Maintenance
+
+### Application Updates
 
 ```bash
-# Health Check Script
-#!/bin/bash
-# healthcheck.sh
+# Backup database
+pg_dump news_mcp > backup_$(date +%Y%m%d).sql
 
-# API Health
-curl -f http://localhost:8000/api/health || exit 1
+# Update code
+git pull origin main
 
-# Database Connection
-python -c "
-from app.database import engine
-from sqlmodel import text
-with engine.connect() as conn:
-    conn.execute(text('SELECT 1'))
-" || exit 2
+# Install new dependencies
+pip install -r requirements.txt
 
-# Scheduler Health
-python jobs/scheduler_manager.py status | grep -q "Active: True" || exit 3
-
-echo "All services healthy"
+# Restart services
+sudo systemctl restart news-mcp
 ```
 
-## 🔄 Updates & Wartung
-
-### 1. Zero-Downtime Updates
+### Database Maintenance
 
 ```bash
-# Blue-Green Deployment Script
-#!/bin/bash
-# deploy.sh
+# Run database migrations
+python -m alembic upgrade head
 
-set -e
+# Optimize database
+sudo -u postgres psql news_mcp -c "VACUUM ANALYZE;"
 
-VERSION=$1
-ENVIRONMENT=${2:-production}
-
-echo "Deploying version $VERSION to $ENVIRONMENT"
-
-# Build new version
-docker build -t news-mcp:$VERSION .
-
-# Update scheduler first (can handle downtime)
-docker-compose stop scheduler
-docker-compose up -d scheduler
-
-# Rolling update for web services
-for i in {1..3}; do
-    echo "Updating web instance $i"
-    docker-compose stop web_$i
-    docker-compose up -d web_$i
-    sleep 30  # Wait for health check
-done
-
-echo "Deployment completed successfully"
-```
-
-### 2. Database Migrations
-
-```bash
-# Migration Script
-#!/bin/bash
-# migrate.sh
-
-# Backup Database
-pg_dump $DATABASE_URL > backup_$(date +%Y%m%d_%H%M%S).sql
-
-# Run Migrations
-python -c "
-from app.database import create_db_and_tables
-create_db_and_tables()
-"
-
-# Verify Migration
-python jobs/scheduler_manager.py config --json | jq '.feeds_count'
-```
-
-### 3. Maintenance Tasks
-
-```bash
-# maintenance.sh - Daily maintenance
-#!/bin/bash
-
-# Cleanup old logs
-find /var/log/news-mcp -name "*.log.*" -mtime +7 -delete
-
-# Database maintenance
-psql $DATABASE_URL -c "VACUUM ANALYZE;"
-psql $DATABASE_URL -c "REINDEX DATABASE newsdb;"
-
-# Template cache cleanup
-python -c "
-from app.services.dynamic_template_manager import cleanup_cache
-cleanup_cache()
-"
-
-# Feed health check
-python jobs/scheduler_manager.py status
+# Check database size
+sudo -u postgres psql news_mcp -c "SELECT pg_size_pretty(pg_database_size('news_mcp'));"
 ```
 
 ## 🛠️ Troubleshooting
 
-### Häufige Probleme
+### Common Issues
 
-#### 1. Scheduler startet nicht
-```bash
-# Debug Scheduler
-python jobs/scheduler_manager.py start --debug
+1. **Database connection errors**
+   ```bash
+   # Check PostgreSQL status
+   sudo systemctl status postgresql
 
-# Check Logs
-tail -f /tmp/news-mcp-scheduler.log
+   # Check connection
+   pg_isready -h localhost -p 5432
+   ```
 
-# Check Database Connection
-python -c "
-from app.database import engine
-print(engine.connect())
-"
-```
+2. **High memory usage**
+   ```bash
+   # Monitor processes
+   ps aux | grep python
 
-#### 2. Template Assignment funktioniert nicht
-```bash
-# Check Template Status
-curl http://localhost:8000/htmx/templates-list
+   # Check memory usage
+   free -h
+   ```
 
-# Manual Template Assignment
-python -c "
-from app.services.dynamic_template_manager import get_dynamic_template_manager
-from app.database import engine
-from sqlmodel import Session
+3. **Feed processing issues**
+   ```bash
+   # Check scheduler logs
+   tail -f logs/scheduler.log
 
-with Session(engine) as session:
-    with get_dynamic_template_manager(session) as manager:
-        assignments = manager.auto_assign_templates_to_feeds()
-        print(f'Made {assignments} assignments')
-"
-```
+   # Restart scheduler
+   python jobs/scheduler_manager.py restart
+   ```
 
-#### 3. Performance Probleme
-```bash
-# Database Performance
-psql $DATABASE_URL -c "
-SELECT query, mean_time, calls
-FROM pg_stat_statements
-ORDER BY mean_time DESC
-LIMIT 10;
-"
-
-# Memory Usage
-python -c "
-import psutil
-print(f'Memory: {psutil.virtual_memory().percent}%')
-print(f'CPU: {psutil.cpu_percent()}%')
-"
-```
-
-#### 4. Network/Connectivity Probleme
-```bash
-# Test External Connectivity
-curl -I https://www.heise.de/rss/heise-atom.xml
-
-# Test Database Connection
-psql $DATABASE_URL -c "SELECT version();"
-
-# Test Redis Connection (if using)
-redis-cli ping
-```
-
-### Log Analysis
+### Performance Tuning
 
 ```bash
-# Error Analysis
-grep -E "(ERROR|CRITICAL)" /var/log/news-mcp/app.log | tail -20
+# PostgreSQL tuning
+sudo nano /etc/postgresql/15/main/postgresql.conf
 
-# Performance Analysis
-grep "Request took" /var/log/news-mcp/app.log | awk '{print $NF}' | sort -n
-
-# Template Activity
-grep "template_" /var/log/news-mcp/app.log | tail -10
-```
-
-### Emergency Procedures
-
-#### Service Recovery
-```bash
-# Complete Service Restart
-sudo systemctl stop news-api news-scheduler
-sudo systemctl start news-scheduler
-sleep 10
-sudo systemctl start news-api
-
-# Database Recovery
-sudo -u postgres pg_resetwal /var/lib/postgresql/15/main
+# Increase shared_buffers, work_mem, maintenance_work_mem
+# Restart PostgreSQL
 sudo systemctl restart postgresql
 ```
 
-#### Data Recovery
-```bash
-# Restore from Backup
-psql $DATABASE_URL < backup_YYYYMMDD_HHMMSS.sql
+### Backup & Recovery
 
-# Rebuild Template Cache
-python -c "
-from app.services.dynamic_template_manager import rebuild_cache
-rebuild_cache()
-"
+```bash
+# Daily backup script
+#!/bin/bash
+DATE=$(date +%Y%m%d)
+pg_dump news_mcp | gzip > /backups/news_mcp_$DATE.sql.gz
+
+# Keep only 30 days of backups
+find /backups -name "news_mcp_*.sql.gz" -mtime +30 -delete
 ```
 
-## 🎯 Production Checklist
+### Deployment Checklist
 
-- [ ] SSL Certificate konfiguriert und Auto-Renewal aktiviert
-- [ ] Database Backups automatisiert (täglich)
-- [ ] Monitoring und Alerting konfiguriert
-- [ ] Log Rotation konfiguriert
-- [ ] Firewall Rules konfiguriert
-- [ ] Security Updates automatisiert
-- [ ] Health Checks implementiert
-- [ ] Performance Monitoring aktiv
-- [ ] Error Tracking konfiguriert
-- [ ] Documentation aktuell
-- [ ] Disaster Recovery Plan dokumentiert
-- [ ] Team Zugriffe konfiguriert
+- [ ] Server resources adequate
+- [ ] PostgreSQL configured and secured
+- [ ] SSL certificates installed
+- [ ] Environment variables set
+- [ ] Database migrations applied
+- [ ] Backup system configured
+- [ ] Monitoring alerts configured
+- [ ] Database backups automated (daily)
+- [ ] Log rotation configured
+- [ ] Firewall rules applied
+- [ ] Health checks passing
+- [ ] Performance monitoring active
+- [ ] Error tracking enabled
+
+## 📞 Support
+
+**⚡ For additional help:**
+- Check the [troubleshooting guide](./docs/troubleshooting.md)
+- Review [system logs](#-monitoring--logging)
+- Open an issue on GitHub
 
 ---
-
-**⚡ Für weitere Hilfe:**
-- Issues: [GitHub Issues](https://github.com/your-org/news-mcp/issues)
-- Documentation: [Wiki](https://github.com/your-org/news-mcp/wiki)
-- Community: [Discussions](https://github.com/your-org/news-mcp/discussions)
+**🚀 Happy Deploying!** The News MCP system is designed for reliability and scalability.

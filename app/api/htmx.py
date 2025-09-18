@@ -7,8 +7,10 @@ from app.models import Feed, Source, Category, Item, FeedHealth, FeedCategory, F
 from app.utils.feed_detector import FeedTypeDetector
 # Old template engine removed - now using dynamic templates
 import feedparser
+import logging
 
 router = APIRouter(prefix="/htmx", tags=["htmx"])
+logger = logging.getLogger(__name__)
 
 @router.get("/sources-options", response_class=HTMLResponse)
 def get_sources_options(session: Session = Depends(get_session)):
@@ -35,6 +37,33 @@ def get_feeds_options(session: Session = Depends(get_session)):
         html += f'<option value="{feed.id}">{title}</option>'
     return html
 
+@router.post("/feed-fetch-now/{feed_id}", response_class=HTMLResponse)
+def fetch_feed_now_htmx(feed_id: int, session: Session = Depends(get_session)):
+    """HTMX endpoint to fetch a feed immediately and return status"""
+    try:
+        from app.services.feed_fetcher_sync import SyncFeedFetcher
+
+        feed = session.get(Feed, feed_id)
+        if not feed:
+            return '<div class="alert alert-danger">Feed nicht gefunden</div>'
+
+        logger.info(f"HTMX immediate fetch requested for feed {feed_id}: {feed.title}")
+
+        fetcher = SyncFeedFetcher()
+        success, items_count = fetcher.fetch_feed_sync(feed_id)
+
+        if success:
+            if items_count > 0:
+                return f'<div class="alert alert-success">✅ {items_count} neue Artikel geladen!</div>'
+            else:
+                return '<div class="alert alert-info">✅ Feed erfolgreich abgerufen (keine neuen Artikel)</div>'
+        else:
+            return '<div class="alert alert-warning">❌ Fehler beim Laden der Artikel</div>'
+
+    except Exception as e:
+        logger.error(f"Error in HTMX feed fetch: {e}")
+        return f'<div class="alert alert-danger">❌ Fehler: {str(e)}</div>'
+
 @router.get("/feeds-list", response_class=HTMLResponse)
 def get_feeds_list(
     session: Session = Depends(get_session),
@@ -53,11 +82,27 @@ def get_feeds_list(
 
     html = ""
     for feed, source in results:
+        # Check if feed has articles
+        article_count = len(session.exec(select(Item).where(Item.feed_id == feed.id)).all())
+        has_articles = article_count > 0
+
         status_badge = {
             "active": "success",
             "inactive": "warning",
             "error": "danger"
         }.get(feed.status.value, "secondary")
+
+        # Add "Load Articles" button for feeds without articles
+        load_button = ""
+        if not has_articles:
+            load_button = f"""
+                        <button class="btn btn-sm btn-success"
+                                hx-post="/htmx/feed-fetch-now/{feed.id}"
+                                hx-target="#fetch-status-{feed.id}"
+                                hx-swap="innerHTML"
+                                title="Artikel sofort laden">
+                            <i class="bi bi-download"></i> Laden
+                        </button>"""
 
         html += f"""
         <div class="card mb-2">
@@ -67,6 +112,7 @@ def get_feeds_list(
                         <h6 class="card-title mb-1">
                             {feed.title or 'Untitled Feed'}
                             <span class="badge bg-{status_badge} ms-2">{feed.status.value}</span>
+                            {f'<span class="badge bg-info ms-1">{article_count} Artikel</span>' if has_articles else '<span class="badge bg-warning ms-1">Keine Artikel</span>'}
                         </h6>
                         <p class="card-text small text-muted mb-1">
                             <strong>URL:</strong> <a href="{feed.url}" target="_blank" class="text-decoration-none">{feed.url}</a>
@@ -75,7 +121,8 @@ def get_feeds_list(
                             <strong>Quelle:</strong> {source.name} |
                             <strong>Intervall:</strong> {feed.fetch_interval_minutes} min
                         </p>
-                        {f'<p class="card-text small text-muted"><strong>Letzter Abruf:</strong> {feed.last_fetched.strftime("%d.%m.%Y %H:%M")}</p>' if feed.last_fetched else ''}
+                        {f'<p class="card-text small text-muted"><strong>Letzter Abruf:</strong> {feed.last_fetched.strftime("%d.%m.%Y %H:%M")}</p>' if feed.last_fetched else '<p class="card-text small text-warning"><strong>Noch nie abgerufen</strong></p>'}
+                        <div id="fetch-status-{feed.id}"></div>
                     </div>
                     <div class="btn-group">
                         <button class="btn btn-sm btn-outline-primary"
@@ -92,6 +139,7 @@ def get_feeds_list(
                                 data-bs-target="#editFeedModal">
                             <i class="bi bi-pencil"></i>
                         </button>
+                        {load_button}
                         <button class="btn btn-sm btn-outline-warning"
                                 hx-put="/api/feeds/{feed.id}"
                                 hx-vals='{{"status": "{'inactive' if feed.status.value == 'active' else 'active'}"}}'"
@@ -166,7 +214,15 @@ def get_items_list(
             )
         )
 
-    query = query.order_by(Item.created_at.desc()).offset(skip).limit(limit)
+    # Order by published date first (actual article date), then by created_at (when added to our system)
+    # This ensures articles are sorted by their real publication date, not when we fetched them
+    from sqlalchemy import desc, case
+    query = query.order_by(
+        desc(case(
+            (Item.published.is_(None), Item.created_at),
+            else_=Item.published
+        ))
+    ).offset(skip).limit(limit)
     results = session.exec(query).all()
 
     html = ""

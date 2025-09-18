@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import HTMLResponse, JSONResponse
 from sqlmodel import Session, select, text, func
+from sqlalchemy import desc, case
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
 from app.database import get_session
@@ -149,7 +150,12 @@ def get_feed_details(feed_id: int, session: Session = Depends(get_session)):
     recent_items = session.exec(
         select(Item.title, Item.created_at, Item.published)
         .where(Item.feed_id == feed_id)
-        .order_by(Item.created_at.desc())
+        .order_by(
+            desc(case(
+                (Item.published.is_(None), Item.created_at),
+                else_=Item.published
+            ))
+        )
         .limit(10)
     ).fetchall()
 

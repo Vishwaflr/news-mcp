@@ -1,38 +1,38 @@
 {% extends "base.html" %}
 
-{% block title %}Artikel - News MCP{% endblock %}
+{% block title %}Articles - News MCP{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h1>Artikel Stream</h1>
+    <h1>Articles Stream</h1>
     <div class="btn-group" role="group">
         <button class="btn btn-outline-primary"
                 hx-get="/htmx/items-list"
                 hx-include="[name='search'], [name='category_id'], [name='feed_id']"
                 hx-vals='{"since_hours": "1"}'
                 hx-target="#items-list">
-            Letzte Stunde
+            Last Hour
         </button>
         <button class="btn btn-outline-primary"
                 hx-get="/htmx/items-list"
                 hx-include="[name='search'], [name='category_id'], [name='feed_id']"
                 hx-vals='{"since_hours": "24"}'
                 hx-target="#items-list">
-            Heute
+            Today
         </button>
         <button class="btn btn-outline-primary"
                 hx-get="/htmx/items-list"
                 hx-include="[name='search'], [name='category_id'], [name='feed_id']"
                 hx-vals='{"since_hours": "168"}'
                 hx-target="#items-list">
-            Diese Woche
+            This Week
         </button>
     </div>
 </div>
 
 <div class="row mb-3">
     <div class="col-md-6">
-        <input type="text" class="form-control" placeholder="Artikel durchsuchen..." name="search"
+        <input type="text" class="form-control" placeholder="Search articles..." name="search"
                hx-get="/htmx/items-list" hx-trigger="keyup changed delay:500ms" hx-target="#items-list"
                hx-include="[name='category_id'], [name='feed_id'], [name='search']">
     </div>
@@ -40,14 +40,14 @@
         <select class="form-select" name="category_id"
                 hx-get="/htmx/items-list" hx-trigger="change" hx-target="#items-list"
                 hx-include="[name='search'], [name='feed_id'], [name='category_id']">
-            <option value="">Alle Kategorien</option>
+            <option value="">All Categories</option>
         </select>
     </div>
     <div class="col-md-3">
         <select class="form-select" name="feed_id" id="feed-selector"
                 hx-get="/htmx/items-list" hx-trigger="change" hx-target="#items-list"
                 hx-include="[name='search'], [name='category_id'], [name='feed_id']">
-            <option value="">Alle Feeds</option>
+            <option value="">All Feeds</option>
         </select>
     </div>
 </div>
@@ -58,7 +58,7 @@
 <div id="items-list" hx-get="/htmx/items-list" hx-trigger="load">
     <div class="text-center">
         <div class="spinner-border" role="status">
-            <span class="visually-hidden">Artikel werden geladen...</span>
+            <span class="visually-hidden">Loading articles...</span>
         </div>
     </div>
 </div>
@@ -71,7 +71,7 @@
             hx-target="#items-list"
             hx-swap="beforeend"
             onclick="this.setAttribute('hx-vals', JSON.stringify({skip: document.querySelectorAll('#items-list .card').length.toString()}))">
-        Mehr laden
+        Load More
     </button>
 </div>
 {% endblock %}

@@ -2,12 +2,35 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Form
 from fastapi.responses import HTMLResponse
 from sqlmodel import Session, select
 from typing import List, Optional
+import threading
+import asyncio
+import logging
 from app.database import get_session
 from app.models import Feed, Source, Category, FeedCategory, Item, FeedHealth, FetchLog
 from app.schemas import FeedCreate, FeedUpdate, FeedResponse
 from app.services.feed_change_tracker import track_feed_changes
 
 router = APIRouter(prefix="/feeds", tags=["feeds"])
+logger = logging.getLogger(__name__)
+
+def _trigger_initial_fetch(feed_id: int):
+    """Trigger immediate initial fetch for a new feed - now synchronous for reliability"""
+    try:
+        from app.services.feed_fetcher_sync import SyncFeedFetcher
+
+        # Use synchronous fetcher for immediate, reliable execution
+        logger.info(f"Starting immediate synchronous fetch for new feed {feed_id}")
+        fetcher = SyncFeedFetcher()
+        success, items_count = fetcher.fetch_feed_sync(feed_id)
+
+        if success:
+            logger.info(f"Initial fetch successful for feed {feed_id}: {items_count} items loaded")
+        else:
+            logger.warning(f"Initial fetch failed for feed {feed_id}")
+
+    except Exception as e:
+        # Don't fail feed creation if initial fetch fails
+        logger.warning(f"Failed to trigger initial fetch for feed {feed_id}: {e}")
 
 @router.get("/", response_model=List[FeedResponse])
 def list_feeds(
@@ -70,41 +93,7 @@ def create_feed_json(feed_data: FeedCreate, session: Session = Depends(get_sessi
     session.refresh(db_feed)
 
     # Trigger immediate initial fetch for new feed
-    try:
-        import asyncio
-        from jobs.fetcher import FeedFetcher
-
-        async def initial_fetch():
-            fetcher = FeedFetcher()
-            try:
-                await fetcher.fetch_feed(db_feed)
-                import logging
-                logger = logging.getLogger(__name__)
-                logger.info(f"Successfully performed initial fetch for new feed {db_feed.id}")
-            except Exception as e:
-                import logging
-                logger = logging.getLogger(__name__)
-                logger.warning(f"Initial fetch failed for feed {db_feed.id}: {e}")
-            finally:
-                await fetcher.close()
-
-        # Run initial fetch in background (if event loop exists)
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                asyncio.create_task(initial_fetch())
-            else:
-                # If no event loop, run synchronously (for testing)
-                asyncio.run(initial_fetch())
-        except RuntimeError:
-            # No event loop, run synchronously
-            asyncio.run(initial_fetch())
-
-    except Exception as e:
-        # Don't fail feed creation if initial fetch fails
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.warning(f"Failed to trigger initial fetch for feed {db_feed.id}: {e}")
+    _trigger_initial_fetch(db_feed.id)
 
     return db_feed
 
@@ -147,41 +136,7 @@ def create_feed(
     session.refresh(db_feed)
 
     # Trigger immediate initial fetch for new feed
-    try:
-        import asyncio
-        from jobs.fetcher import FeedFetcher
-
-        async def initial_fetch():
-            fetcher = FeedFetcher()
-            try:
-                await fetcher.fetch_feed(db_feed)
-                import logging
-                logger = logging.getLogger(__name__)
-                logger.info(f"Successfully performed initial fetch for new feed {db_feed.id}")
-            except Exception as e:
-                import logging
-                logger = logging.getLogger(__name__)
-                logger.warning(f"Initial fetch failed for feed {db_feed.id}: {e}")
-            finally:
-                await fetcher.close()
-
-        # Run initial fetch in background (if event loop exists)
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                asyncio.create_task(initial_fetch())
-            else:
-                # If no event loop, run synchronously (for testing)
-                asyncio.run(initial_fetch())
-        except RuntimeError:
-            # No event loop, run synchronously
-            asyncio.run(initial_fetch())
-
-    except Exception as e:
-        # Don't fail feed creation if initial fetch fails
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.warning(f"Failed to trigger initial fetch for feed {db_feed.id}: {e}")
+    _trigger_initial_fetch(db_feed.id)
 
     # Return updated feed list as HTML
     from app.api.htmx import get_feeds_list
@@ -233,6 +188,26 @@ def update_feed_form(
     # Return updated feed list as HTML
     from app.api.htmx import get_feeds_list
     return get_feeds_list(session)
+
+@router.post("/{feed_id}/fetch")
+def fetch_feed_now(feed_id: int, session: Session = Depends(get_session)):
+    """Manually trigger an immediate fetch for a specific feed"""
+    feed = session.get(Feed, feed_id)
+    if not feed:
+        raise HTTPException(status_code=404, detail="Feed not found")
+
+    try:
+        from app.services.feed_fetcher_sync import SyncFeedFetcher
+        fetcher = SyncFeedFetcher()
+        success, items_count = fetcher.fetch_feed_sync(feed_id)
+
+        if success:
+            return {"success": True, "message": f"Feed fetched successfully, {items_count} new items loaded"}
+        else:
+            return {"success": False, "message": "Feed fetch failed"}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching feed: {str(e)}")
 
 @router.delete("/{feed_id}", response_class=HTMLResponse)
 def delete_feed(feed_id: int, session: Session = Depends(get_session)):
