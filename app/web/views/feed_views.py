@@ -1,0 +1,388 @@
+from fastapi import APIRouter, Depends, Query
+from fastapi.responses import HTMLResponse
+from sqlmodel import Session, select
+from typing import Optional
+import logging
+
+from app.database import get_session
+from app.models import Feed, Source, Category, Item, FeedHealth, FeedCategory, FeedProcessorConfig, ProcessorTemplate, ProcessorType, FeedType
+from app.utils.feed_detector import FeedTypeDetector
+
+router = APIRouter(tags=["htmx-feeds"])
+logger = logging.getLogger(__name__)
+
+@router.get("/feeds-options", response_class=HTMLResponse)
+def get_feeds_options(session: Session = Depends(get_session)):
+    feeds = session.exec(select(Feed)).all()
+    html = ""
+    for feed in feeds:
+        title = feed.title or feed.url[:50] + "..."
+        html += f'<option value="{feed.id}">{title}</option>'
+    return html
+
+@router.post("/feed-fetch-now/{feed_id}", response_class=HTMLResponse)
+def fetch_feed_now_htmx(feed_id: int, session: Session = Depends(get_session)):
+    """HTMX endpoint to fetch a feed immediately and return status"""
+    try:
+        from app.services.feed_fetcher_sync import SyncFeedFetcher
+
+        feed = session.get(Feed, feed_id)
+        if not feed:
+            return '<div class="alert alert-danger">Feed not found</div>'
+
+        logger.info(f"HTMX immediate fetch requested for feed {feed_id}: {feed.title}")
+
+        fetcher = SyncFeedFetcher()
+        success, items_count = fetcher.fetch_feed_sync(feed_id)
+
+        if success:
+            if items_count > 0:
+                return f'<div class="alert alert-success">✅ {items_count} new articles loaded!</div>'
+            else:
+                return '<div class="alert alert-info">✅ Feed fetched successfully (no new articles)</div>'
+        else:
+            return '<div class="alert alert-warning">❌ Error loading articles</div>'
+
+    except Exception as e:
+        logger.error(f"Error in HTMX feed fetch: {e}")
+        return f'<div class="alert alert-danger">❌ Error: {str(e)}</div>'
+
+@router.get("/feeds-list", response_class=HTMLResponse)
+def get_feeds_list(
+    session: Session = Depends(get_session),
+    category_id: Optional[int] = Query(None),
+    status: Optional[str] = Query(None)
+):
+    # Build base query with source and categories
+    query = select(Feed, Source).join(Source)
+
+    # Apply filters
+    if category_id and category_id > 0:  # Only filter if category_id is provided and not 0 (All Categories)
+        query = query.join(FeedCategory).where(FeedCategory.category_id == category_id)
+
+    if status and status.strip():
+        query = query.where(Feed.status == status.strip())
+
+    results = session.exec(query).all()
+
+    html = ""
+    for feed, source in results:
+        # Get feed categories
+        feed_categories = session.exec(
+            select(Category)
+            .join(FeedCategory, FeedCategory.category_id == Category.id)
+            .where(FeedCategory.feed_id == feed.id)
+        ).all()
+
+        category_badges = ""
+        for category in feed_categories:
+            category_badges += f'<span class="badge bg-primary ms-1" title="{category.description}">{category.name}</span>'
+
+        if not category_badges:
+            category_badges = '<span class="badge bg-secondary ms-1">No Category</span>'
+        # Check if feed has articles
+        article_count = len(session.exec(select(Item).where(Item.feed_id == feed.id)).all())
+        has_articles = article_count > 0
+
+        status_badge = {
+            "active": "success",
+            "inactive": "warning",
+            "error": "danger"
+        }.get(feed.status.value, "secondary")
+
+        # Add "Load Articles" button for feeds without articles
+        load_button = ""
+        if not has_articles:
+            load_button = f"""
+                        <button class="btn btn-sm btn-success"
+                                hx-post="/htmx/feed-fetch-now/{feed.id}"
+                                hx-target="#fetch-status-{feed.id}"
+                                hx-swap="innerHTML"
+                                title="Load articles immediately">
+                            <i class="bi bi-download"></i> Load
+                        </button>"""
+
+        html += f"""
+        <div class="card mb-2">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6 class="card-title mb-1">
+                            {feed.title or 'Untitled Feed'}
+                            <span class="badge bg-{status_badge} ms-2">{feed.status.value}</span>
+                            {f'<span class="badge bg-info ms-1">{article_count} Articles</span>' if has_articles else '<span class="badge bg-warning ms-1">No Articles</span>'}
+                            {category_badges}
+                        </h6>
+                        <p class="card-text small text-muted mb-1">
+                            <strong>URL:</strong> <a href="{feed.url}" target="_blank" class="text-decoration-none">{feed.url}</a>
+                        </p>
+                        <p class="card-text small text-muted mb-1">
+                            <strong>Source:</strong> {source.name} |
+                            <strong>Interval:</strong> {feed.fetch_interval_minutes} min
+                        </p>
+                        {f'<p class="card-text small text-muted"><strong>Last Fetch:</strong> {feed.last_fetched.strftime("%d.%m.%Y %H:%M")}</p>' if feed.last_fetched else '<p class="card-text small text-warning"><strong>Never fetched</strong></p>'}
+                        <div id="fetch-status-{feed.id}"></div>
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn btn-sm btn-outline-primary"
+                                hx-get="/htmx/feed-health/{feed.id}"
+                                hx-target="#health-modal-content"
+                                data-bs-toggle="modal"
+                                data-bs-target="#healthModal">
+                            <i class="bi bi-heart-pulse"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary"
+                                hx-get="/htmx/feed-edit-form/{feed.id}"
+                                hx-target="#edit-modal-content"
+                                data-bs-toggle="modal"
+                                data-bs-target="#editFeedModal">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        {load_button}
+                        <button class="btn btn-sm btn-outline-warning"
+                                hx-put="/api/feeds/{feed.id}"
+                                hx-vals='{{"status": "{'inactive' if feed.status.value == 'active' else 'active'}"}}'"
+                                hx-target="closest .card"
+                                hx-swap="outerHTML">
+                            <i class="bi bi-{'pause' if feed.status.value == 'active' else 'play'}"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger"
+                                hx-delete="/api/feeds/{feed.id}"
+                                hx-target="#feeds-list"
+                                hx-confirm="Really delete feed?">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        """
+
+    if not html:
+        html = '<div class="alert alert-info">No feeds found.</div>'
+
+    return html
+
+@router.get("/feed-health/{feed_id}", response_class=HTMLResponse)
+def get_feed_health_modal(feed_id: int, session: Session = Depends(get_session)):
+    """Get health modal content for a feed"""
+    feed = session.get(Feed, feed_id)
+    if not feed:
+        return '<div class="alert alert-danger">Feed not found</div>'
+
+    health = session.exec(select(FeedHealth).where(FeedHealth.feed_id == feed_id)).first()
+
+    html = f"""
+    <h5>Health Status for: {feed.title or 'Untitled Feed'}</h5>
+    <p><strong>URL:</strong> {feed.url}</p>
+    <p><strong>Status:</strong> <span class="badge bg-{'success' if feed.status == 'active' else 'warning' if feed.status == 'inactive' else 'danger'}">{feed.status}</span></p>
+    """
+
+    if health:
+        html += f"""
+        <p><strong>Last Check:</strong> {health.last_check_time.strftime('%Y-%m-%d %H:%M:%S') if health.last_check_time else 'Never'}</p>
+        <p><strong>Success Rate:</strong> {health.success_rate:.1f}% ({health.successful_fetches}/{health.total_fetches} fetches)</p>
+        <p><strong>Average Response Time:</strong> {health.avg_response_time:.2f}s</p>
+        <p><strong>Consecutive Failures:</strong> {health.consecutive_failures}</p>
+        """
+
+        if health.last_error:
+            html += f'<div class="alert alert-warning"><strong>Last Error:</strong> {health.last_error}</div>'
+    else:
+        html += '<div class="alert alert-info">No health data available yet.</div>'
+
+    return html
+
+@router.get("/feed-types-options", response_class=HTMLResponse)
+def get_feed_types_options(session: Session = Depends(get_session)):
+    feed_types = session.exec(select(FeedType)).all()
+    html = '<option value="">Auto-detect</option>'
+    for feed_type in feed_types:
+        html += f'<option value="{feed_type.id}">{feed_type.name.replace("_", " ").title()}</option>'
+    return html
+
+@router.post("/feed-url-test", response_class=HTMLResponse)
+def test_feed_url(url: str, session: Session = Depends(get_session)):
+    """Test a feed URL and return preview"""
+    import feedparser
+
+    try:
+        # Parse the feed
+        parsed = feedparser.parse(url)
+
+        if parsed.bozo and parsed.bozo_exception:
+            return f'<div class="alert alert-warning">⚠️ Feed has parsing issues: {parsed.bozo_exception}</div>'
+
+        if not parsed.entries:
+            return '<div class="alert alert-danger">❌ No entries found in feed</div>'
+
+        # Use detector to get recommendations
+        detector = FeedTypeDetector()
+        detected_type = detector.detect_feed_type(url, str(parsed))
+
+        html = f'''
+        <div class="alert alert-success">
+            ✅ Feed is valid! Found {len(parsed.entries)} entries.
+        </div>
+        <div class="card">
+            <div class="card-header"><strong>Feed Preview</strong></div>
+            <div class="card-body">
+                <p><strong>Title:</strong> {parsed.feed.get('title', 'No title')}</p>
+                <p><strong>Description:</strong> {parsed.feed.get('description', 'No description')}</p>
+                <p><strong>Detected Type:</strong> <span class="badge bg-info">{detected_type}</span></p>
+                <p><strong>Recommended Interval:</strong> {detector.get_recommended_interval(detected_type)} minutes</p>
+
+                <h6>Recent Entries:</h6>
+                <ul class="list-group list-group-flush">
+        '''
+
+        # Show first 3 entries
+        for entry in parsed.entries[:3]:
+            title = entry.get('title', 'No title')
+            published = entry.get('published', 'No date')
+            html += f'<li class="list-group-item"><strong>{title}</strong><br><small class="text-muted">{published}</small></li>'
+
+        html += '''
+                </ul>
+            </div>
+        </div>
+        '''
+
+        return html
+
+    except Exception as e:
+        return f'<div class="alert alert-danger">❌ Error testing feed: {str(e)}</div>'
+
+@router.get("/feed-edit-form/{feed_id}", response_class=HTMLResponse)
+def get_feed_edit_form(feed_id: int, session: Session = Depends(get_session)):
+    """Get edit form for a specific feed."""
+    feed = session.get(Feed, feed_id)
+    if not feed:
+        return '<div class="alert alert-danger">Feed not found</div>'
+
+    # Get available feed types
+    feed_types = session.exec(select(FeedType)).all()
+    feed_type_options = '<option value="">Auto-detect</option>'
+    for ft in feed_types:
+        selected = 'selected' if feed.feed_type_id == ft.id else ''
+        feed_type_options += f'<option value="{ft.id}" {selected}>{ft.name.replace("_", " ").title()}</option>'
+
+    # Get available sources
+    sources = session.exec(select(Source)).all()
+    source_options = ''
+    for source in sources:
+        selected = 'selected' if feed.source_id == source.id else ''
+        source_options += f'<option value="{source.id}" {selected}>{source.name}</option>'
+
+    # Get current feed categories
+    feed_categories = session.exec(select(FeedCategory).where(FeedCategory.feed_id == feed_id)).all()
+    current_category_ids = [fc.category_id for fc in feed_categories]
+
+    # Get available categories
+    categories = session.exec(select(Category)).all()
+    category_options = ''
+    for category in categories:
+        selected = 'selected' if category.id in current_category_ids else ''
+        category_options += f'<option value="{category.id}" {selected}>{category.name}</option>'
+
+    html = f'''
+    <div class="modal-header">
+        <h5 class="modal-title">Edit Feed: {feed.title or feed.url}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    </div>
+    <form hx-put="/api/feeds/{feed.id}/form" hx-target="#feeds-list"
+          hx-on="htmx:afterRequest: if(event.detail.successful) {{ bootstrap.Modal.getInstance(document.getElementById('editFeedModal')).hide(); }}">
+        <div class="modal-body">
+            <div class="mb-3">
+                <label class="form-label">Feed URL</label>
+                <input type="url" class="form-control" name="url" value="{feed.url}" required>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Title</label>
+                        <input type="text" class="form-control" name="title" value="{feed.title or ''}">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Feed Type</label>
+                        <select class="form-select" name="feed_type_id">
+                            {feed_type_options}
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Description</label>
+                <textarea class="form-control" name="description" rows="2">{feed.description or ''}</textarea>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Fetch Interval (Minutes)</label>
+                        <input type="number" class="form-control" name="fetch_interval_minutes"
+                               value="{feed.fetch_interval_minutes}" min="5" max="1440">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Status</label>
+                        <div class="form-control-plaintext">
+                            <span class="badge bg-{'success' if feed.status.value == 'active' else 'warning' if feed.status.value == 'inactive' else 'danger'}">
+                                {'Active' if feed.status.value == 'active' else 'Inactive' if feed.status.value == 'inactive' else 'Error'}
+                            </span>
+                            <small class="text-muted ms-2">(Set automatically)</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Source</label>
+                        <select class="form-select" name="source_id" required>
+                            {source_options}
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Category</label>
+                        <select class="form-select" name="category_id">
+                            <option value="0">No Category</option>
+                            {category_options}
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Last Fetch</label>
+                        <input type="text" class="form-control" value="{feed.last_fetched or 'Never'}" readonly>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Created</label>
+                        <input type="text" class="form-control" value="{feed.created_at.strftime('%d.%m.%Y %H:%M')}" readonly>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-save"></i> Save
+            </button>
+        </div>
+    </form>
+    '''
+
+    return html

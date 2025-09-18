@@ -104,6 +104,7 @@ def create_feed(
     description: Optional[str] = Form(None),
     fetch_interval_minutes: int = Form(60),
     source_id: Optional[int] = Form(None),
+    category_id: Optional[int] = Form(None),
     session: Session = Depends(get_session)
 ):
     # If no source_id provided, use the first available RSS source
@@ -135,6 +136,12 @@ def create_feed(
     session.commit()
     session.refresh(db_feed)
 
+    # Add category assignment if provided
+    if category_id and category_id > 0:
+        feed_category = FeedCategory(feed_id=db_feed.id, category_id=category_id)
+        session.add(feed_category)
+        session.commit()
+
     # Trigger immediate initial fetch for new feed
     _trigger_initial_fetch(db_feed.id)
 
@@ -164,6 +171,7 @@ def update_feed_form(
     description: Optional[str] = Form(None),
     fetch_interval_minutes: Optional[int] = Form(None),
     status: Optional[str] = Form(None),
+    category_id: Optional[int] = Form(None),
     session: Session = Depends(get_session)
 ):
     feed = session.get(Feed, feed_id)
@@ -184,6 +192,20 @@ def update_feed_form(
     session.add(feed)
     session.commit()
     session.refresh(feed)
+
+    # Handle category assignment
+    if category_id is not None:
+        # Remove existing category assignments
+        existing_categories = session.exec(select(FeedCategory).where(FeedCategory.feed_id == feed_id)).all()
+        for fc in existing_categories:
+            session.delete(fc)
+
+        # Add new category assignment if provided
+        if category_id > 0:  # Only add if not empty selection
+            feed_category = FeedCategory(feed_id=feed_id, category_id=category_id)
+            session.add(feed_category)
+
+        session.commit()
 
     # Return updated feed list as HTML
     from app.api.htmx import get_feeds_list

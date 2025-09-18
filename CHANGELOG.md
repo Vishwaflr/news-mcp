@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🎯 Architecture Improvements
+
+#### HTMX Refactoring - Clean Architecture Implementation
+- **Code Quality**: Split monolithic htmx.py (1279 LOC) into specialized modules
+  - `app/web/views/feed_views.py` - Feed management HTMX endpoints
+  - `app/web/views/item_views.py` - Article/item display HTMX endpoints
+  - `app/web/views/system_views.py` - System health, processor stats HTMX endpoints
+- **Maintainability**: Reduced complexity from 1279 lines to ~400 lines per module
+- **Single Responsibility**: Each module now focuses on a specific domain
+- **Router Aggregation**: Clean router pattern with proper prefix handling
+- **Zero Downtime**: Refactoring completed without breaking existing functionality
+
 ## [2.1.0] - 2025-01-17 - PostgreSQL Migration & UI Fixes
 
 ### ✨ Major Features Added

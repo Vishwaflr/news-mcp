@@ -16,10 +16,17 @@
                hx-get="/htmx/feeds-list" hx-trigger="keyup changed delay:300ms" hx-target="#feeds-list">
     </div>
     <div class="col-md-3">
-        <select class="form-select" name="category_id" hx-get="/htmx/feeds-list" hx-trigger="change" hx-target="#feeds-list" hx-include="[name='status']">
-            <option value="">All Categories</option>
+        <select class="form-select" name="category_id" hx-get="/htmx/feeds-list" hx-trigger="change" hx-target="#feeds-list" hx-include="[name='status']"
+                id="category-filter">
+            <option value="0">All Categories</option>
         </select>
     </div>
+    <script>
+        // Load categories on page load
+        htmx.onLoad(function() {
+            htmx.ajax('GET', '/htmx/categories-options', {target: '#category-filter', swap: 'beforeend'});
+        });
+    </script>
     <div class="col-md-3">
         <select class="form-select" name="status" hx-get="/htmx/feeds-list" hx-trigger="change" hx-target="#feeds-list" hx-include="[name='category_id']">
             <option value="">All Status</option>
@@ -92,10 +99,23 @@
                         <textarea class="form-control" id="feed-description" name="description" rows="2"></textarea>
                     </div>
 
-                    <div class="mb-3">
-                        <label for="feed-interval" class="form-label">Fetch Interval (Minutes)</label>
-                        <input type="number" class="form-control" id="feed-interval" name="fetch_interval_minutes" value="15" min="5">
-                        <div class="form-text">Recommended interval will be auto-set based on feed type</div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="feed-interval" class="form-label">Fetch Interval (Minutes)</label>
+                                <input type="number" class="form-control" id="feed-interval" name="fetch_interval_minutes" value="15" min="5">
+                                <div class="form-text">Recommended interval will be auto-set based on feed type</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="feed-category" class="form-label">Category</label>
+                                <select class="form-select" id="feed-category" name="category_id"
+                                        hx-get="/htmx/categories-options" hx-trigger="load" hx-target="this" hx-swap="afterbegin">
+                                    <option value="0">No Category</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Advanced Settings Toggle -->
