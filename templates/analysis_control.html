@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analysis Control Center - News MCP</title>
+    <script src="https://unpkg.com/htmx.org@1.9.8"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="//unpkg.com/alpinejs" defer></script>
+
+    <style>
+        .slo-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }
+        .slo-green { background-color: #28a745; }
+        .slo-yellow { background-color: #ffc107; }
+        .slo-red { background-color: #dc3545; }
+
+        .metric-card {
+            transition: all 0.3s ease;
+        }
+        .metric-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .cost-warning {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+
+        .progress-ring {
+            transform: rotate(-90deg);
+        }
+
+        .tab-content {
+            min-height: 200px;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-rss"></i> News MCP
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <div class="navbar-nav ms-auto">
+                    <a class="nav-link" href="/admin/feeds">
+                        <i class="fas fa-rss"></i> Feeds
+                    </a>
+                    <a class="nav-link" href="/admin/items">
+                        <i class="fas fa-newspaper"></i> Articles
+                    </a>
+                    <a class="nav-link active" href="/admin/analysis">
+                        <i class="fas fa-brain"></i> Analysis Control
+                    </a>
+                    <a class="nav-link" href="/admin/statistics">
+                        <i class="fas fa-chart-line"></i> Statistics
+                    </a>
+                    <a class="nav-link" href="/admin/health">
+                        <i class="fas fa-heartbeat"></i> Health
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4" x-data="analysisControl()">
+        <div class="row">
+            <!-- Header -->
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h1><i class="fas fa-brain text-primary"></i> Analysis Control Center</h1>
+                    <div class="btn-group">
+                        <button class="btn btn-outline-info"
+                                hx-get="/htmx/analysis/stats"
+                                hx-target="#overall-stats"
+                                hx-trigger="click">
+                            <i class="bi bi-arrow-clockwise"></i> Refresh Stats
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Left Column: Controls -->
+            <div class="col-lg-8">
+                <!-- Quick Actions -->
+
+                <!-- Target Selection -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-target"></i> Target Selection</h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Scope Tabs -->
+                        <ul class="nav nav-tabs mb-3" id="scopeTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="global-tab" data-bs-toggle="tab"
+                                        data-bs-target="#global" type="button" role="tab">
+                                    <i class="fas fa-globe"></i> Global
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="feeds-tab" data-bs-toggle="tab"
+                                        data-bs-target="#feeds" type="button" role="tab">
+                                    <i class="fas fa-rss"></i> Feeds
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="articles-tab" data-bs-toggle="tab"
+                                        data-bs-target="#articles" type="button" role="tab">
+                                    <i class="fas fa-newspaper"></i> Articles
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="latest-tab" data-bs-toggle="tab"
+                                        data-bs-target="#latest" type="button" role="tab"
+                                        @click="console.log('Latest tab clicked')">
+                                    <i class="fas fa-fast-forward"></i> Latest
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="timerange-tab" data-bs-toggle="tab"
+                                        data-bs-target="#timerange" type="button" role="tab">
+                                    <i class="fas fa-clock"></i> Time Range
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="filters-tab" data-bs-toggle="tab"
+                                        data-bs-target="#filters" type="button" role="tab">
+                                    <i class="fas fa-filter"></i> Filters
+                                </button>
+                            </li>
+                        </ul>
+
+                        <!-- Tab Content -->
+                        <div class="tab-content" id="scopeTabContent">
+                            <!-- Global Tab -->
+                            <div class="tab-pane fade" id="global" role="tabpanel">
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle"></i>
+                                    Global scope will analyze articles across all feeds.
+                                    Use the parameters below to control what gets analyzed.
+                                </div>
+                            </div>
+
+                            <!-- Feeds Tab -->
+                            <div class="tab-pane fade" id="feeds" role="tabpanel">
+                                <div class="mb-3">
+                                    <label class="form-label">Select Feeds:</label>
+                                    <div id="feed-selection"
+                                         hx-get="/htmx/analysis/feeds"
+                                         hx-target="#feed-selection"
+                                         hx-trigger="load">
+                                        <div class="text-center">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">Loading feeds...</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Articles Tab -->
+                            <div class="tab-pane fade" id="articles" role="tabpanel">
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <label class="form-label">Select Articles:</label>
+                                        <div class="btn-group btn-group-sm">
+                                            <button type="button" class="btn btn-outline-secondary" @click="clearSelectedArticles()">
+                                                Clear All
+                                            </button>
+                                            <button type="button" class="btn btn-outline-secondary" @click="selectAllVisibleArticles()">
+                                                Select All Visible
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <select class="form-select" x-model="articleFilters.feed_id" @change="loadArticles()">
+                                                <option value="">All Feeds</option>
+                                                <template x-for="feed in availableFeeds" :key="feed.id">
+                                                    <option :value="feed.id" x-text="feed.title"></option>
+                                                </template>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" x-model="articleFilters.unanalyzed_only"
+                                                       @change="loadArticles()" id="articlesUnanalyzedOnly">
+                                                <label class="form-check-label" for="articlesUnanalyzedOnly">
+                                                    Unanalyzed only
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div id="article-selection" style="max-height: 400px; overflow-y: auto;">
+                                        <div class="text-center" x-show="articlesLoading">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">Loading articles...</span>
+                                            </div>
+                                        </div>
+                                        <template x-for="article in availableArticles" :key="article.id">
+                                            <div class="card mb-2">
+                                                <div class="card-body py-2">
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox"
+                                                               :value="article.id" x-model="selectedArticles"
+                                                               :id="'article_' + article.id">
+                                                        <label class="form-check-label" :for="'article_' + article.id">
+                                                            <div class="d-flex justify-content-between align-items-start">
+                                                                <div style="flex: 1; min-width: 0;">
+                                                                    <h6 class="mb-1 text-truncate" x-text="article.title"></h6>
+                                                                    <small class="text-muted">
+                                                                        <span x-text="article.feed_title"></span> •
+                                                                        <span x-text="new Date(article.created_at).toLocaleDateString()"></span>
+                                                                    </small>
+                                                                </div>
+                                                                <div class="flex-shrink-0 ms-2">
+                                                                    <span class="badge"
+                                                                          :class="article.analyzed ? 'bg-success' : 'bg-secondary'"
+                                                                          x-text="article.analyzed ? 'Analyzed' : 'Pending'">
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </template>
+                                        <div class="text-center mt-3" x-show="articlesPagination.has_more">
+                                            <button type="button" class="btn btn-outline-primary" @click="loadMoreArticles()">
+                                                Load More Articles
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="mt-3" x-show="selectedArticles.length > 0">
+                                        <div class="alert alert-info">
+                                            <i class="fas fa-info-circle"></i>
+                                            <span x-text="selectedArticles.length + ' articles selected'"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Latest Tab -->
+                            <div class="tab-pane fade show active" id="latest" role="tabpanel">
+                                <div class="alert alert-primary">
+                                    <i class="fas fa-info-circle"></i>
+                                    Quickly select the latest articles by count.
+                                </div>
+
+                                <div class="row justify-content-center">
+                                    <div class="col-md-8">
+                                        <div class="card">
+                                            <div class="card-header">
+                                                <h6 class="mb-0"><i class="fas fa-list-ol"></i> Latest Articles by Count</h6>
+                                            </div>
+                                            <div class="card-body">
+                                                <div class="input-group mb-3">
+                                                    <span class="input-group-text">Latest</span>
+                                                    <input type="number" class="form-control"
+                                                           x-model="customCount"
+                                                           placeholder="Number of articles" min="1" max="1000">
+                                                    <span class="input-group-text">articles</span>
+                                                    <button type="button" class="btn btn-success btn-lg"
+                                                            @click="setLatestCount(parseInt(customCount))"
+                                                            style="font-weight: bold;">
+                                                        <i class="fas fa-check"></i> SET
+                                                    </button>
+                                                </div>
+                                                <div class="form-text mt-2">
+                                                    Enter number of latest articles to analyze (1-1000)
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Time Range Tab -->
+                            <div class="tab-pane fade" id="timerange" role="tabpanel">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Start Time:</label>
+                                        <input type="datetime-local" class="form-control" x-model="scope.start_time">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">End Time:</label>
+                                        <input type="datetime-local" class="form-control" x-model="scope.end_time">
+                                    </div>
+                                </div>
+                                <div class="mt-3">
+                                    <label class="form-label">Quick Presets:</label>
+                                    <div class="btn-group w-100" role="group">
+                                        <button type="button" class="btn btn-outline-secondary" @click="setTimeRange('2h')">
+                                            Last 2h
+                                        </button>
+                                        <button type="button" class="btn btn-outline-secondary" @click="setTimeRange('24h')">
+                                            Last 24h
+                                        </button>
+                                        <button type="button" class="btn btn-outline-secondary" @click="setTimeRange('7d')">
+                                            Last 7d
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Filters Tab -->
+                            <div class="tab-pane fade" id="filters" role="tabpanel">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="form-check mb-3">
+                                            <input class="form-check-input" type="checkbox" x-model="scope.unanalyzed_only" id="unanalyzedOnly">
+                                            <label class="form-check-label" for="unanalyzedOnly">
+                                                Unanalyzed items only
+                                            </label>
+                                        </div>
+                                        <div class="form-check mb-3">
+                                            <input class="form-check-input" type="checkbox" x-model="scope.model_tag_not_current" id="outdatedModel">
+                                            <label class="form-check-label" for="outdatedModel">
+                                                Items with outdated model
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Min Impact Threshold:</label>
+                                            <input type="range" class="form-range" min="0" max="1" step="0.1"
+                                                   x-model="scope.min_impact_threshold">
+                                            <small class="text-muted" x-text="'Value: ' + scope.min_impact_threshold"></small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Parameters -->
+                        <div class="border-top pt-4 mt-4">
+                            <h6><i class="fas fa-cog"></i> Parameters</h6>
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <label class="form-label">Limit:</label>
+                                    <input type="number" class="form-control" x-model="params.limit"
+                                           min="1" max="1000" @input="updatePreview()">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Rate (RPS):</label>
+                                    <input type="number" class="form-control" x-model="params.rate_per_second"
+                                           min="0.2" max="3.0" step="0.1" @input="updatePreview()">
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check mt-4">
+                                        <input class="form-check-input" type="checkbox" x-model="params.dry_run" id="dryRun">
+                                        <label class="form-check-label" for="dryRun">
+                                            Dry Run
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check mt-4">
+                                        <input class="form-check-input" type="checkbox" x-model="params.override_existing" id="overrideExisting" @change="updatePreview()">
+                                        <label class="form-check-label" for="overrideExisting">
+                                            <i class="fas fa-exclamation-triangle text-warning"></i> Override existing
+                                        </label>
+                                        <div class="form-text small">Re-analyze already processed items</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row mt-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Model:</label>
+                                    <select class="form-select" x-model="params.model_tag" @change="updatePreview()">
+                                        <option value="gpt-4.1-nano">GPT-4.1 Nano ($0.20/$0.80)</option>
+                                        <option value="gpt-4o-mini">GPT-4o Mini ($0.25/$1.00)</option>
+                                        <option value="gpt-4.1-mini">GPT-4.1 Mini ($0.70/$2.80)</option>
+                                        <option value="o4-mini">O4 Mini ($2.00/$8.00)</option>
+                                        <option value="gpt-4.1">GPT-4.1 ($3.50/$14.00)</option>
+                                        <option value="gpt-4o">GPT-4o ($4.25/$17.00)</option>
+                                    </select>
+                                    <small class="text-muted">Input/Output per 1K tokens</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Preview & Actions -->
+                        <div class="border-top pt-4 mt-4">
+                            <div class="row align-items-end">
+                                <div class="col-md-8">
+                                    <div id="run-preview" class="alert alert-light">
+                                        <div class="d-flex align-items-center">
+                                            <div class="spinner-border spinner-border-sm text-primary me-2" role="status">
+                                                <span class="visually-hidden">Loading preview...</span>
+                                            </div>
+                                            <span>Calculating preview...</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 text-end">
+                                    <button class="btn btn-success btn-lg"
+                                            :disabled="preview.item_count === 0"
+                                            @click="startRun()">
+                                        <i class="fas fa-play"></i> Start Analysis
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Run History -->
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="fas fa-history"></i> Run History</h5>
+                        <button class="btn btn-sm btn-outline-primary"
+                                hx-get="/htmx/analysis/history"
+                                hx-target="#run-history-table">
+                            <i class="bi bi-arrow-clockwise"></i> Refresh
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="run-history-table"
+                             hx-get="/htmx/analysis/history"
+                             hx-target="#run-history-table"
+                             hx-trigger="load">
+                            <div class="text-center">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading run history...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Status & Stats -->
+            <div class="col-lg-4">
+                <!-- Overall Stats -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-chart-bar"></i> Overview</h5>
+                    </div>
+                    <div class="card-body" id="overall-stats"
+                         hx-get="/htmx/analysis/stats"
+                         hx-target="#overall-stats"
+                         hx-trigger="load, every 30s">
+                        <div class="text-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading stats...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Active Runs -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-running"></i> Active Runs</h5>
+                    </div>
+                    <div class="card-body" id="active-runs"
+                         hx-get="/htmx/analysis/active-runs"
+                         hx-target="#active-runs"
+                         hx-trigger="load, every 5s">
+                        <div class="text-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading active runs...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Presets -->
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="fas fa-bookmark"></i> Presets</h5>
+                        <button class="btn btn-sm btn-outline-success" @click="saveCurrentAsPreset()">
+                            <i class="bi bi-plus"></i> Save Current
+                        </button>
+                    </div>
+                    <div class="card-body" id="presets-list"
+                         hx-get="/htmx/analysis/presets"
+                         hx-target="#presets-list"
+                         hx-trigger="load">
+                        <div class="text-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading presets...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alpine.js Controller -->
+    <script>
+        function analysisControl() {
+            return {
+                scope: {
+                    type: 'global',
+                    feed_ids: [],
+                    item_ids: [],
+                    article_ids: [],
+                    start_time: null,
+                    end_time: null,
+                    unanalyzed_only: true,
+                    model_tag_not_current: false,
+                    min_impact_threshold: null
+                },
+                params: {
+                    limit: 200,
+                    rate_per_second: 1.0,
+                    dry_run: false,
+                    model_tag: 'gpt-4.1-nano',
+                    override_existing: false
+                },
+                latestCount: null,
+                preview: {
+                    item_count: 0,
+                    estimated_cost_usd: 0,
+                    estimated_duration_minutes: 0,
+                    already_analyzed_count: 0,
+                    new_items_count: 0,
+                    has_conflicts: false
+                },
+
+                // Article selection data
+                selectedArticles: [],
+                availableArticles: [],
+                availableFeeds: [],
+                articleFilters: {
+                    feed_id: '',
+                    unanalyzed_only: true
+                },
+                articlesLoading: false,
+                articlesPagination: {
+                    page: 1,
+                    has_more: false
+                },
+
+                // Latest selection data
+                customCount: 50,
+
+                init() {
+                    this.loadFeeds();
+                    this.updatePreview();
+
+                    // Watch for changes in selectedArticles
+                    this.$watch('selectedArticles', (newValue) => {
+                        this.scope.article_ids = [...newValue];
+                        // Auto-switch to articles scope when articles are selected
+                        if (newValue.length > 0 && this.scope.type !== 'articles') {
+                            this.scope.type = 'articles';
+                            // Also activate the articles tab visually
+                            const articlesTab = document.getElementById('articles-tab');
+                            if (articlesTab) {
+                                const tabInstance = new bootstrap.Tab(articlesTab);
+                                tabInstance.show();
+                            }
+                        }
+                        this.updatePreview();
+                    });
+
+                    // Watch for changes in feed_ids
+                    this.$watch('scope.feed_ids', (newValue) => {
+                        // Auto-switch to feeds scope when feeds are selected
+                        if (newValue.length > 0 && this.scope.type !== 'feeds') {
+                            this.scope.type = 'feeds';
+                            // Also activate the feeds tab visually
+                            const feedsTab = document.getElementById('feeds-tab');
+                            if (feedsTab) {
+                                const tabInstance = new bootstrap.Tab(feedsTab);
+                                tabInstance.show();
+                            }
+                        }
+                        this.updatePreview();
+                    });
+
+                    // Watch for changes in time range
+                    this.$watch('scope.start_time', () => this.updatePreview());
+                    this.$watch('scope.end_time', () => this.updatePreview());
+
+                    // Watch for changes in filters
+                    this.$watch('scope.unanalyzed_only', () => this.updatePreview());
+                    this.$watch('scope.model_tag_not_current', () => this.updatePreview());
+                    this.$watch('scope.min_impact_threshold', () => this.updatePreview());
+
+                    // Listen for tab activation and update scope type
+                    const tabButtons = document.querySelectorAll('#scopeTabs button[data-bs-toggle="tab"]');
+                    tabButtons.forEach(tab => {
+                        tab.addEventListener('shown.bs.tab', (event) => {
+                            const targetId = event.target.getAttribute('data-bs-target').substring(1); // Remove #
+                            this.scope.type = targetId === 'filters' ? 'filtered' : targetId;
+
+                            if (targetId === 'articles' && this.availableArticles.length === 0) {
+                                this.loadArticles();
+                            }
+
+                            this.updatePreview();
+                        });
+                    });
+                },
+
+                setTimeRange(range) {
+                    const now = new Date();
+                    const start = new Date(now);
+
+                    switch(range) {
+                        case '2h':
+                            start.setHours(now.getHours() - 2);
+                            break;
+                        case '24h':
+                            start.setHours(now.getHours() - 24);
+                            break;
+                        case '7d':
+                            start.setDate(now.getDate() - 7);
+                            break;
+                    }
+
+                    this.scope.start_time = start.toISOString().slice(0, 16);
+                    this.scope.end_time = now.toISOString().slice(0, 16);
+                    this.updatePreview();
+                },
+
+                updatePreview() {
+                    // Debounce preview updates
+                    clearTimeout(this.previewTimeout);
+                    this.previewTimeout = setTimeout(() => {
+                        this.doUpdatePreview();
+                    }, 500);
+                },
+
+                async doUpdatePreview() {
+                    try {
+                        const response = await fetch('/api/analysis/preview', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                scope: this.scope,
+                                params: this.params
+                            })
+                        });
+
+                        if (response.ok) {
+                            this.preview = await response.json();
+                            this.renderPreview();
+                        }
+                    } catch (error) {
+                        console.error('Preview update failed:', error);
+                    }
+                },
+
+                renderPreview() {
+                    const previewEl = document.getElementById('run-preview');
+                    const isHighCost = this.preview.estimated_cost_usd > 5.0;
+                    const hasConflicts = this.preview.has_conflicts && !this.params.override_existing;
+
+                    let alertClass = 'alert-info';
+                    if (hasConflicts) {
+                        alertClass = 'alert-warning';
+                    } else if (isHighCost) {
+                        alertClass = 'alert-warning cost-warning';
+                    }
+
+                    previewEl.className = `alert ${alertClass}`;
+
+                    let conflictInfo = '';
+                    if (this.preview.has_conflicts) {
+                        if (this.params.override_existing) {
+                            conflictInfo = `
+                                <div class="mt-2 p-2 bg-warning bg-opacity-10 rounded">
+                                    <i class="fas fa-info-circle text-warning"></i>
+                                    <strong>Override Mode:</strong> ${this.preview.already_analyzed_count} already analyzed items will be re-processed.
+                                </div>
+                            `;
+                        } else {
+                            conflictInfo = `
+                                <div class="mt-2 p-2 bg-info bg-opacity-10 rounded">
+                                    <i class="fas fa-info-circle text-info"></i>
+                                    <strong>Conflicts detected:</strong> ${this.preview.already_analyzed_count} already analyzed items will be skipped.
+                                    Enable "Override existing" to re-analyze them.
+                                </div>
+                            `;
+                        }
+                    }
+
+                    // Calculate totals for display
+                    const totalItems = (this.preview.already_analyzed_count || 0) + (this.preview.new_items_count || 0);
+                    const analyzedItems = this.preview.already_analyzed_count || 0;
+
+                    previewEl.innerHTML = `
+                        <div class="row text-center">
+                            <div class="col-md-3">
+                                <strong>${this.preview.item_count}</strong><br>
+                                <small class="text-muted">Items to process</small>
+                            </div>
+                            <div class="col-md-3">
+                                <strong>$${this.preview.estimated_cost_usd.toFixed(4)}</strong><br>
+                                <small class="text-muted">Est. Cost</small>
+                            </div>
+                            <div class="col-md-3">
+                                <strong>${this.preview.estimated_duration_minutes}m</strong><br>
+                                <small class="text-muted">Est. Duration</small>
+                            </div>
+                            <div class="col-md-3">
+                                <strong>${this.params.rate_per_second}/s</strong><br>
+                                <small class="text-muted">Rate</small>
+                            </div>
+                        </div>
+                        ${totalItems > 0 ? `
+                        <div class="mt-3 p-2 bg-light rounded">
+                            <div class="row text-center small">
+                                <div class="col-4">
+                                    <strong class="text-success">${analyzedItems}</strong><br>
+                                    <span class="text-muted">Already analyzed</span>
+                                </div>
+                                <div class="col-4">
+                                    <strong class="text-primary">${this.preview.new_items_count || 0}</strong><br>
+                                    <span class="text-muted">New items</span>
+                                </div>
+                                <div class="col-4">
+                                    <strong class="text-secondary">${totalItems}</strong><br>
+                                    <span class="text-muted">Total in scope</span>
+                                </div>
+                            </div>
+                        </div>
+                        ` : ''}
+                        ${conflictInfo}
+                        ${isHighCost ? '<div class="mt-2"><i class="fas fa-exclamation-triangle"></i> <strong>High cost estimate!</strong></div>' : ''}
+                    `;
+                },
+
+                async startRun() {
+                    try {
+                        const response = await fetch('/api/analysis/start', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                scope: this.scope,
+                                params: this.params
+                            })
+                        });
+
+                        if (response.ok) {
+                            const run = await response.json();
+                            // Refresh active runs display
+                            htmx.trigger('#active-runs', 'refresh');
+                            // Show success message
+                            this.showAlert(`Analysis run ${run.id} started successfully!`, 'success');
+                        } else {
+                            const error = await response.json();
+                            this.showAlert(error.detail || 'Failed to start run', 'danger');
+                        }
+                    } catch (error) {
+                        this.showAlert('Failed to start run: ' + error.message, 'danger');
+                    }
+                },
+
+                saveCurrentAsPreset() {
+                    const name = prompt('Enter preset name:');
+                    if (!name) return;
+
+                    const description = prompt('Enter description (optional):');
+
+                    this.doSavePreset(name, description);
+                },
+
+                async doSavePreset(name, description) {
+                    try {
+                        const response = await fetch('/api/analysis/presets', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                name: name,
+                                description: description,
+                                scope: this.scope,
+                                params: this.params
+                            })
+                        });
+
+                        if (response.ok) {
+                            htmx.trigger('#presets-list', 'refresh');
+                            this.showAlert('Preset saved successfully!', 'success');
+                        } else {
+                            const error = await response.json();
+                            this.showAlert(error.detail || 'Failed to save preset', 'danger');
+                        }
+                    } catch (error) {
+                        this.showAlert('Failed to save preset: ' + error.message, 'danger');
+                    }
+                },
+
+                // Article selection methods
+                async loadFeeds() {
+                    try {
+                        const response = await fetch('/api/analysis/feeds');
+                        if (response.ok) {
+                            this.availableFeeds = await response.json();
+                        }
+                    } catch (error) {
+                        console.error('Failed to load feeds:', error);
+                    }
+                },
+
+                async loadArticles() {
+                    this.articlesLoading = true;
+                    this.articlesPagination.page = 1;
+                    this.availableArticles = [];
+
+                    try {
+                        const params = new URLSearchParams({
+                            page: this.articlesPagination.page,
+                            limit: 50,
+                            unanalyzed_only: this.articleFilters.unanalyzed_only
+                        });
+
+                        if (this.articleFilters.feed_id) {
+                            params.append('feed_id', this.articleFilters.feed_id);
+                        }
+
+                        const response = await fetch(`/api/analysis/articles?${params}`);
+                        if (response.ok) {
+                            const data = await response.json();
+                            this.availableArticles = data.articles;
+                            this.articlesPagination.has_more = data.has_more;
+                        }
+                    } catch (error) {
+                        console.error('Failed to load articles:', error);
+                    } finally {
+                        this.articlesLoading = false;
+                    }
+                },
+
+                async loadMoreArticles() {
+                    if (this.articlesLoading || !this.articlesPagination.has_more) return;
+
+                    this.articlesLoading = true;
+                    this.articlesPagination.page += 1;
+
+                    try {
+                        const params = new URLSearchParams({
+                            page: this.articlesPagination.page,
+                            limit: 50,
+                            unanalyzed_only: this.articleFilters.unanalyzed_only
+                        });
+
+                        if (this.articleFilters.feed_id) {
+                            params.append('feed_id', this.articleFilters.feed_id);
+                        }
+
+                        const response = await fetch(`/api/analysis/articles?${params}`);
+                        if (response.ok) {
+                            const data = await response.json();
+                            this.availableArticles = [...this.availableArticles, ...data.articles];
+                            this.articlesPagination.has_more = data.has_more;
+                        }
+                    } catch (error) {
+                        console.error('Failed to load more articles:', error);
+                    } finally {
+                        this.articlesLoading = false;
+                    }
+                },
+
+                clearSelectedArticles() {
+                    this.selectedArticles = [];
+                    this.scope.article_ids = [];
+                    this.updatePreview();
+                },
+
+                selectAllVisibleArticles() {
+                    this.selectedArticles = this.availableArticles.map(a => a.id);
+                    this.scope.article_ids = [...this.selectedArticles];
+                    this.updatePreview();
+                },
+
+                showAlert(message, type) {
+                    // Simple toast notification
+                    const toast = document.createElement('div');
+                    toast.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+                    toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+                    toast.innerHTML = `
+                        ${message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    `;
+                    document.body.appendChild(toast);
+
+                    setTimeout(() => {
+                        if (toast.parentNode) {
+                            toast.parentNode.removeChild(toast);
+                        }
+                    }, 5000);
+                },
+
+                // Latest selection functions
+                async setLatestCount(count) {
+                    try {
+                        // First, fetch the actual latest article IDs from the backend
+                        const response = await fetch(`/api/analysis/articles?page=1&limit=${count}&unanalyzed_only=false`);
+
+                        if (!response.ok) {
+                            let errorMessage = `Failed to fetch latest articles (${response.status})`;
+
+                            try {
+                                const errorData = await response.json();
+                                if (errorData.detail) {
+                                    if (Array.isArray(errorData.detail)) {
+                                        // FastAPI validation error format
+                                        const validationError = errorData.detail[0];
+                                        if (validationError.msg && validationError.msg.includes('less than or equal to')) {
+                                            errorMessage = `Maximum limit is ${validationError.ctx.le} articles. Please choose a smaller number.`;
+                                        } else {
+                                            errorMessage = `Validation error: ${validationError.msg}`;
+                                        }
+                                    } else {
+                                        errorMessage = errorData.detail;
+                                    }
+                                }
+                            } catch (jsonError) {
+                                // If we can't parse the error response, use the status-based message
+                            }
+
+                            throw new Error(errorMessage);
+                        }
+
+                        const data = await response.json();
+                        const articleIds = data.articles.map(article => article.id);
+
+                        console.log(`SET Latest ${count}: Got ${articleIds.length} article IDs`, articleIds.slice(0, 5));
+
+                        // Set scope to these specific articles
+                        this.scope.type = 'articles';
+                        this.scope.article_ids = articleIds;
+                        this.scope.item_ids = [];
+                        this.scope.feed_ids = [];
+                        this.scope.start_time = null;
+                        this.scope.end_time = null;
+                        this.scope.unanalyzed_only = true;
+
+                        // Clear latestCount since we now have concrete article IDs
+                        this.latestCount = null;
+
+                        // Switch to Latest tab
+                        const latestTab = document.getElementById('latest-tab');
+                        if (latestTab) {
+                            const tabInstance = new bootstrap.Tab(latestTab);
+                            tabInstance.show();
+                        }
+
+                        // Force immediate preview update for set button
+                        console.log('SET button clicked, updating preview for count:', count);
+                        this.doUpdatePreview();
+                    } catch (error) {
+                        console.error('Failed to set latest count:', error);
+                        alert(error.message || 'Failed to load latest articles. Please try again.');
+                    }
+                },
+
+            }
+        }
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

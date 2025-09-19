@@ -1,0 +1,243 @@
+#!/usr/bin/env python3
+"""
+Analysis Worker - Processes analysis runs and items from the queue
+"""
+
+import os
+import sys
+import time
+import signal
+import logging
+import argparse
+from typing import Optional
+from datetime import datetime
+
+# Add project root to Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+
+from app.services.analysis_orchestrator import AnalysisOrchestrator
+from app.domain.analysis.control import MODEL_PRICING
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler('/var/log/news-analysis-worker.log', 'a') if os.access('/var/log', os.W_OK) else logging.NullHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
+class AnalysisWorker:
+    """Main analysis worker class"""
+
+    def __init__(self):
+        self.running = True
+        self.orchestrator = None
+        self._setup_signal_handlers()
+        self._load_config()
+
+    def _setup_signal_handlers(self):
+        """Setup signal handlers for graceful shutdown"""
+        def signal_handler(signum, frame):
+            logger.info(f"Received signal {signum}, shutting down gracefully...")
+            self.running = False
+
+        signal.signal(signal.SIGTERM, signal_handler)
+        signal.signal(signal.SIGINT, signal_handler)
+
+    def _load_config(self):
+        """Load configuration from environment variables"""
+        self.config = {
+            'chunk_size': int(os.getenv('WORKER_CHUNK_SIZE', '10')),
+            'sleep_interval': float(os.getenv('WORKER_SLEEP_INTERVAL', '5.0')),
+            'heartbeat_interval': float(os.getenv('WORKER_HEARTBEAT_INTERVAL', '10.0')),
+            'stale_processing_seconds': int(os.getenv('WORKER_STALE_PROCESSING_SEC', '300')),
+            'min_request_interval': float(os.getenv('WORKER_MIN_REQUEST_INTERVAL', '0.5')),
+            'max_runs_per_cycle': int(os.getenv('WORKER_MAX_RUNS_PER_CYCLE', '5')),
+            'reset_stale_on_start': os.getenv('WORKER_RESET_STALE_ON_START', 'true').lower() == 'true'
+        }
+
+        logger.info(f"Worker config loaded: {self.config}")
+
+    def start(self):
+        """Start the worker main loop"""
+        logger.info("Starting Analysis Worker")
+
+        try:
+            # Initialize orchestrator
+            self.orchestrator = AnalysisOrchestrator(
+                chunk_size=self.config['chunk_size'],
+                min_request_interval=self.config['min_request_interval']
+            )
+
+            # Reset stale items on startup if configured
+            if self.config['reset_stale_on_start']:
+                stale_count = self.orchestrator.reset_stale_items(self.config['stale_processing_seconds'])
+                if stale_count > 0:
+                    logger.info(f"Reset {stale_count} stale processing items on startup")
+
+            last_heartbeat = 0
+            last_stale_reset = 0
+
+            logger.info("Worker main loop started")
+
+            while self.running:
+                cycle_start = time.time()
+
+                try:
+                    # Process analysis runs
+                    work_done = self._process_work_cycle()
+
+                    # Periodic maintenance
+                    current_time = time.time()
+
+                    # Heartbeat and stale reset
+                    if current_time - last_heartbeat > self.config['heartbeat_interval']:
+                        self._periodic_maintenance()
+                        last_heartbeat = current_time
+
+                    if current_time - last_stale_reset > self.config['stale_processing_seconds']:
+                        self.orchestrator.reset_stale_items(self.config['stale_processing_seconds'])
+                        last_stale_reset = current_time
+
+                    # Sleep if no work was done
+                    if not work_done:
+                        logger.debug("No work to do, sleeping...")
+                        time.sleep(self.config['sleep_interval'])
+
+                except Exception as e:
+                    logger.error(f"Error in work cycle: {e}", exc_info=True)
+                    time.sleep(self.config['sleep_interval'])
+
+        except KeyboardInterrupt:
+            logger.info("Worker interrupted by user")
+        except Exception as e:
+            logger.error(f"Worker failed: {e}", exc_info=True)
+            raise
+        finally:
+            logger.info("Analysis Worker stopped")
+
+    def _process_work_cycle(self) -> bool:
+        """Process one work cycle, returns True if work was done"""
+        work_done = False
+
+        try:
+            # Get available runs
+            runs = self.orchestrator.get_available_runs()
+
+            if not runs:
+                logger.debug("No runs available for processing")
+                return False
+
+            # Limit number of runs processed per cycle
+            runs = runs[:self.config['max_runs_per_cycle']]
+
+            for run in runs:
+                if not self.running:
+                    break
+
+                try:
+                    work_done |= self._process_single_run(run)
+                except Exception as e:
+                    logger.error(f"Error processing run {run['id']}: {e}")
+
+        except Exception as e:
+            logger.error(f"Error in work cycle: {e}")
+
+        return work_done
+
+    def _process_single_run(self, run: dict) -> bool:
+        """Process a single run, returns True if work was done"""
+        run_id = run["id"]
+        status = run["status"]
+
+        logger.debug(f"Processing run {run_id} with status {status}")
+
+        try:
+            # Start pending runs
+            if status == "pending":
+                if self.orchestrator.start_run(run):
+                    logger.info(f"Started run {run_id}")
+                    run["status"] = "running"  # Update local status
+                else:
+                    logger.warning(f"Failed to start run {run_id}")
+                    return False
+
+            # Process items for running runs
+            if run["status"] == "running":
+                processed_count = self.orchestrator.process_run_items(run)
+
+                if processed_count > 0:
+                    logger.info(f"Processed {processed_count} items for run {run_id}")
+
+                # Check if run is completed
+                if self.orchestrator.check_run_completion(run):
+                    logger.info(f"Run {run_id} completed")
+
+                return processed_count > 0
+
+        except Exception as e:
+            logger.error(f"Error processing run {run_id}: {e}")
+
+        return False
+
+    def _periodic_maintenance(self):
+        """Perform periodic maintenance tasks"""
+        try:
+            logger.debug("Performing periodic maintenance")
+            # Additional maintenance tasks can be added here
+        except Exception as e:
+            logger.error(f"Error in periodic maintenance: {e}")
+
+    def stop(self):
+        """Stop the worker"""
+        self.running = False
+        logger.info("Worker stop requested")
+
+
+def main():
+    """CLI entry point"""
+    parser = argparse.ArgumentParser(description='News Analysis Worker')
+    parser.add_argument('--verbose', '-v', action='store_true',
+                       help='Enable verbose logging')
+    parser.add_argument('--dry-run', action='store_true',
+                       help='Run in dry-run mode without processing')
+
+    args = parser.parse_args()
+
+    if args.verbose:
+        logging.getLogger().setLevel(logging.DEBUG)
+
+    # Load environment variables
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+    except ImportError:
+        logger.warning("python-dotenv not available, skipping .env file loading")
+
+    # Validate required environment variables
+    required_env_vars = ['DATABASE_URL', 'OPENAI_API_KEY']
+    missing_vars = [var for var in required_env_vars if not os.getenv(var)]
+    if missing_vars:
+        logger.error(f"Missing required environment variables: {missing_vars}")
+        sys.exit(1)
+
+    if args.dry_run:
+        logger.info("Running in dry-run mode")
+        # Could add dry-run specific logic here
+        return
+
+    try:
+        worker = AnalysisWorker()
+        worker.start()
+    except KeyboardInterrupt:
+        logger.info("Worker interrupted by user")
+    except Exception as e:
+        logger.error(f"Worker failed: {e}", exc_info=True)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

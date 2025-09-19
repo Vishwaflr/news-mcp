@@ -32,6 +32,11 @@ A comprehensive MCP-compatible news reader with dynamic template management, int
 - **Configuration Dashboard**: Real-time status of all templates and assignments
 - **Statistics & Analytics**: Detailed analysis of template performance
 - **Health Monitoring**: Real-time status of all feeds and scheduler instances
+- **Analysis Control Center**: Advanced sentiment and impact analysis with AI models
+  - Bulk analysis runs with flexible target selection (latest articles, feeds, time ranges)
+  - Real-time preview with cost estimation and duplicate detection
+  - Multiple AI model support (GPT-4.1-nano, GPT-4o-mini, etc.)
+  - Analysis history tracking with detailed run metrics
 
 ### 🏗️ Robust Architecture
 - **Microservices**: Separate services for web UI and scheduler
@@ -55,6 +60,7 @@ A comprehensive MCP-compatible news reader with dynamic template management, int
 │   │   ├── statistics.py   # Analytics & Metrics
 │   │   ├── health.py       # Health Check Endpoints
 │   │   ├── htmx.py         # HTMX Templates Management
+│   │   ├── analysis_control.py # Analysis Control Center API
 │   │   └── database.py     # Database Management API
 │   ├── models.py           # SQLModel Database Models
 │   ├── database.py         # Database Configuration

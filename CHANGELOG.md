@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🔥 Major Features Added
+
+#### Analysis Control Center - AI-Powered Content Analysis
+- **Bulk Analysis Runs**: Execute sentiment and impact analysis on multiple articles
+  - Flexible target selection (latest articles, specific feeds, time ranges, filtered)
+  - Real-time preview with cost estimation and duplicate detection
+  - Multiple AI model support (GPT-4.1-nano, GPT-4o-mini, etc.)
+  - Analysis history tracking with detailed run metrics
+- **Advanced Scope Selection**: Target articles by various criteria
+  - Latest N articles from all feeds
+  - All articles from specific feeds
+  - Articles within custom time ranges
+  - Pre-filtered article sets
+- **Cost Management**: Built-in cost estimation and SLO enforcement
+  - Real-time cost preview before analysis execution
+  - Configurable cost limits per run
+  - Budget tracking and analysis economics
+- **Run Management**: Complete analysis workflow control
+  - Start, pause, resume, and cancel analysis runs
+  - Real-time progress monitoring
+  - Detailed run status and metrics
+- **Preset System**: Save and reuse common analysis configurations
+  - Custom preset creation and management
+  - Quick-launch frequently used analysis patterns
+
+#### Enhanced API Capabilities
+- **Increased Article Limits**: API endpoints now support up to 1,000 articles per request (was 200)
+- **Improved Error Handling**: Better validation error messages in frontend
+- **Pagination Support**: Enhanced pagination for large dataset handling
+
 ### 🎯 Architecture Improvements
 
 #### HTMX Refactoring - Clean Architecture Implementation
@@ -18,6 +48,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Single Responsibility**: Each module now focuses on a specific domain
 - **Router Aggregation**: Clean router pattern with proper prefix handling
 - **Zero Downtime**: Refactoring completed without breaking existing functionality
+
+### 🐛 Fixed
+- **Article Selection Limits**: Fixed "Failed to load latest articles" error when selecting 500+ articles
+  - Increased API validation limit from 200 to 1,000 articles in `/api/analysis/articles` endpoint
+  - Enhanced frontend error handling to display specific validation messages
+  - Improved user experience with clear error messaging for limit exceedances
 
 ## [2.1.0] - 2025-01-17 - PostgreSQL Migration & UI Fixes
 

@@ -1,0 +1,47 @@
+[Unit]
+Description=News Analysis Worker - LLM-based sentiment and impact analysis
+Documentation=https://github.com/cytrex/news-mcp
+After=network.target postgresql.service
+Wants=postgresql.service
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=cytrex
+Group=cytrex
+WorkingDirectory=/home/cytrex/news-mcp
+Environment=PYTHONPATH=/home/cytrex/news-mcp
+EnvironmentFile=/home/cytrex/news-mcp/.env.worker
+
+# Command to run
+ExecStart=/home/cytrex/news-mcp/venv/bin/python /home/cytrex/news-mcp/app/worker/analysis_worker.py --verbose
+ExecReload=/bin/kill -HUP $MAINPID
+
+# Restart policy
+Restart=always
+RestartSec=10
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=false
+ReadWritePaths=/home/cytrex/news-mcp
+ReadWritePaths=/var/log
+
+# Resource limits
+LimitNOFILE=65536
+MemoryMax=2G
+CPUQuota=200%
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=news-analysis-worker
+
+[Install]
+WantedBy=multi-user.target
