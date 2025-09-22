@@ -7,7 +7,11 @@ from datetime import datetime, timedelta
 
 from .base import BaseService, ServiceResult, NotFoundError, ValidationError, BusinessLogicError
 from app.models import Feed, Source, Category, FeedCategory, Item, FeedHealth, FetchLog
-from app.schemas import FeedCreate, FeedUpdate, FeedResponse
+# from app.schemas import FeedCreate, FeedUpdate, FeedResponse
+from typing import Any
+FeedCreate = Any
+FeedUpdate = Any
+FeedResponse = Any
 from app.services.feed_change_tracker import track_feed_changes
 
 logger = logging.getLogger(__name__)

@@ -5,7 +5,10 @@ from typing import List, Optional
 from datetime import datetime, timedelta
 from app.database import get_session
 from app.models import Item, Feed, Category, FeedCategory
-from app.schemas import ItemResponse
+# from app.schemas import ItemResponse
+# TODO: Fix schema imports
+from typing import Any
+ItemResponse = Any
 from app.repositories.items import ItemsRepo
 
 router = APIRouter(prefix="/items", tags=["items"])

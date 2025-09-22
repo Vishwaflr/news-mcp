@@ -84,61 +84,86 @@ def get_stats_partial() -> str:
         neutral = sentiment_dist.get("neutral", 0)
 
         html = f"""
-        <div class="row text-center">
-            <div class="col-6 col-md-3 mb-3">
-                <div class="metric-card p-3 border rounded">
-                    <h4 class="text-primary mb-1">{total_items:,}</h4>
-                    <small class="text-muted">Total Items</small>
+        <div class="row mb-2">
+            <div class="col-6">
+                <div class="card border-0 bg-light">
+                    <div class="card-body p-2 text-center">
+                        <div style="font-size: 0.9rem; font-weight: bold;" class="text-primary">{total_items:,}</div>
+                        <div style="font-size: 0.75rem;" class="text-muted">Items</div>
+                    </div>
                 </div>
             </div>
-            <div class="col-6 col-md-3 mb-3">
-                <div class="metric-card p-3 border rounded">
-                    <h4 class="text-success mb-1">{stats.get('total_analyzed', 0):,}</h4>
-                    <small class="text-muted">Analyzed</small>
-                </div>
-            </div>
-            <div class="col-6 col-md-3 mb-3">
-                <div class="metric-card p-3 border rounded">
-                    <h4 class="text-warning mb-1">{pending_count:,}</h4>
-                    <small class="text-muted">Pending</small>
-                </div>
-            </div>
-            <div class="col-6 col-md-3 mb-3">
-                <div class="metric-card p-3 border rounded">
-                    <h4 class="mb-1">
-                        <span class="slo-indicator {coverage_slo_class}"></span>
-                        {coverage_percent}%
-                    </h4>
-                    <small class="text-muted">Coverage</small>
+            <div class="col-6">
+                <div class="card border-0 bg-light">
+                    <div class="card-body p-2 text-center">
+                        <div style="font-size: 0.9rem; font-weight: bold;" class="text-success">{stats.get('total_analyzed', 0):,}</div>
+                        <div style="font-size: 0.75rem;" class="text-muted">Analyzed</div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="mt-3">
-            <h6><i class="fas fa-chart-pie"></i> Sentiment Distribution</h6>
-            <div class="row text-center">
-                <div class="col-4">
-                    <span class="badge bg-success fs-6">{positive}</span><br>
-                    <small>Positive</small>
+        <div class="row mb-2">
+            <div class="col-6">
+                <div class="card border-0 bg-light">
+                    <div class="card-body p-2 text-center">
+                        <div style="font-size: 0.9rem; font-weight: bold;" class="text-warning">{pending_count:,}</div>
+                        <div style="font-size: 0.75rem;" class="text-muted">Pending</div>
+                    </div>
                 </div>
-                <div class="col-4">
-                    <span class="badge bg-secondary fs-6">{neutral}</span><br>
-                    <small>Neutral</small>
-                </div>
-                <div class="col-4">
-                    <span class="badge bg-danger fs-6">{negative}</span><br>
-                    <small>Negative</small>
+            </div>
+            <div class="col-6">
+                <div class="card border-0 bg-light">
+                    <div class="card-body p-2 text-center">
+                        <div style="font-size: 0.9rem; font-weight: bold;">{coverage_percent}%</div>
+                        <div style="font-size: 0.75rem;" class="text-muted">Coverage</div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="mt-3">
-            <div class="row">
-                <div class="col-6">
-                    <strong>Avg Impact:</strong> {stats.get('avg_impact', 0):.2f}
+        <div class="row mb-2">
+            <div class="col-4">
+                <div class="card border-0 bg-light">
+                    <div class="card-body p-2 text-center">
+                        <div style="font-size: 0.9rem; font-weight: bold;" class="text-success">{positive}</div>
+                        <div style="font-size: 0.75rem;" class="text-muted">Positive</div>
+                    </div>
                 </div>
-                <div class="col-6">
-                    <strong>Avg Urgency:</strong> {stats.get('avg_urgency', 0):.2f}
+            </div>
+            <div class="col-4">
+                <div class="card border-0 bg-light">
+                    <div class="card-body p-2 text-center">
+                        <div style="font-size: 0.9rem; font-weight: bold;" class="text-secondary">{neutral}</div>
+                        <div style="font-size: 0.75rem;" class="text-muted">Neutral</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-4">
+                <div class="card border-0 bg-light">
+                    <div class="card-body p-2 text-center">
+                        <div style="font-size: 0.9rem; font-weight: bold;" class="text-danger">{negative}</div>
+                        <div style="font-size: 0.75rem;" class="text-muted">Negative</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-6">
+                <div class="card border-0 bg-light">
+                    <div class="card-body p-2 text-center">
+                        <div style="font-size: 0.9rem; font-weight: bold;">{stats.get('avg_impact', 0):.2f}</div>
+                        <div style="font-size: 0.75rem;" class="text-muted">Impact</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="card border-0 bg-light">
+                    <div class="card-body p-2 text-center">
+                        <div style="font-size: 0.9rem; font-weight: bold;">{stats.get('avg_urgency', 0):.2f}</div>
+                        <div style="font-size: 0.75rem;" class="text-muted">Urgency</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -671,3 +696,31 @@ def get_presets_partial() -> str:
     except Exception as e:
         logger.error(f"Failed to get presets: {e}")
         return '<div class="alert alert-danger">Failed to load presets</div>'
+
+@router.get("/feeds-list-options", response_class=HTMLResponse)
+def get_feeds_list_options() -> str:
+    """Return feed options for select dropdown"""
+    try:
+        from app.database import get_session
+        from app.models import Feed
+        from sqlmodel import select
+
+        # Use dependency injection properly
+        with next(get_session()) as session:
+            feeds = session.exec(select(Feed).where(Feed.status == "active").order_by(Feed.title)).all()
+
+            html = '<option value="">Select Feed</option>'
+            for feed in feeds:
+                # Truncate title if too long
+                display_title = feed.title or f"Feed {feed.id}"
+                if len(display_title) > 40:
+                    display_title = display_title[:37] + "..."
+
+                html += f'<option value="{feed.id}">{display_title}</option>'
+
+            logger.info(f"Loaded {len(feeds)} feeds for dropdown")
+            return html
+
+    except Exception as e:
+        logger.error(f"Failed to get feeds: {e}")
+        return '<option value="">Select Feed</option>'

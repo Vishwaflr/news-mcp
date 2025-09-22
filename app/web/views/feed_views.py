@@ -90,59 +90,41 @@ def get_feeds_list(
 
         if has_articles:
             try:
-                # Use direct SQL execution to get comprehensive feed metrics
-                import psycopg2
-                from app.config import settings
+                # Use SQLAlchemy engine to get comprehensive feed metrics
+                from sqlalchemy import text
 
-                # Parse DATABASE_URL
-                db_url = settings.database_url
-                if db_url.startswith("postgresql://"):
-                    # Extract connection params from URL
-                    import re
-                    match = re.match(r'postgresql://([^:]+):([^@]+)@([^:]+):?(\d+)?/(.+)', db_url)
-                    if match:
-                        user, password, host, port, db = match.groups()
-                        port = port or 5432
+                query = text("""
+                    SELECT
+                        COUNT(*) as total_analyzed,
+                        COUNT(CASE WHEN sentiment_json->'overall'->>'label' = 'positive' THEN 1 END) as positive_count,
+                        COUNT(CASE WHEN sentiment_json->'overall'->>'label' = 'negative' THEN 1 END) as negative_count,
+                        COUNT(CASE WHEN sentiment_json->'overall'->>'label' = 'neutral' THEN 1 END) as neutral_count,
+                        COUNT(CASE WHEN CAST(sentiment_json->>'urgency' AS NUMERIC) >= 0.7 THEN 1 END) as high_urgency,
+                        COUNT(CASE WHEN CAST(impact_json->>'overall' AS NUMERIC) >= 0.7 THEN 1 END) as high_impact,
+                        COUNT(CASE WHEN CAST(sentiment_json->>'urgency' AS NUMERIC) >= 0.7 AND CAST(impact_json->>'overall' AS NUMERIC) >= 0.7 THEN 1 END) as highly_relevant,
+                        ROUND(AVG(CAST(sentiment_json->>'urgency' AS NUMERIC)), 2) as avg_urgency,
+                        ROUND(AVG(CAST(impact_json->>'overall' AS NUMERIC)), 2) as avg_impact
+                    FROM item_analysis ia
+                    JOIN items i ON ia.item_id = i.id
+                    WHERE i.feed_id = :feed_id
+                """)
 
-                        # Connect directly with psycopg2
-                        with psycopg2.connect(
-                            host=host,
-                            port=port,
-                            user=user,
-                            password=password,
-                            database=db
-                        ) as conn:
-                            with conn.cursor() as cur:
-                                cur.execute("""
-                                    SELECT
-                                        COUNT(*) as total_analyzed,
-                                        COUNT(CASE WHEN sentiment_json->'overall'->>'label' = 'positive' THEN 1 END) as positive_count,
-                                        COUNT(CASE WHEN sentiment_json->'overall'->>'label' = 'negative' THEN 1 END) as negative_count,
-                                        COUNT(CASE WHEN sentiment_json->'overall'->>'label' = 'neutral' THEN 1 END) as neutral_count,
-                                        COUNT(CASE WHEN CAST(sentiment_json->>'urgency' AS NUMERIC) >= 0.7 THEN 1 END) as high_urgency,
-                                        COUNT(CASE WHEN CAST(impact_json->>'overall' AS NUMERIC) >= 0.7 THEN 1 END) as high_impact,
-                                        COUNT(CASE WHEN CAST(sentiment_json->>'urgency' AS NUMERIC) >= 0.7 AND CAST(impact_json->>'overall' AS NUMERIC) >= 0.7 THEN 1 END) as highly_relevant,
-                                        ROUND(AVG(CAST(sentiment_json->>'urgency' AS NUMERIC)), 2) as avg_urgency,
-                                        ROUND(AVG(CAST(impact_json->>'overall' AS NUMERIC)), 2) as avg_impact
-                                    FROM item_analysis ia
-                                    JOIN items i ON ia.item_id = i.id
-                                    WHERE i.feed_id = %s
-                                """, (feed.id,))
-
-                                result = cur.fetchone()
-                                if result and result[0] > 0:
-                                    analysis_count = result[0]
-                                    sentiment_stats = {
-                                        'total_analyzed': result[0],
-                                        'positive_count': result[1],
-                                        'negative_count': result[2],
-                                        'neutral_count': result[3],
-                                        'high_urgency': result[4],
-                                        'high_impact': result[5],
-                                        'highly_relevant': result[6],
-                                        'avg_urgency': float(result[7]) if result[7] else 0,
-                                        'avg_impact': float(result[8]) if result[8] else 0
-                                    }
+                # Execute raw SQL using the session's connection
+                with session.get_bind().connect() as conn:
+                    result = conn.execute(query, {"feed_id": feed.id}).fetchone()
+                    if result and result[0] > 0:
+                        analysis_count = result[0]
+                        sentiment_stats = {
+                            'total_analyzed': result[0],
+                            'positive_count': result[1],
+                            'negative_count': result[2],
+                            'neutral_count': result[3],
+                            'high_urgency': result[4],
+                            'high_impact': result[5],
+                            'highly_relevant': result[6],
+                            'avg_urgency': float(result[7]) if result[7] else 0,
+                            'avg_impact': float(result[8]) if result[8] else 0
+                        }
             except Exception as e:
                 logger.warning(f"Could not fetch sentiment stats for feed {feed.id}: {e}")
                 analysis_count = 0

@@ -3,7 +3,10 @@ from sqlmodel import Session, select
 from typing import List
 from app.database import get_session
 from app.models import FeedHealth, FetchLog, Feed
-from app.schemas import FeedHealthResponse, FetchLogResponse
+# from app.schemas import FeedHealthResponse, FetchLogResponse
+from typing import Any
+FeedHealthResponse = Any
+FetchLogResponse = Any
 
 router = APIRouter(prefix="/health", tags=["health"])
 

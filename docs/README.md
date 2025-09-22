@@ -51,6 +51,9 @@ The following files are automatically maintained:
 ## 📁 Specialized Documentation
 
 ### Component-Specific
+- **[Analysis Control Interface](./ANALYSIS_CONTROL_INTERFACE.md)** - ✨ NEW: Complete interface redesign documentation
+- **[UI Components Guide](./UI_COMPONENTS_GUIDE.md)** - ✨ NEW: Bootstrap 5 + Alpine.js + HTMX patterns
+- **[Schema Import Workaround](./SCHEMA_IMPORT_WORKAROUND.md)** - ✨ NEW: Current technical debt documentation
 - **[MCP Server](../MCP_SERVER_README.md)** - Model Context Protocol server setup
 - **[Worker System](./WORKER_README.md)** - Analysis worker documentation
 - **[Repository Policy](./REPOSITORY_POLICY.md)** - Data access patterns

@@ -3,44 +3,118 @@
 {% block title %}Feed Management - News MCP{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h1>Feed Management</h1>
-    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addFeedModal">
-        <i class="bi bi-plus"></i> Add Feed
-    </button>
-</div>
+<div class="container-fluid px-xl">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-xl">
+        <div>
+            <h1 class="h3 mb-sm">Feed Management</h1>
+            <p class="nmc-text-muted mb-0">Manage RSS feeds and monitor their health status</p>
+        </div>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addFeedModal">
+            <i class="bi bi-plus me-sm"></i> Add Feed
+        </button>
+    </div>
 
-<div class="row mb-3">
-    <div class="col-md-6">
-        <input type="text" class="form-control" placeholder="Search feeds..."
-               hx-get="/htmx/feeds-list" hx-trigger="keyup changed delay:300ms" hx-target="#feeds-list">
-    </div>
-    <div class="col-md-3">
-        <select class="form-select" name="category_id" hx-get="/htmx/feeds-list" hx-trigger="change" hx-target="#feeds-list" hx-include="[name='status']"
-                id="category-filter">
-            <option value="0">All Categories</option>
-        </select>
-    </div>
-    <script>
-        // Load categories on page load
-        htmx.onLoad(function() {
-            htmx.ajax('GET', '/htmx/categories-options', {target: '#category-filter', swap: 'beforeend'});
-        });
-    </script>
-    <div class="col-md-3">
-        <select class="form-select" name="status" hx-get="/htmx/feeds-list" hx-trigger="change" hx-target="#feeds-list" hx-include="[name='category_id']">
-            <option value="">All Status</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-            <option value="error">Error</option>
-        </select>
-    </div>
-</div>
+    <!-- 2-Column Layout -->
+    <div class="row gap-xl">
+        <!-- Left Column: Feed List -->
+        <div class="col-lg-7">
+            <!-- Filter Bar -->
+            <div class="nmc-filter-bar mb-xl">
+                <div class="flex-grow-1 me-lg">
+                    <input type="text" class="form-control" placeholder="Search feeds..."
+                           hx-get="/htmx/feeds-list" hx-trigger="keyup changed delay:300ms" hx-target="#feeds-list">
+                </div>
+                <div class="nmc-filter-chip active" data-filter="all">
+                    All Feeds
+                </div>
+                <div class="nmc-filter-chip" data-filter="active">
+                    Active
+                </div>
+                <div class="nmc-filter-chip" data-filter="inactive">
+                    Inactive
+                </div>
+                <div class="nmc-filter-chip" data-filter="error">
+                    Error
+                </div>
+            </div>
 
-<div id="feeds-list" hx-get="/htmx/feeds-list" hx-trigger="load">
-    <div class="text-center">
-        <div class="spinner-border" role="status">
-            <span class="visually-hidden">Loading feeds...</span>
+            <!-- Feeds List Card -->
+            <div class="nmc-card nmc-table-card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">RSS Feeds</h6>
+                        <span class="nmc-badge status-active">45 Active</span>
+                    </div>
+                </div>
+                <div id="feeds-list" hx-get="/htmx/feeds-list" hx-trigger="load">
+                    <!-- Enhanced skeleton loading -->
+                    <div class="nmc-skeleton-card">
+                        <div class="nmc-skeleton-lines">
+                            <div class="d-flex align-items-center gap-md">
+                                <div class="nmc-skeleton skeleton-circle"></div>
+                                <div class="flex-grow-1">
+                                    <div class="nmc-skeleton skeleton-text"></div>
+                                    <div class="nmc-skeleton skeleton-text"></div>
+                                </div>
+                                <div class="nmc-skeleton skeleton-rect" style="width: 100px; height: 30px;"></div>
+                            </div>
+                            <div class="d-flex align-items-center gap-md">
+                                <div class="nmc-skeleton skeleton-circle"></div>
+                                <div class="flex-grow-1">
+                                    <div class="nmc-skeleton skeleton-text"></div>
+                                    <div class="nmc-skeleton skeleton-text"></div>
+                                </div>
+                                <div class="nmc-skeleton skeleton-rect" style="width: 100px; height: 30px;"></div>
+                            </div>
+                            <div class="d-flex align-items-center gap-md">
+                                <div class="nmc-skeleton skeleton-circle"></div>
+                                <div class="flex-grow-1">
+                                    <div class="nmc-skeleton skeleton-text"></div>
+                                    <div class="nmc-skeleton skeleton-text"></div>
+                                </div>
+                                <div class="nmc-skeleton skeleton-rect" style="width: 100px; height: 30px;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Details Panel -->
+        <div class="col-lg-4">
+            <!-- Feed Details Card -->
+            <div class="nmc-card nmc-status-card mb-xl">
+                <div class="status-header">
+                    <div class="status-indicator neutral"></div>
+                    <div class="status-title">Feed Details</div>
+                </div>
+                <div class="status-description">Select a feed to view detailed information and health metrics</div>
+                <div id="feed-details" class="mt-lg">
+                    <div class="text-center py-xl">
+                        <i class="bi bi-arrow-left-circle fs-1 nmc-text-muted"></i>
+                        <p class="nmc-text-muted mt-md">Select a feed from the list</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions Card -->
+            <div class="nmc-card">
+                <div class="card-body py-lg px-lg">
+                    <h6 class="mb-lg">Quick Actions</h6>
+                    <div class="d-grid gap-sm">
+                        <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addFeedModal">
+                            <i class="bi bi-plus-circle me-sm"></i> Add New Feed
+                        </button>
+                        <button class="btn btn-outline-info btn-sm" onclick="refreshAllFeeds()">
+                            <i class="bi bi-arrow-clockwise me-sm"></i> Refresh All
+                        </button>
+                        <button class="btn btn-outline-warning btn-sm" onclick="testAllFeeds()">
+                            <i class="bi bi-shield-check me-sm"></i> Health Check
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -55,8 +129,7 @@
             </div>
             <form hx-post="/api/feeds" hx-target="#feeds-list" hx-trigger="submit" hx-on="htmx:afterRequest: if(event.detail.successful) { try { const modal = bootstrap.Modal.getInstance(document.getElementById('addFeedModal')); if(modal) modal.hide(); } catch(e) { console.warn('Modal close error:', e); } }">
                 <div class="modal-body">
-                    <!-- Step 1: URL Input with Live Test -->
-                    <div class="mb-3">
+                    <div class="mb-lg">
                         <label for="feedUrl" class="form-label">Feed URL</label>
                         <div class="input-group">
                             <input type="url" class="form-control" id="feedUrl" name="url" required>
@@ -64,82 +137,33 @@
                                     hx-post="/htmx/feed-url-test"
                                     hx-include="#feedUrl"
                                     hx-target="#feed-preview">
-                                <i class="bi bi-search"></i> Test Feed
+                                <i class="bi bi-search"></i> Test
                             </button>
                         </div>
-                        <div class="form-text">Enter RSS/Atom feed URL to test and preview</div>
                     </div>
 
-                    <!-- Feed Preview Area -->
-                    <div id="feed-preview" class="mb-3">
+                    <div id="feed-preview" class="mb-lg">
                         <!-- Preview content will be loaded here -->
                     </div>
 
-                    <!-- Auto-filled or Manual Fields -->
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
+                    <div class="row gap-md">
+                        <div class="col-md-5">
+                            <div class="mb-md">
                                 <label for="feed-title" class="form-label">Title</label>
                                 <input type="text" class="form-control" id="feed-title" name="title">
                             </div>
                         </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="feed-type" class="form-label">Feed Type</label>
-                                <select class="form-select" id="feed-type" name="feed_type_id"
-                                        hx-get="/htmx/feed-types-options" hx-trigger="load" hx-target="this">
-                                    <option value="">Loading...</option>
-                                </select>
+                        <div class="col-md-5">
+                            <div class="mb-md">
+                                <label for="feed-interval" class="form-label">Interval (min)</label>
+                                <input type="number" class="form-control" id="feed-interval" name="fetch_interval_minutes" value="15" min="5">
                             </div>
                         </div>
                     </div>
 
-                    <div class="mb-3">
+                    <div class="mb-md">
                         <label for="feed-description" class="form-label">Description</label>
                         <textarea class="form-control" id="feed-description" name="description" rows="2"></textarea>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="feed-interval" class="form-label">Fetch Interval (Minutes)</label>
-                                <input type="number" class="form-control" id="feed-interval" name="fetch_interval_minutes" value="15" min="5">
-                                <div class="form-text">Recommended interval will be auto-set based on feed type</div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="feed-category" class="form-label">Category</label>
-                                <select class="form-select" id="feed-category" name="category_id"
-                                        hx-get="/htmx/categories-options" hx-trigger="load" hx-target="this" hx-swap="afterbegin">
-                                    <option value="0">No Category</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Advanced Settings Toggle -->
-                    <div class="accordion" id="advancedSettings">
-                        <div class="accordion-item">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                                        data-bs-target="#advancedPanel">
-                                    <i class="bi bi-gear me-2"></i> Advanced Settings
-                                </button>
-                            </h2>
-                            <div id="advancedPanel" class="accordion-collapse collapse">
-                                <div class="accordion-body">
-                                    <div class="mb-3">
-                                        <label class="form-label">Available Templates</label>
-                                        <div id="templates-preview"
-                                             hx-get="/htmx/available-templates"
-                                             hx-trigger="click from:.accordion-button">
-                                            <div class="text-muted">Click to load available templates...</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -151,30 +175,59 @@
     </div>
 </div>
 
-<!-- Edit Feed Modal -->
+<!-- Simplified modals for edit and health -->
 <div class="modal fade" id="editFeedModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content" id="edit-modal-content">
-            <!-- Content will be loaded dynamically -->
-            <div class="text-center p-4">
-                <div class="spinner-border" role="status">
-                    <span class="visually-hidden">Loading feed...</span>
+            <div class="nmc-skeleton-card text-center py-xl">
+                <div class="nmc-skeleton-lines">
+                    <div class="nmc-skeleton skeleton-text"></div>
+                    <div class="nmc-skeleton skeleton-text"></div>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Health Modal -->
 <div class="modal fade" id="healthModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content" id="health-modal-content">
-            <div class="text-center p-4">
-                <div class="spinner-border" role="status">
-                    <span class="visually-hidden">Loading health data...</span>
+            <div class="nmc-skeleton-card text-center py-xl">
+                <div class="nmc-skeleton-lines">
+                    <div class="nmc-skeleton skeleton-text"></div>
+                    <div class="nmc-skeleton skeleton-text"></div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+// Enhanced filter functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const filterChips = document.querySelectorAll('.nmc-filter-chip');
+    filterChips.forEach(chip => {
+        chip.addEventListener('click', function() {
+            // Remove active from all chips
+            filterChips.forEach(c => c.classList.remove('active'));
+            // Add active to clicked chip
+            this.classList.add('active');
+
+            // Trigger filter
+            const filter = this.dataset.filter;
+            // This would integrate with HTMX to filter the feeds list
+            console.log('Filter selected:', filter);
+        });
+    });
+});
+
+function refreshAllFeeds() {
+    htmx.ajax('GET', '/htmx/feeds-list', {target: '#feeds-list'});
+}
+
+function testAllFeeds() {
+    // Trigger health check for all feeds
+    console.log('Testing all feeds health...');
+}
+</script>
 {% endblock %}

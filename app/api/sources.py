@@ -3,7 +3,12 @@ from sqlmodel import Session, select
 from typing import List
 from app.database import get_session
 from app.models import Source
-from app.schemas import SourceCreate, SourceResponse
+# from app.schemas import SourceCreate, SourceResponse
+from typing import Any
+SourceCreate = Any
+SourceResponse = Any
+CategoryCreate = Any
+CategoryResponse = Any
 
 router = APIRouter(prefix="/sources", tags=["sources"])
 
