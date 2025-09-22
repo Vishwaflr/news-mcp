@@ -16,6 +16,12 @@ class Settings(BaseSettings):
     analysis_batch_limit: int = 200
     analysis_rps: float = 1.0
 
+    # MCP v2 Configuration
+    mcp_server_readonly: bool = False
+    mcp_api_base_url: str = "http://localhost:8000"
+    mcp_rate_limit: str = "100/min"
+    analysis_model_costs: Optional[str] = None
+
     class Config:
         env_file = ".env"
 

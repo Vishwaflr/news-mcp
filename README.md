@@ -40,6 +40,13 @@ alembic upgrade head
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload    # Web UI
 python jobs/scheduler_manager.py start --debug              # Scheduler
 
+# MCP Server (choose one)
+./scripts/start_mcp_server.sh                               # Stdio MCP Server (default)
+./scripts/start_mcp_server.sh http                          # HTTP MCP Server for Open WebUI
+# OR direct commands:
+python start_mcp_server.py                                  # Stdio MCP Server
+uvicorn http_mcp_server:app --host 0.0.0.0 --port 8001     # HTTP MCP Server
+
 # Production Mode
 sudo systemctl start news-mcp-web news-mcp-scheduler        # System services
 ```
@@ -48,6 +55,7 @@ sudo systemctl start news-mcp-web news-mcp-scheduler        # System services
 - Dashboard: `http://localhost:8000` or `${WEB_HOST}:${WEB_PORT}`
 - Health Check: `/admin/health`
 - API Docs: `/docs`
+- HTTP MCP Server: `http://localhost:8001` (when using HTTP mode)
 
 ## Key Features
 
@@ -73,9 +81,11 @@ sudo systemctl start news-mcp-web news-mcp-scheduler        # System services
 - **Feature Flag System** - Safe deployment controls
 
 ### MCP Integration
-- Complete MCP server implementation with tools
-- Claude Desktop compatibility
-- API endpoints for external integrations
+- **Dual-Mode MCP Server**: Both STDIO and HTTP protocols supported
+- **Claude Desktop Compatibility**: Traditional STDIO mode for seamless desktop integration
+- **Open WebUI Integration**: HTTP/REST mode with OpenAPI documentation and CORS support
+- **14 Comprehensive Tools**: Complete News MCP toolset with unified API
+- **Real-time Testing**: Built-in endpoint testing and health monitoring
 
 ## Configuration
 
@@ -97,6 +107,8 @@ FEATURE_FLAGS_JSON={"items_repo":{"status":"canary","rollout_percentage":5}}
 ```
 
 ### MCP Integration
+
+#### Stdio Mode (Traditional)
 ```json
 // Claude Desktop configuration
 {
@@ -107,6 +119,35 @@ FEATURE_FLAGS_JSON={"items_repo":{"status":"canary","rollout_percentage":5}}
     }
   }
 }
+```
+
+#### HTTP Mode (Open WebUI Integration)
+```bash
+# Start HTTP MCP Server (recommended)
+./scripts/start_mcp_server.sh http
+
+# OR direct command
+uvicorn http_mcp_server:app --host 0.0.0.0 --port 8001
+
+# Test endpoints
+curl http://localhost:8001/health                           # Health check
+curl http://localhost:8001/openapi.json                     # OpenAPI docs
+curl -X POST http://localhost:8001/mcp/tools/system.ping \  # Tool endpoint
+  -H "Content-Type: application/json" -d '{}'
+```
+
+#### Open WebUI Configuration
+```yaml
+# In Open WebUI settings, add News MCP as external tool:
+tool_config:
+  news_mcp:
+    base_url: "http://192.168.178.72:8001"
+    endpoints:
+      - "/mcp/tools/system.ping"      # System health check
+      - "/mcp/tools/feeds.list"       # List all feeds
+      - "/mcp/tools/articles.latest"  # Get recent articles
+      - "/mcp/tools/articles.search"  # Search articles
+      - "/mcp/tools/templates.assign" # Manage feed templates
 ```
 
 ## API Usage
@@ -126,12 +167,31 @@ curl "${API_HOST}:${API_PORT}/api/health"
 
 ## MCP Tools Available
 
-- `search_feeds` - Search and filter RSS feeds
-- `get_recent_articles` - Get recent articles with filtering
-- `add_feed` - Add new RSS feeds
-- `get_feed_health` - Check feed health status
-- `search_articles` - Full-text search in articles
-- `manage_templates` - Template management operations
+### System Tools
+- `system.ping` - System health check and connectivity test
+- `system.health` - Comprehensive system status with metrics
+
+### Feed Management
+- `feeds.list` - List all RSS feeds with status and metadata
+- `feeds.add` - Add new RSS feeds to the system
+- `feeds.update` - Update existing feed configuration
+- `feeds.delete` - Remove feeds from the system
+- `feeds.test` - Test feed connectivity and parsing
+- `feeds.refresh` - Force refresh of specific feeds
+- `feeds.performance` - Get feed performance metrics and statistics
+- `feeds.diagnostics` - Detailed feed health diagnostics
+
+### Article & Content
+- `articles.latest` - Get recent articles with filtering options
+- `articles.search` - Full-text search across all articles
+
+### Template Management
+- `templates.assign` - Assign and manage feed-specific templates
+
+### Data Export
+- `data.export` - Export articles and feed data in various formats
+
+**Total**: 14 comprehensive tools with both `/mcp/tools/{tool}` (Open WebUI) and `/{category}/{action}` (REST API) endpoints
 
 ## Monitoring
 
@@ -162,6 +222,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed guidelines.
 
 ### Interface & Development
 - [**Analysis Control Interface**](./docs/ANALYSIS_CONTROL_INTERFACE.md) - Complete interface redesign documentation
+- [**Open WebUI Integration**](./docs/OPEN_WEBUI_INTEGRATION.md) - Complete guide for Open WebUI setup and usage
 - [UI Components Guide](./docs/UI_COMPONENTS_GUIDE.md) - Bootstrap 5 + Alpine.js + HTMX patterns
 - [Schema Import Workaround](./docs/SCHEMA_IMPORT_WORKAROUND.md) - Current technical debt documentation
 

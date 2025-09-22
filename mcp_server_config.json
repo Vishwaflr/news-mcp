@@ -36,7 +36,10 @@
       "templates": [
         "list_templates",
         "template_performance",
-        "assign_template"
+        "assign_template",
+        "templates_create",
+        "templates_test",
+        "templates_assign"
       ],
       "database": [
         "execute_query",
@@ -47,12 +50,27 @@
         "system_health",
         "feed_diagnostics",
         "error_analysis",
-        "scheduler_status"
+        "scheduler_status",
+        "scheduler_set_interval",
+        "scheduler_heartbeat"
       ],
       "administration": [
         "maintenance_tasks",
         "log_analysis",
         "usage_stats"
+      ],
+      "analysis_v2": [
+        "analysis_preview",
+        "analysis_run",
+        "analysis_history"
+      ],
+      "enhanced_feeds": [
+        "feeds_search",
+        "feeds_health"
+      ],
+      "enhanced_items": [
+        "items_recent",
+        "items_search"
       ]
     },
     "security": {

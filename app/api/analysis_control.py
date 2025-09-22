@@ -10,6 +10,7 @@ from app.domain.analysis.control import (
 from app.services.domain.analysis_service import AnalysisService
 from app.dependencies import get_analysis_service
 from app.repositories.analysis_control import AnalysisControlRepo
+from app.services.cost_estimator import get_cost_estimator
 
 router = APIRouter(prefix="/analysis", tags=["analysis-control"])
 logger = logging.getLogger(__name__)
@@ -290,3 +291,136 @@ async def get_analysis_stats(
         raise HTTPException(status_code=500, detail=result.error)
 
     return result.data
+
+# MCP v2 Enhanced Endpoints
+
+@router.get("/history")
+async def get_analysis_history(
+    limit: int = Query(50, le=200),
+    offset: int = Query(0, ge=0),
+    status: Optional[str] = Query(None, regex="^(queued|running|done|error)$"),
+    analysis_service: AnalysisService = Depends(get_analysis_service)
+) -> dict:
+    """Get analysis run history with pagination and filtering"""
+    try:
+        # This would need to be implemented in the analysis service
+        # For now, return a placeholder structure
+        runs = []  # Would query from database
+
+        result = {
+            "ok": True,
+            "data": {
+                "runs": runs,
+                "pagination": {
+                    "limit": limit,
+                    "offset": offset,
+                    "total": len(runs),
+                    "has_more": False
+                }
+            },
+            "meta": {"status_filter": status},
+            "errors": []
+        }
+
+        return result
+    except Exception as e:
+        logger.error(f"Error getting analysis history: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/cost/{model}")
+async def get_cost_estimate(
+    model: str,
+    article_count: int = Query(..., ge=1, le=10000),
+    avg_article_length: int = Query(1000, ge=100, le=5000)
+) -> dict:
+    """Get cost estimation for analyzing articles with specified model"""
+    try:
+        cost_estimator = get_cost_estimator()
+
+        # Get cost estimate
+        estimate = cost_estimator.estimate_analysis_cost(
+            model=model,
+            article_count=article_count,
+            avg_article_length=avg_article_length
+        )
+
+        if "error" in estimate:
+            raise HTTPException(status_code=400, detail=estimate["error"])
+
+        result = {
+            "ok": True,
+            "data": estimate,
+            "meta": {"model": model, "article_count": article_count},
+            "errors": []
+        }
+
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error calculating cost estimate: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/models/compare")
+async def compare_model_costs(
+    article_count: int = Query(..., ge=1, le=10000),
+    avg_article_length: int = Query(1000, ge=100, le=5000)
+) -> dict:
+    """Compare costs across all available analysis models"""
+    try:
+        cost_estimator = get_cost_estimator()
+
+        comparison = cost_estimator.compare_models(
+            article_count=article_count,
+            avg_article_length=avg_article_length
+        )
+
+        if "error" in comparison:
+            raise HTTPException(status_code=400, detail=comparison["error"])
+
+        result = {
+            "ok": True,
+            "data": comparison,
+            "meta": {"article_count": article_count, "avg_article_length": avg_article_length},
+            "errors": []
+        }
+
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error comparing model costs: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/budget")
+async def get_budget_recommendations(
+    budget_usd: float = Query(..., ge=0.01, le=1000.0),
+    model: str = Query(...),
+    avg_article_length: int = Query(1000, ge=100, le=5000)
+) -> dict:
+    """Get recommendations for article analysis within budget"""
+    try:
+        cost_estimator = get_cost_estimator()
+
+        recommendations = cost_estimator.get_budget_recommendations(
+            budget_usd=budget_usd,
+            model=model,
+            avg_article_length=avg_article_length
+        )
+
+        if "error" in recommendations:
+            raise HTTPException(status_code=400, detail=recommendations["error"])
+
+        result = {
+            "ok": True,
+            "data": recommendations,
+            "meta": {"budget_usd": budget_usd, "model": model},
+            "errors": []
+        }
+
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting budget recommendations: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

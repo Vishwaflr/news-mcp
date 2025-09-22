@@ -6,7 +6,7 @@ import logging
 
 from app.config import settings
 from app.database import create_db_and_tables
-from app.api import feeds, items, health, categories, sources, htmx, processors, statistics, database, analysis_control, user_settings, feature_flags_admin
+from app.api import feeds, items, health, categories, sources, htmx, processors, statistics, database, analysis_control, user_settings, feature_flags_admin, templates as api_templates, scheduler
 from app.routes import templates as template_routes
 from app.web.views import analysis_control as analysis_htmx
 
@@ -113,6 +113,9 @@ app.include_router(analysis_control.router, prefix="/api")
 app.include_router(user_settings.router, prefix="/api")
 app.include_router(feature_flags_admin.router)
 app.include_router(analysis_htmx.router)
+# MCP v2 API endpoints
+app.include_router(api_templates.router, prefix="/api")
+app.include_router(scheduler.router, prefix="/api")
 
 # Include monitoring routers (schrittweise aktiviert)
 from app.core.health import create_health_router
