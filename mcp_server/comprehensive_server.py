@@ -21,6 +21,7 @@ from app.models import (
 )
 from app.config import settings
 from app.services.dynamic_template_manager import get_dynamic_template_manager
+from .v2_handlers import MCPv2Handlers
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -42,6 +43,7 @@ def safe_json_dumps(obj, **kwargs):
 class ComprehensiveNewsServer:
     def __init__(self):
         self.server = Server("news-mcp-comprehensive")
+        self.v2_handlers = MCPv2Handlers()
         self._setup_tools()
 
     def _setup_tools(self):
@@ -356,6 +358,205 @@ class ComprehensiveNewsServer:
                             "detailed": {"type": "boolean", "default": False, "description": "Include detailed breakdowns"}
                         }
                     }
+                ),
+
+                # System ping tool
+                Tool(
+                    name="system_ping",
+                    description="System ping test for MCP connection",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {},
+                        "required": []
+                    }
+                ),
+
+                # MCP v2 Tools - Dynamic Templates
+                Tool(
+                    name="templates_create",
+                    description="Create new dynamic feed template",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string", "description": "Template name"},
+                            "description": {"type": "string", "description": "Template description"},
+                            "match_rules": {"type": "array", "items": {"type": "object"}, "description": "URL/domain matching rules"},
+                            "extraction_config": {"type": "object", "description": "Content extraction configuration"},
+                            "processing_rules": {"type": "object", "description": "Content processing rules"}
+                        },
+                        "required": ["name", "match_rules", "extraction_config"]
+                    }
+                ),
+                Tool(
+                    name="templates_test",
+                    description="Test template against sample URL or HTML content",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "template_id": {"type": "integer", "description": "Template ID to test"},
+                            "sample_url": {"type": "string", "format": "uri", "description": "URL to test extraction on"},
+                            "raw_html": {"type": "string", "description": "Raw HTML content to test"}
+                        },
+                        "required": ["template_id"]
+                    }
+                ),
+                Tool(
+                    name="templates_assign",
+                    description="Assign template to feed",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "template_id": {"type": "integer", "description": "Template ID"},
+                            "feed_id": {"type": "integer", "description": "Feed ID"},
+                            "priority": {"type": "integer", "default": 100, "description": "Assignment priority"},
+                            "custom_overrides": {"type": "object", "description": "Feed-specific template overrides"}
+                        },
+                        "required": ["template_id", "feed_id"]
+                    }
+                ),
+
+                # MCP v2 Tools - Analysis Control
+                Tool(
+                    name="analysis_preview",
+                    description="Preview analysis run with cost estimation",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "model": {"type": "string", "enum": ["gpt-4o-mini", "gpt-4.1-nano"], "default": "gpt-4o-mini", "description": "Analysis model"},
+                            "selector": {
+                                "type": "object",
+                                "properties": {
+                                    "latest": {"type": "integer", "description": "Latest N articles"},
+                                    "time_range": {"type": "object", "properties": {"from": {"type": "string"}, "to": {"type": "string"}}},
+                                    "feeds": {"type": "array", "items": {"type": "integer"}, "description": "Specific feed IDs"}
+                                },
+                                "description": "Article selection criteria"
+                            },
+                            "cost_estimate": {"type": "boolean", "default": True, "description": "Include cost estimation"}
+                        },
+                        "required": ["selector"]
+                    }
+                ),
+                Tool(
+                    name="analysis_run",
+                    description="Start analysis run with persistence",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "model": {"type": "string", "enum": ["gpt-4o-mini", "gpt-4.1-nano"], "default": "gpt-4o-mini", "description": "Analysis model"},
+                            "selector": {
+                                "type": "object",
+                                "properties": {
+                                    "latest": {"type": "integer", "description": "Latest N articles"},
+                                    "time_range": {"type": "object", "properties": {"from": {"type": "string"}, "to": {"type": "string"}}},
+                                    "feeds": {"type": "array", "items": {"type": "integer"}, "description": "Specific feed IDs"}
+                                },
+                                "description": "Article selection criteria"
+                            },
+                            "persist": {"type": "boolean", "default": True, "description": "Save results to database"},
+                            "tags": {"type": "array", "items": {"type": "string"}, "description": "Run tags for organization"}
+                        },
+                        "required": ["selector"]
+                    }
+                ),
+                Tool(
+                    name="analysis_history",
+                    description="Get analysis run history and results",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "limit": {"type": "integer", "default": 50, "maximum": 200, "description": "Number of runs to return"},
+                            "offset": {"type": "integer", "default": 0, "description": "Offset for pagination"},
+                            "status": {"type": "string", "enum": ["queued", "running", "done", "error"], "description": "Filter by status"}
+                        }
+                    }
+                ),
+
+                # MCP v2 Tools - Scheduler Control
+                Tool(
+                    name="scheduler_set_interval",
+                    description="Set global or feed-specific fetch interval",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "minutes": {"type": "integer", "minimum": 1, "maximum": 1440, "description": "Interval in minutes"},
+                            "feed_id": {"type": "integer", "description": "Specific feed ID (optional, affects all if not provided)"}
+                        },
+                        "required": ["minutes"]
+                    }
+                ),
+                Tool(
+                    name="scheduler_heartbeat",
+                    description="Get detailed scheduler health and activity metrics",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {}
+                    }
+                ),
+
+                # MCP v2 Tools - Enhanced Feeds
+                Tool(
+                    name="feeds_search",
+                    description="Search feeds with health and status filtering",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "q": {"type": "string", "description": "Search query"},
+                            "category": {"type": "string", "description": "Category filter"},
+                            "health": {"type": "string", "enum": ["ok", "warn", "fail"], "description": "Health status filter"},
+                            "limit": {"type": "integer", "default": 50, "maximum": 100, "description": "Result limit"},
+                            "offset": {"type": "integer", "default": 0, "description": "Pagination offset"}
+                        }
+                    }
+                ),
+                Tool(
+                    name="feeds_health",
+                    description="Get detailed health metrics for feed(s)",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "feed_id": {"type": "integer", "description": "Specific feed ID (optional, returns all if not provided)"}
+                        }
+                    }
+                ),
+
+                # MCP v2 Tools - Enhanced Items
+                Tool(
+                    name="items_recent",
+                    description="Get recent items with deduplication",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "limit": {"type": "integer", "default": 50, "maximum": 100, "description": "Number of items"},
+                            "since": {"type": "string", "format": "date-time", "description": "Items since this ISO8601 timestamp"},
+                            "feed_id": {"type": "integer", "description": "Filter by feed ID"},
+                            "category": {"type": "string", "description": "Filter by category"},
+                            "dedupe": {"type": "boolean", "default": True, "description": "Remove duplicate content"}
+                        }
+                    }
+                ),
+                Tool(
+                    name="items_search",
+                    description="Search items with advanced filtering",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "q": {"type": "string", "description": "Search query"},
+                            "limit": {"type": "integer", "default": 50, "maximum": 200, "description": "Result limit"},
+                            "offset": {"type": "integer", "default": 0, "description": "Pagination offset"},
+                            "time_range": {
+                                "type": "object",
+                                "properties": {
+                                    "from": {"type": "string", "format": "date-time"},
+                                    "to": {"type": "string", "format": "date-time"}
+                                },
+                                "description": "Time range filter"
+                            },
+                            "feeds": {"type": "array", "items": {"type": "integer"}, "description": "Feed ID filters"},
+                            "categories": {"type": "array", "items": {"type": "string"}, "description": "Category filters"}
+                        },
+                        "required": ["q"]
+                    }
                 )
             ]
 
@@ -414,6 +615,33 @@ class ComprehensiveNewsServer:
                     return await self._log_analysis(**arguments)
                 elif name == "usage_stats":
                     return await self._usage_stats(**arguments)
+                elif name == "system_ping":
+                    return await self._system_ping(**arguments)
+                # MCP v2 Tool Handlers - delegate to v2_handlers
+                elif name == "templates_create":
+                    return await self.v2_handlers.templates_create(**arguments)
+                elif name == "templates_test":
+                    return await self.v2_handlers.templates_test(**arguments)
+                elif name == "templates_assign":
+                    return await self.v2_handlers.templates_assign(**arguments)
+                elif name == "analysis_preview":
+                    return await self.v2_handlers.analysis_preview(**arguments)
+                elif name == "analysis_run":
+                    return await self.v2_handlers.analysis_run(**arguments)
+                elif name == "analysis_history":
+                    return await self.v2_handlers.analysis_history(**arguments)
+                elif name == "scheduler_set_interval":
+                    return await self.v2_handlers.scheduler_set_interval(**arguments)
+                elif name == "scheduler_heartbeat":
+                    return await self.v2_handlers.scheduler_heartbeat(**arguments)
+                elif name == "feeds_search":
+                    return await self.v2_handlers.feeds_search(**arguments)
+                elif name == "feeds_health":
+                    return await self.v2_handlers.feeds_health(**arguments)
+                elif name == "items_recent":
+                    return await self.v2_handlers.items_recent(**arguments)
+                elif name == "items_search":
+                    return await self.v2_handlers.items_search(**arguments)
                 else:
                     return [TextContent(type="text", text=f"Unknown tool: {name}")]
             except Exception as e:
@@ -2026,13 +2254,23 @@ class ComprehensiveNewsServer:
 
             return [TextContent(type="text", text=safe_json_dumps(stats, indent=2))]
 
+    async def _system_ping(self) -> List[TextContent]:
+        """System ping test for MCP connection"""
+        result = {
+            "ok": True,
+            "data": {"pong": True},
+            "meta": {},
+            "errors": []
+        }
+        return [TextContent(type="text", text=safe_json_dumps(result, indent=2))]
+
     async def run(self, host: str = "0.0.0.0", port: int = 8001):
         """Run the MCP server"""
         logger.info(f"Starting Comprehensive News MCP Server on {host}:{port}")
         from mcp.server.stdio import stdio_server
 
         async with stdio_server() as (read_stream, write_stream):
-            await self.server.run(read_stream, write_stream)
+            await self.server.run(read_stream, write_stream, {})
 
 async def main():
     server = ComprehensiveNewsServer()
