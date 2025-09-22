@@ -1,36 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Form
 from fastapi.responses import HTMLResponse
-from sqlmodel import Session, select
-from typing import List, Optional
-import threading
-import asyncio
+from sqlmodel import Session
+from typing import List, Optional, Dict, Any
 import logging
 from app.database import get_session
-from app.models import Feed, Source, Category, FeedCategory, Item, FeedHealth, FetchLog
+from app.models.feeds import Source, FeedCategory
 from app.schemas import FeedCreate, FeedUpdate, FeedResponse
-from app.services.feed_change_tracker import track_feed_changes
+from app.services.domain.feed_service import FeedService
+from app.dependencies import get_feed_service
 
 router = APIRouter(prefix="/feeds", tags=["feeds"])
 logger = logging.getLogger(__name__)
 
-def _trigger_initial_fetch(feed_id: int):
-    """Trigger immediate initial fetch for a new feed - now synchronous for reliability"""
-    try:
-        from app.services.feed_fetcher_sync import SyncFeedFetcher
-
-        # Use synchronous fetcher for immediate, reliable execution
-        logger.info(f"Starting immediate synchronous fetch for new feed {feed_id}")
-        fetcher = SyncFeedFetcher()
-        success, items_count = fetcher.fetch_feed_sync(feed_id)
-
-        if success:
-            logger.info(f"Initial fetch successful for feed {feed_id}: {items_count} items loaded")
-        else:
-            logger.warning(f"Initial fetch failed for feed {feed_id}")
-
-    except Exception as e:
-        # Don't fail feed creation if initial fetch fails
-        logger.warning(f"Failed to trigger initial fetch for feed {feed_id}: {e}")
 
 @router.get("/", response_model=List[FeedResponse])
 def list_feeds(
@@ -38,64 +19,56 @@ def list_feeds(
     limit: int = Query(100, ge=1, le=1000),
     category_id: Optional[int] = None,
     status: Optional[str] = None,
-    session: Session = Depends(get_session)
+    feed_service: FeedService = Depends(get_feed_service)
 ):
-    query = select(Feed)
-
+    filters = {}
     if category_id:
-        query = query.join(FeedCategory).where(FeedCategory.category_id == category_id)
-
+        filters['category_id'] = category_id
     if status:
-        query = query.where(Feed.status == status)
+        filters['status'] = status
 
-    query = query.offset(skip).limit(limit)
-    feeds = session.exec(query).all()
-    return feeds
+    result = feed_service.list(skip=skip, limit=limit, filters=filters)
+    if not result.success:
+        raise HTTPException(status_code=500, detail=result.error)
+    return result.data
 
 @router.get("/{feed_id}", response_model=FeedResponse)
-def get_feed(feed_id: int, session: Session = Depends(get_session)):
-    feed = session.get(Feed, feed_id)
-    if not feed:
-        raise HTTPException(status_code=404, detail="Feed not found")
-    return feed
+def get_feed(feed_id: int, feed_service: FeedService = Depends(get_feed_service)):
+    result = feed_service.get_by_id(feed_id)
+    if not result.success:
+        if "not found" in result.error:
+            raise HTTPException(status_code=404, detail=result.error)
+        raise HTTPException(status_code=500, detail=result.error)
+    return result.data
 
 @router.post("/json", response_model=FeedResponse)
-def create_feed_json(feed_data: FeedCreate, session: Session = Depends(get_session)):
+def create_feed_json(
+    feed_data: FeedCreate,
+    feed_service: FeedService = Depends(get_feed_service),
+    session: Session = Depends(get_session)
+):
     """Create a new feed via JSON API"""
-    existing_feed = session.exec(select(Feed).where(Feed.url == feed_data.url)).first()
-    if existing_feed:
-        raise HTTPException(status_code=409, detail="Feed URL already exists")
-
     # If no source_id provided, use the first available RSS source
-    source_id = feed_data.source_id
-    if source_id is None:
+    if feed_data.source_id is None:
         from app.models import SourceType
+        from sqlmodel import select
         default_source = session.exec(
             select(Source).where(Source.type == SourceType.RSS)
         ).first()
         if not default_source:
             raise HTTPException(status_code=400, detail="No RSS source available and none specified")
-        source_id = default_source.id
+        feed_data.source_id = default_source.id
 
-    source = session.get(Source, source_id)
-    if not source:
-        raise HTTPException(status_code=404, detail="Source not found")
+    result = feed_service.create(feed_data)
 
-    db_feed = Feed(
-        url=feed_data.url,
-        title=feed_data.title,
-        description=feed_data.description,
-        fetch_interval_minutes=feed_data.fetch_interval_minutes,
-        source_id=source_id
-    )
-    session.add(db_feed)
-    session.commit()
-    session.refresh(db_feed)
+    if not result.success:
+        if "already exists" in result.error:
+            raise HTTPException(status_code=409, detail=result.error)
+        elif "not found" in result.error:
+            raise HTTPException(status_code=404, detail=result.error)
+        raise HTTPException(status_code=400, detail=result.error)
 
-    # Trigger immediate initial fetch for new feed
-    _trigger_initial_fetch(db_feed.id)
-
-    return db_feed
+    return result.data
 
 @router.post("/")
 def create_feed(
@@ -105,11 +78,13 @@ def create_feed(
     fetch_interval_minutes: int = Form(60),
     source_id: Optional[int] = Form(None),
     category_id: Optional[int] = Form(None),
+    feed_service: FeedService = Depends(get_feed_service),
     session: Session = Depends(get_session)
 ):
     # If no source_id provided, use the first available RSS source
     if source_id is None:
         from app.models import SourceType
+        from sqlmodel import select
         default_source = session.exec(
             select(Source).where(Source.type == SourceType.RSS)
         ).first()
@@ -117,52 +92,43 @@ def create_feed(
             raise HTTPException(status_code=400, detail="No RSS source available and none specified")
         source_id = default_source.id
 
-    source = session.get(Source, source_id)
-    if not source:
-        raise HTTPException(status_code=404, detail="Source not found")
-
-    existing_feed = session.exec(select(Feed).where(Feed.url == url)).first()
-    if existing_feed:
-        raise HTTPException(status_code=409, detail="Feed URL already exists")
-
-    db_feed = Feed(
+    # Create feed data
+    feed_data = FeedCreate(
         url=url,
         title=title,
         description=description,
         fetch_interval_minutes=fetch_interval_minutes,
-        source_id=source_id
+        source_id=source_id,
+        category_ids=[category_id] if category_id and category_id > 0 else []
     )
-    session.add(db_feed)
-    session.commit()
-    session.refresh(db_feed)
 
-    # Add category assignment if provided
-    if category_id and category_id > 0:
-        feed_category = FeedCategory(feed_id=db_feed.id, category_id=category_id)
-        session.add(feed_category)
-        session.commit()
+    result = feed_service.create(feed_data)
 
-    # Trigger immediate initial fetch for new feed
-    _trigger_initial_fetch(db_feed.id)
+    if not result.success:
+        if "already exists" in result.error:
+            raise HTTPException(status_code=409, detail=result.error)
+        elif "not found" in result.error:
+            raise HTTPException(status_code=404, detail=result.error)
+        raise HTTPException(status_code=400, detail=result.error)
 
     # Return updated feed list as HTML
     from app.api.htmx import get_feeds_list
     return get_feeds_list(session)
 
 @router.put("/{feed_id}", response_model=FeedResponse)
-def update_feed(feed_id: int, feed_update: FeedUpdate, session: Session = Depends(get_session)):
-    feed = session.get(Feed, feed_id)
-    if not feed:
-        raise HTTPException(status_code=404, detail="Feed not found")
+def update_feed(
+    feed_id: int,
+    feed_update: FeedUpdate,
+    feed_service: FeedService = Depends(get_feed_service)
+):
+    result = feed_service.update(feed_id, feed_update)
 
-    update_data = feed_update.model_dump(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(feed, field, value)
+    if not result.success:
+        if "not found" in result.error:
+            raise HTTPException(status_code=404, detail=result.error)
+        raise HTTPException(status_code=400, detail=result.error)
 
-    session.add(feed)
-    session.commit()
-    session.refresh(feed)
-    return feed
+    return result.data
 
 @router.put("/{feed_id}/form", response_class=HTMLResponse)
 def update_feed_form(
@@ -174,38 +140,31 @@ def update_feed_form(
     category_id: Optional[int] = Form(None),
     session: Session = Depends(get_session)
 ):
-    feed = session.get(Feed, feed_id)
-    if not feed:
-        raise HTTPException(status_code=404, detail="Feed not found")
-
-    # Update only provided fields
+    # Build update data
+    update_data = {}
     if title is not None:
-        feed.title = title
+        update_data['title'] = title
     if description is not None:
-        feed.description = description
+        update_data['description'] = description
     if fetch_interval_minutes is not None:
-        feed.fetch_interval_minutes = fetch_interval_minutes
+        update_data['fetch_interval_minutes'] = fetch_interval_minutes
     if status is not None:
         from app.models import FeedStatus
-        feed.status = FeedStatus(status)
-
-    session.add(feed)
-    session.commit()
-    session.refresh(feed)
+        update_data['status'] = FeedStatus(status)
 
     # Handle category assignment
     if category_id is not None:
-        # Remove existing category assignments
-        existing_categories = session.exec(select(FeedCategory).where(FeedCategory.feed_id == feed_id)).all()
-        for fc in existing_categories:
-            session.delete(fc)
+        category_ids = [category_id] if category_id > 0 else []
+        update_data['category_ids'] = category_ids
 
-        # Add new category assignment if provided
-        if category_id > 0:  # Only add if not empty selection
-            feed_category = FeedCategory(feed_id=feed_id, category_id=category_id)
-            session.add(feed_category)
+    feed_update = FeedUpdate(**update_data)
+    feed_service = FeedService(session)
+    result = feed_service.update(feed_id, feed_update)
 
-        session.commit()
+    if not result.success:
+        if "not found" in result.error:
+            raise HTTPException(status_code=404, detail=result.error)
+        raise HTTPException(status_code=400, detail=result.error)
 
     # Return updated feed list as HTML
     from app.api.htmx import get_feeds_list
@@ -214,63 +173,29 @@ def update_feed_form(
 @router.post("/{feed_id}/fetch")
 def fetch_feed_now(feed_id: int, session: Session = Depends(get_session)):
     """Manually trigger an immediate fetch for a specific feed"""
-    feed = session.get(Feed, feed_id)
-    if not feed:
-        raise HTTPException(status_code=404, detail="Feed not found")
+    feed_service = FeedService(session)
+    result = feed_service.trigger_immediate_fetch(feed_id)
 
-    try:
-        from app.services.feed_fetcher_sync import SyncFeedFetcher
-        fetcher = SyncFeedFetcher()
-        success, items_count = fetcher.fetch_feed_sync(feed_id)
+    if not result.success:
+        if "not found" in result.error:
+            raise HTTPException(status_code=404, detail=result.error)
+        raise HTTPException(status_code=500, detail=result.error)
 
-        if success:
-            return {"success": True, "message": f"Feed fetched successfully, {items_count} new items loaded"}
-        else:
-            return {"success": False, "message": "Feed fetch failed"}
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching feed: {str(e)}")
+    success, items_count = result.data
+    if success:
+        return {"success": True, "message": f"Feed fetched successfully, {items_count} new items loaded"}
+    else:
+        return {"success": False, "message": "Feed fetch failed"}
 
 @router.delete("/{feed_id}", response_class=HTMLResponse)
 def delete_feed(feed_id: int, session: Session = Depends(get_session)):
-    feed = session.get(Feed, feed_id)
-    if not feed:
-        raise HTTPException(status_code=404, detail="Feed not found")
+    feed_service = FeedService(session)
+    result = feed_service.delete(feed_id)
 
-    try:
-        # Delete associated items first if any
-        items_query = select(Item).where(Item.feed_id == feed_id)
-        items = session.exec(items_query).all()
-        for item in items:
-            session.delete(item)
-
-        # Delete feed categories relationships
-        from app.models import FeedCategory
-        feed_cats_query = select(FeedCategory).where(FeedCategory.feed_id == feed_id)
-        feed_cats = session.exec(feed_cats_query).all()
-        for fc in feed_cats:
-            session.delete(fc)
-
-        # Delete feed health records
-        from app.models import FeedHealth
-        health_query = select(FeedHealth).where(FeedHealth.feed_id == feed_id)
-        health_records = session.exec(health_query).all()
-        for hr in health_records:
-            session.delete(hr)
-
-        # Delete fetch log records
-        fetch_log_query = select(FetchLog).where(FetchLog.feed_id == feed_id)
-        fetch_logs = session.exec(fetch_log_query).all()
-        for fl in fetch_logs:
-            session.delete(fl)
-
-        # Finally delete the feed
-        session.delete(feed)
-        session.commit()
-
-    except Exception as e:
-        session.rollback()
-        raise HTTPException(status_code=500, detail=f"Error deleting feed: {str(e)}")
+    if not result.success:
+        if "not found" in result.error:
+            raise HTTPException(status_code=404, detail=result.error)
+        raise HTTPException(status_code=500, detail=result.error)
 
     # Return updated feed list as HTML
     from app.api.htmx import get_feeds_list

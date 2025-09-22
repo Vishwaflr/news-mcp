@@ -14,16 +14,16 @@ router = APIRouter(prefix="/api/statistics", tags=["statistics"])
 def get_dashboard_stats(session: Session = Depends(get_session)):
     """Get comprehensive dashboard statistics"""
 
-    # Total counts
-    total_feeds = session.exec(select(func.count(Feed.id))).one()
-    total_items = session.exec(select(func.count(Item.id))).one()
-    total_sources = session.exec(select(func.count(Source.id))).one()
+    # Total counts - Use raw SQL to avoid SQLModel issues
+    total_feeds = session.exec(text("SELECT COUNT(*) FROM feeds")).one()[0]
+    total_items = session.exec(text("SELECT COUNT(*) FROM items")).one()[0]
+    total_sources = session.exec(text("SELECT COUNT(*) FROM sources")).one()[0]
 
     # Recent activity (last 24h)
-    yesterday = datetime.utcnow() - timedelta(days=1)
-    items_24h = session.exec(
-        select(func.count(Item.id)).where(Item.created_at > yesterday)
-    ).one()
+    items_24h = session.exec(text("""
+        SELECT COUNT(*) FROM items
+        WHERE created_at > NOW() - INTERVAL '24 hours'
+    """)).one()[0]
 
     # Items per hour for last 24h
     hourly_stats = session.exec(text("""
@@ -130,8 +130,14 @@ def get_dashboard_stats(session: Session = Depends(get_session)):
 def get_feed_details(feed_id: int, session: Session = Depends(get_session)):
     """Get detailed statistics for a specific feed"""
 
-    feed = session.get(Feed, feed_id)
-    if not feed:
+    # Get feed details with raw SQL
+    feed_result = session.exec(text("""
+        SELECT id, title, url, status, fetch_interval_minutes
+        FROM feeds
+        WHERE id = :feed_id
+    """), {"feed_id": feed_id}).first()
+
+    if not feed_result:
         raise HTTPException(status_code=404, detail="Feed not found")
 
     # Daily item counts for last 30 days
@@ -146,31 +152,30 @@ def get_feed_details(feed_id: int, session: Session = Depends(get_session)):
         ORDER BY date DESC
     """), {"feed_id": feed_id}).fetchall()
 
-    # Recent items
-    recent_items = session.exec(
-        select(Item.title, Item.created_at, Item.published)
-        .where(Item.feed_id == feed_id)
-        .order_by(
-            desc(case(
-                (Item.published.is_(None), Item.created_at),
-                else_=Item.published
-            ))
-        )
-        .limit(10)
-    ).fetchall()
+    # Recent items - Use raw SQL
+    recent_items = session.exec(text("""
+        SELECT title, created_at, published
+        FROM items
+        WHERE feed_id = :feed_id
+        ORDER BY COALESCE(published, created_at) DESC
+        LIMIT 10
+    """), {"feed_id": feed_id}).fetchall()
 
-    # Health metrics
-    health = session.exec(
-        select(FeedHealth).where(FeedHealth.feed_id == feed_id)
-    ).first()
+    # Health metrics - Use raw SQL
+    health = session.exec(text("""
+        SELECT ok_ratio, avg_response_time_ms, last_success, last_failure,
+               uptime_24h, consecutive_failures
+        FROM feed_health
+        WHERE feed_id = :feed_id
+    """), {"feed_id": feed_id}).first()
 
     return {
         "feed": {
-            "id": feed.id,
-            "title": feed.title,
-            "url": feed.url,
-            "status": feed.status,
-            "interval_minutes": feed.fetch_interval_minutes
+            "id": feed_result[0],
+            "title": feed_result[1],
+            "url": feed_result[2],
+            "status": feed_result[3],
+            "interval_minutes": feed_result[4]
         },
         "daily_activity": [
             {"date": str(row[0]), "items": row[1]} for row in daily_stats
@@ -183,12 +188,12 @@ def get_feed_details(feed_id: int, session: Session = Depends(get_session)):
             } for row in recent_items
         ],
         "health": {
-            "success_rate": health.ok_ratio if health else 0,
-            "avg_response_time": health.avg_response_time_ms if health else 0,
-            "last_success": str(health.last_success) if health and health.last_success else None,
-            "last_failure": str(health.last_failure) if health and health.last_failure else None,
-            "uptime_24h": health.uptime_24h if health else 0,
-            "consecutive_failures": health.consecutive_failures if health else 0
+            "success_rate": health[0] if health else 0,
+            "avg_response_time": health[1] if health else 0,
+            "last_success": str(health[2]) if health and health[2] else None,
+            "last_failure": str(health[3]) if health and health[3] else None,
+            "uptime_24h": health[4] if health else 0,
+            "consecutive_failures": health[5] if health else 0
         } if health else None
     }
 

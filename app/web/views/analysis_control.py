@@ -278,7 +278,7 @@ def get_active_runs_partial() -> str:
                     </div>
 
                     <div class="progress mb-2" style="height: 6px;">
-                        <div class="progress-bar" role="progressbar"
+                        <div class="progress-bar bg-primary" role="progressbar"
                              style="width: {progress}%"
                              aria-valuenow="{progress}" aria-valuemin="0" aria-valuemax="100">
                         </div>
@@ -322,11 +322,20 @@ def get_active_runs_partial() -> str:
 
 @router.get("/history", response_class=HTMLResponse)
 def get_history_partial(page: int = Query(1, ge=1)) -> str:
-    """Render run history table"""
+    """Render complete run history table with pagination"""
     try:
         limit = 10
         offset = (page - 1) * limit
-        runs = AnalysisControlRepo.get_recent_runs(limit=limit, offset=offset)
+        runs = AnalysisControlRepo.get_recent_runs(limit=limit + 1, offset=offset)  # Get one extra to check if there are more
+
+        # Check if there are more pages
+        has_more = len(runs) > limit
+        if has_more:
+            runs = runs[:limit]  # Remove the extra record
+
+        # Get total count for pagination
+        total_runs = _get_total_runs_count()
+        total_pages = (total_runs + limit - 1) // limit  # Ceiling division
 
         if not runs:
             return """
@@ -353,79 +362,8 @@ def get_history_partial(page: int = Query(1, ge=1)) -> str:
                 <tbody>
         """
 
-        for run in runs:
-            # Status badge
-            status_colors = {
-                "completed": "success",
-                "failed": "danger",
-                "cancelled": "secondary",
-                "running": "primary",
-                "paused": "warning",
-                "pending": "info"
-            }
-            status_color = status_colors.get(run.status, "secondary")
-
-            # Duration calculation
-            duration_str = "N/A"
-            if run.started_at and run.completed_at:
-                duration_seconds = int((run.completed_at - run.started_at).total_seconds())
-                minutes = duration_seconds // 60
-                seconds = duration_seconds % 60
-                duration_str = f"{minutes}m {seconds}s"
-
-            # Items processed - check actual analysis results for completed runs
-            if run.status == "completed":
-                # Count actual analyses for this run's items
-                with Session(engine) as session:
-                    result = session.exec(text("""
-                        SELECT COUNT(DISTINCT ia.item_id)
-                        FROM analysis_run_items ari
-                        JOIN item_analysis ia ON ari.item_id = ia.item_id
-                        WHERE ari.run_id = :run_id
-                    """).params(run_id=run.id))
-                    actual_analyzed = result.scalar() or 0
-                items_str = f"{actual_analyzed} / {run.metrics.total_count}"
-            else:
-                items_str = f"{run.metrics.processed_count} / {run.metrics.total_count}"
-
-            # Format cost
-            cost_str = f"${run.metrics.actual_cost_usd:.4f}"
-
-            # Scope description
-            scope_desc = "Global"
-            if run.scope.type == "feeds" and run.scope.feed_ids:
-                scope_desc = f"Feeds ({len(run.scope.feed_ids)})"
-            elif run.scope.type == "timerange":
-                scope_desc = "Time Range"
-
-            html += f"""
-            <tr>
-                <td>
-                    <strong>#{run.id}</strong><br>
-                    <small class="text-muted">{scope_desc}</small>
-                </td>
-                <td>
-                    {run.created_at.strftime('%m/%d %H:%M')}<br>
-                    <small class="text-muted">{run.params.model_tag}</small>
-                </td>
-                <td>
-                    <span class="badge bg-{status_color}">{run.status}</span>
-                </td>
-                <td>{items_str}</td>
-                <td>{duration_str}</td>
-                <td>{cost_str}</td>
-                <td>
-                    <button class="btn btn-sm btn-outline-primary"
-                            onclick="showRunDetails({run.id})">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                    <button class="btn btn-sm btn-outline-success"
-                            onclick="repeatRun({run.id})">
-                        <i class="fas fa-redo"></i>
-                    </button>
-                </td>
-            </tr>
-            """
+        # Add rows using the shared function
+        html += _render_history_rows(runs)
 
         html += """
                 </tbody>
@@ -433,37 +371,242 @@ def get_history_partial(page: int = Query(1, ge=1)) -> str:
         </div>
         """
 
-        # Pagination
-        if len(runs) == limit:  # There might be more
-            html += f"""
-            <div class="d-flex justify-content-center">
-                <button class="btn btn-outline-primary"
-                        hx-get="/htmx/analysis/history?page={page + 1}"
-                        hx-target="#run-history-table">
-                    Load More
-                </button>
-            </div>
-            """
+        # Add pagination controls
+        if total_pages > 1:
+            html += _render_pagination(page, total_pages)
 
-        html += f"""
-        <script>
-            function showRunDetails(runId) {{
-                // TODO: Implement run details modal
-                alert('Run details for #' + runId + ' (TODO: implement modal)');
-            }}
-
-            function repeatRun(runId) {{
-                // TODO: Implement repeat run functionality
-                alert('Repeat run #' + runId + ' (TODO: implement)');
-            }}
-        </script>
-        """
-
+        html += _get_history_scripts()
         return html
 
     except Exception as e:
         logger.error(f"Failed to get run history: {e}")
         return '<div class="alert alert-danger">Failed to load run history</div>'
+
+
+def _render_history_rows(runs) -> str:
+    """Shared function to render history table rows"""
+    html = ""
+
+    for run in runs:
+        # Status badge
+        status_colors = {
+            "completed": "success",
+            "failed": "danger",
+            "cancelled": "secondary",
+            "running": "primary",
+            "paused": "warning",
+            "pending": "info"
+        }
+        status_color = status_colors.get(run.status, "secondary")
+
+        # Duration calculation
+        duration_str = "N/A"
+        if run.started_at and run.completed_at:
+            duration_seconds = int((run.completed_at - run.started_at).total_seconds())
+            minutes = duration_seconds // 60
+            seconds = duration_seconds % 60
+            duration_str = f"{minutes}m {seconds}s"
+
+        # Items processed - check actual analysis results for completed runs
+        if run.status == "completed":
+            # Count actual analyses for this run's items
+            with Session(engine) as session:
+                result = session.exec(text("""
+                    SELECT COUNT(DISTINCT ia.item_id)
+                    FROM analysis_run_items ari
+                    JOIN item_analysis ia ON ari.item_id = ia.item_id
+                    WHERE ari.run_id = :run_id
+                """).params(run_id=run.id))
+                actual_analyzed = result.scalar() or 0
+            items_str = f"{actual_analyzed} / {run.metrics.total_count}"
+        else:
+            items_str = f"{run.metrics.processed_count} / {run.metrics.total_count}"
+
+        # Format cost
+        cost_str = f"${run.metrics.actual_cost_usd:.4f}"
+
+        # Scope description
+        scope_desc = "Global"
+        if run.scope.type == "feeds" and run.scope.feed_ids:
+            scope_desc = f"Feeds ({len(run.scope.feed_ids)})"
+        elif run.scope.type == "timerange":
+            scope_desc = "Time Range"
+
+        html += f"""
+        <tr>
+            <td>
+                <strong>#{run.id}</strong><br>
+                <small class="text-muted">{scope_desc}</small>
+            </td>
+            <td>
+                {run.created_at.strftime('%m/%d %H:%M')}<br>
+                <small class="text-muted">{run.params.model_tag}</small>
+            </td>
+            <td>
+                <span class="badge bg-{status_color}">{run.status}</span>
+            </td>
+            <td>{items_str}</td>
+            <td>{duration_str}</td>
+            <td>{cost_str}</td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary"
+                        onclick="showRunDetails({run.id})">
+                    <i class="fas fa-eye"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-success"
+                        onclick="repeatRun({run.id})">
+                    <i class="fas fa-redo"></i>
+                </button>
+            </td>
+        </tr>
+        """
+
+    return html
+
+def _get_total_runs_count() -> int:
+    """Get total number of analysis runs"""
+    try:
+        with Session(engine) as session:
+            result = session.execute(text("SELECT COUNT(*) FROM analysis_runs"))
+            return result.scalar() or 0
+    except Exception as e:
+        logger.error(f"Failed to get total runs count: {e}")
+        return 0
+
+def _render_pagination(current_page: int, total_pages: int) -> str:
+    """Render Bootstrap pagination controls"""
+    if total_pages <= 1:
+        return ""
+
+    html = """
+    <nav aria-label="Run history pagination" class="mt-3">
+        <ul class="pagination justify-content-center">
+    """
+
+    # Previous button
+    prev_disabled = "disabled" if current_page <= 1 else ""
+    prev_page = max(1, current_page - 1)
+    html += f"""
+        <li class="page-item {prev_disabled}">
+            <button class="page-link"
+                    hx-get="/htmx/analysis/history?page={prev_page}"
+                    hx-target="#run-history-table"
+                    {"disabled" if prev_disabled else ""}>
+                <i class="fas fa-chevron-left"></i> Previous
+            </button>
+        </li>
+    """
+
+    # Page numbers
+    start_page = max(1, current_page - 2)
+    end_page = min(total_pages, current_page + 2)
+
+    # First page if not in range
+    if start_page > 1:
+        html += f"""
+        <li class="page-item">
+            <button class="page-link"
+                    hx-get="/htmx/analysis/history?page=1"
+                    hx-target="#run-history-table">1</button>
+        </li>
+        """
+        if start_page > 2:
+            html += '<li class="page-item disabled"><span class="page-link">...</span></li>'
+
+    # Page range
+    for page in range(start_page, end_page + 1):
+        active = "active" if page == current_page else ""
+        html += f"""
+        <li class="page-item {active}">
+            <button class="page-link"
+                    hx-get="/htmx/analysis/history?page={page}"
+                    hx-target="#run-history-table"
+                    {"disabled" if active else ""}>{page}</button>
+        </li>
+        """
+
+    # Last page if not in range
+    if end_page < total_pages:
+        if end_page < total_pages - 1:
+            html += '<li class="page-item disabled"><span class="page-link">...</span></li>'
+        html += f"""
+        <li class="page-item">
+            <button class="page-link"
+                    hx-get="/htmx/analysis/history?page={total_pages}"
+                    hx-target="#run-history-table">{total_pages}</button>
+        </li>
+        """
+
+    # Next button
+    next_disabled = "disabled" if current_page >= total_pages else ""
+    next_page = min(total_pages, current_page + 1)
+    html += f"""
+        <li class="page-item {next_disabled}">
+            <button class="page-link"
+                    hx-get="/htmx/analysis/history?page={next_page}"
+                    hx-target="#run-history-table"
+                    {"disabled" if next_disabled else ""}>
+                Next <i class="fas fa-chevron-right"></i>
+            </button>
+        </li>
+    """
+
+    html += """
+        </ul>
+    </nav>
+    """
+
+    return html
+
+def _get_history_scripts() -> str:
+    """Shared JavaScript for history functionality"""
+    return """
+    <script>
+        function showRunDetails(runId) {
+            // TODO: Implement run details modal
+            alert('Run details for #' + runId + ' (TODO: implement modal)');
+        }
+
+        async function repeatRun(runId) {
+            try {
+                // Get the run details first
+                const runResponse = await fetch(`/api/analysis/status/${runId}`);
+                if (!runResponse.ok) {
+                    alert('Failed to get run details');
+                    return;
+                }
+                const run = await runResponse.json();
+
+                // Start a new run with the same scope and params
+                const startResponse = await fetch('/api/analysis/start', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        scope: run.scope,
+                        params: run.params
+                    })
+                });
+
+                if (!startResponse.ok) {
+                    const error = await startResponse.json();
+                    alert(`Failed to start new run: ${error.detail || 'Unknown error'}`);
+                    return;
+                }
+
+                const newRun = await startResponse.json();
+                alert(`Started new analysis run #${newRun.id}`);
+
+                // Refresh the page to show the new run
+                window.location.reload();
+            } catch (error) {
+                console.error('Error repeating run:', error);
+                alert('Failed to repeat run: ' + error.message);
+            }
+        }
+    </script>
+    """
 
 @router.get("/presets", response_class=HTMLResponse)
 def get_presets_partial() -> str:

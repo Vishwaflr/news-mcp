@@ -1,60 +1,43 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlmodel import Session, select
+from sqlmodel import Session
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 
 from app.database import get_session
 from app.models import (
-    Feed, FeedProcessorConfig, ProcessorTemplate, ContentProcessingLog,
     ProcessorType, ProcessingStatus
 )
+from app.services.domain.processor_service import ProcessorService
+from app.dependencies import get_processor_service
 from app.processors.manager import ContentProcessingManager
 from app.processors.validator import ProcessorConfigValidator
 
 router = APIRouter(prefix="/processors", tags=["processors"])
 
 @router.get("/types")
-def get_processor_types():
+def get_processor_types(processor_service: ProcessorService = Depends(get_processor_service)):
     """Get all available processor types"""
-    return {
-        "available_types": [ptype.value for ptype in ProcessorType],
-        "descriptions": {
-            "universal": "Basic content cleaning and normalization",
-            "heise": "Specialized for Heise Online feeds with German prefixes",
-            "cointelegraph": "Handles Cointelegraph truncation and formatting issues"
-        }
-    }
+    result = processor_service.get_available_processor_types()
+
+    if not result.success:
+        raise HTTPException(status_code=500, detail=result.error)
+
+    return result.data
 
 @router.get("/config/{feed_id}")
-def get_feed_processor_config(feed_id: int, session: Session = Depends(get_session)):
+def get_feed_processor_config(
+    feed_id: int,
+    processor_service: ProcessorService = Depends(get_processor_service)
+):
     """Get processor configuration for a specific feed"""
-    feed = session.get(Feed, feed_id)
-    if not feed:
-        raise HTTPException(status_code=404, detail="Feed not found")
+    result = processor_service.get_feed_processor_config(feed_id)
 
-    config = session.exec(
-        select(FeedProcessorConfig).where(FeedProcessorConfig.feed_id == feed_id)
-    ).first()
+    if not result.success:
+        if "not found" in result.error:
+            raise HTTPException(status_code=404, detail=result.error)
+        raise HTTPException(status_code=500, detail=result.error)
 
-    if not config:
-        # Return default configuration
-        return {
-            "feed_id": feed_id,
-            "processor_type": ProcessorType.UNIVERSAL.value,
-            "config": {},
-            "is_active": True,
-            "has_custom_config": False
-        }
-
-    return {
-        "feed_id": feed_id,
-        "processor_type": config.processor_type.value,
-        "config": config.config,
-        "is_active": config.is_active,
-        "has_custom_config": True,
-        "created_at": config.created_at,
-        "updated_at": config.updated_at
-    }
+    return result.data
 
 @router.post("/config/{feed_id}")
 def create_or_update_feed_processor_config(
@@ -66,12 +49,7 @@ def create_or_update_feed_processor_config(
 ):
     """Create or update processor configuration for a feed"""
 
-    # Validate feed exists
-    feed = session.get(Feed, feed_id)
-    if not feed:
-        raise HTTPException(status_code=404, detail="Feed not found")
-
-    # Validate processor configuration
+    # Validate processor configuration first
     validation_result = ProcessorConfigValidator.validate_config(
         processor_type.value, config
     )
@@ -85,29 +63,18 @@ def create_or_update_feed_processor_config(
             }
         )
 
-    # Check if config already exists
-    existing_config = session.exec(
-        select(FeedProcessorConfig).where(FeedProcessorConfig.feed_id == feed_id)
-    ).first()
+    processor_service = ProcessorService(session)
+    result = processor_service.create_or_update_processor_config(
+        feed_id=feed_id,
+        processor_type=processor_type,
+        config=config,
+        is_active=is_active
+    )
 
-    if existing_config:
-        # Update existing configuration
-        existing_config.processor_type = processor_type
-        existing_config.config_json = str(config) if config else "{}"
-        existing_config.is_active = is_active
-        existing_config.updated_at = datetime.utcnow()
-        session.add(existing_config)
-    else:
-        # Create new configuration
-        new_config = FeedProcessorConfig(
-            feed_id=feed_id,
-            processor_type=processor_type,
-            config_json=str(config) if config else "{}",
-            is_active=is_active
-        )
-        session.add(new_config)
-
-    session.commit()
+    if not result.success:
+        if "not found" in result.error:
+            raise HTTPException(status_code=404, detail=result.error)
+        raise HTTPException(status_code=400, detail=result.error)
 
     return {
         "message": "Processor configuration updated successfully",
@@ -120,15 +87,13 @@ def create_or_update_feed_processor_config(
 def delete_feed_processor_config(feed_id: int, session: Session = Depends(get_session)):
     """Delete processor configuration for a feed (revert to default)"""
 
-    config = session.exec(
-        select(FeedProcessorConfig).where(FeedProcessorConfig.feed_id == feed_id)
-    ).first()
+    processor_service = ProcessorService(session)
+    result = processor_service.delete_processor_config(feed_id)
 
-    if not config:
-        raise HTTPException(status_code=404, detail="No custom configuration found for this feed")
-
-    session.delete(config)
-    session.commit()
+    if not result.success:
+        if "not found" in result.error:
+            raise HTTPException(status_code=404, detail=result.error)
+        raise HTTPException(status_code=500, detail=result.error)
 
     return {
         "message": "Processor configuration deleted successfully",
@@ -141,30 +106,28 @@ def get_processor_templates(
     skip: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100),
     is_active: Optional[bool] = None,
-    session: Session = Depends(get_session)
+    processor_service: ProcessorService = Depends(get_processor_service)
 ):
     """Get all processor templates"""
 
-    query = select(ProcessorTemplate)
+    result = processor_service.get_processor_templates(active_only=is_active)
 
-    if is_active is not None:
-        query = query.where(ProcessorTemplate.is_active == is_active)
+    if not result.success:
+        raise HTTPException(status_code=500, detail=result.error)
 
-    query = query.offset(skip).limit(limit)
-    templates = session.exec(query).all()
-
+    templates = result.data
     return {
         "templates": [
             {
                 "id": template.id,
                 "name": template.name,
                 "processor_type": template.processor_type.value,
-                "patterns": template.patterns,
                 "config": template.config,
+                "description": template.description,
                 "is_active": template.is_active,
                 "created_at": template.created_at
             }
-            for template in templates
+            for template in templates[skip:skip+limit]
         ],
         "total": len(templates)
     }
@@ -173,8 +136,8 @@ def get_processor_templates(
 def create_processor_template(
     name: str,
     processor_type: ProcessorType,
-    patterns: List[str],
     config: Dict[str, Any] = {},
+    description: Optional[str] = None,
     is_active: bool = True,
     session: Session = Depends(get_session)
 ):
@@ -194,29 +157,23 @@ def create_processor_template(
             }
         )
 
-    # Check for duplicate name
-    existing = session.exec(
-        select(ProcessorTemplate).where(ProcessorTemplate.name == name)
-    ).first()
-
-    if existing:
-        raise HTTPException(status_code=400, detail="Template name already exists")
-
-    template = ProcessorTemplate(
+    processor_service = ProcessorService(session)
+    result = processor_service.create_processor_template(
         name=name,
         processor_type=processor_type,
-        patterns=patterns,
         config=config,
+        description=description,
         is_active=is_active
     )
 
-    session.add(template)
-    session.commit()
-    session.refresh(template)
+    if not result.success:
+        if "already exists" in result.error:
+            raise HTTPException(status_code=400, detail=result.error)
+        raise HTTPException(status_code=500, detail=result.error)
 
     return {
         "message": "Processor template created successfully",
-        "template_id": template.id,
+        "template_id": result.data.id,
         "warnings": validation_result.get("warnings", [])
     }
 
@@ -300,65 +257,16 @@ def delete_processor_template(template_id: int, session: Session = Depends(get_s
 def get_processing_statistics(
     feed_id: Optional[int] = None,
     days: int = Query(7, ge=1, le=365),
-    session: Session = Depends(get_session)
+    processor_service: ProcessorService = Depends(get_processor_service)
 ):
     """Get processing statistics"""
 
-    content_manager = ContentProcessingManager(session)
+    result = processor_service.get_processing_statistics(days=days)
 
-    if feed_id:
-        # Validate feed exists
-        feed = session.get(Feed, feed_id)
-        if not feed:
-            raise HTTPException(status_code=404, detail="Feed not found")
+    if not result.success:
+        raise HTTPException(status_code=500, detail=result.error)
 
-    stats = content_manager.get_processing_stats(feed_id)
-
-    # Add time-based filtering and additional metrics
-    query = select(ContentProcessingLog)
-    if feed_id:
-        query = query.where(ContentProcessingLog.feed_id == feed_id)
-
-    query = query.where(
-        ContentProcessingLog.processed_at >= datetime.utcnow() - timedelta(days=days)
-    )
-
-    recent_logs = session.exec(query).all()
-
-    # Calculate additional metrics
-    processor_performance = {}
-    for log in recent_logs:
-        proc_type = log.processor_type.value
-        if proc_type not in processor_performance:
-            processor_performance[proc_type] = {
-                "total": 0,
-                "success": 0,
-                "failed": 0,
-                "avg_time": 0,
-                "total_time": 0
-            }
-
-        processor_performance[proc_type]["total"] += 1
-        processor_performance[proc_type]["total_time"] += log.processing_time_ms or 0
-
-        if log.processing_status == ProcessingStatus.SUCCESS:
-            processor_performance[proc_type]["success"] += 1
-        else:
-            processor_performance[proc_type]["failed"] += 1
-
-    # Calculate averages
-    for proc_type, metrics in processor_performance.items():
-        if metrics["total"] > 0:
-            metrics["avg_time"] = metrics["total_time"] / metrics["total"]
-            metrics["success_rate"] = metrics["success"] / metrics["total"]
-
-    return {
-        "period_days": days,
-        "feed_id": feed_id,
-        "basic_stats": stats,
-        "processor_performance": processor_performance,
-        "recent_activity": len(recent_logs)
-    }
+    return result.data
 
 @router.post("/reprocess/feed/{feed_id}")
 def reprocess_feed_items(
@@ -369,62 +277,21 @@ def reprocess_feed_items(
 ):
     """Reprocess items from a specific feed"""
 
-    # Validate feed exists
-    feed = session.get(Feed, feed_id)
-    if not feed:
-        raise HTTPException(status_code=404, detail="Feed not found")
+    processor_service = ProcessorService(session)
+    feed_ids = [feed_id] if feed_id else None
+    failed_only = not force_all
 
-    from app.models import Item
+    result = processor_service.trigger_reprocessing(
+        feed_ids=feed_ids,
+        failed_only=failed_only
+    )
 
-    # Build query for items to reprocess
-    query = select(Item).where(Item.feed_id == feed_id)
+    if not result.success:
+        if "not found" in result.error:
+            raise HTTPException(status_code=404, detail=result.error)
+        raise HTTPException(status_code=500, detail=result.error)
 
-    if not force_all:
-        # Only reprocess items that previously failed or have low quality
-        subquery = select(ContentProcessingLog.item_id).where(
-            ContentProcessingLog.feed_id == feed_id,
-            ContentProcessingLog.processing_status == ProcessingStatus.FAILED
-        )
-        query = query.where(Item.id.in_(subquery))
-
-    if limit:
-        query = query.limit(limit)
-
-    items = session.exec(query).all()
-
-    if not items:
-        return {
-            "message": "No items found to reprocess",
-            "feed_id": feed_id,
-            "processed_count": 0
-        }
-
-    # Initialize content manager
-    content_manager = ContentProcessingManager(session)
-
-    processed_count = 0
-    failed_count = 0
-
-    for item in items:
-        try:
-            success = content_manager.reprocess_item(item)
-            if success:
-                processed_count += 1
-            else:
-                failed_count += 1
-        except Exception as e:
-            failed_count += 1
-            continue
-
-    session.commit()
-
-    return {
-        "message": "Reprocessing completed",
-        "feed_id": feed_id,
-        "total_items": len(items),
-        "processed_count": processed_count,
-        "failed_count": failed_count
-    }
+    return result.data
 
 @router.post("/reprocess/item/{item_id}")
 def reprocess_single_item(item_id: int, session: Session = Depends(get_session)):

@@ -13,14 +13,18 @@ ScopeType = Literal["global", "feeds", "items", "articles", "timerange", "filter
 # Cost estimation constants
 AVG_TOKENS_PER_ITEM = 500  # Average tokens per news item
 
-# Model pricing (per 1K tokens) - Realistic market prices
+# Model pricing (per 1M tokens) - Official OpenAI pricing
 MODEL_PRICING = {
-    "gpt-4.1-nano": {"input": 0.020, "output": 0.080, "cached": 0.005},
-    "gpt-4o-mini": {"input": 0.025, "output": 0.100, "cached": 0.0125},
-    "gpt-4.1-mini": {"input": 0.070, "output": 0.280, "cached": 0.0175},
-    "o4-mini": {"input": 0.200, "output": 0.800, "cached": 0.050},
-    "gpt-4.1": {"input": 0.350, "output": 1.400, "cached": 0.0875},
-    "gpt-4o": {"input": 0.425, "output": 1.700, "cached": 0.2125}
+    "gpt-5": {"input": 2.50, "output": 20.00, "cached": 0.25},
+    "gpt-5-mini": {"input": 0.45, "output": 3.60, "cached": 0.045},
+    "gpt-4.1": {"input": 3.50, "output": 14.00, "cached": 0.875},
+    "gpt-4.1-mini": {"input": 0.70, "output": 2.80, "cached": 0.175},
+    "gpt-4.1-nano": {"input": 0.20, "output": 0.80, "cached": 0.05},
+    "gpt-4o": {"input": 4.25, "output": 17.00, "cached": 2.125},
+    "gpt-4o-2024-05-13": {"input": 8.75, "output": 26.25, "cached": 0.0},  # No cached pricing listed
+    "gpt-4o-mini": {"input": 0.25, "output": 1.00, "cached": 0.125},
+    "o3": {"input": 3.50, "output": 14.00, "cached": 0.875},
+    "o4-mini": {"input": 2.00, "output": 8.00, "cached": 0.50}
 }
 
 class RunScope(BaseModel):
@@ -56,7 +60,7 @@ class RunScope(BaseModel):
 
 class RunParams(BaseModel):
     """Parameters for running analysis"""
-    limit: int = Field(default=200, ge=1, le=1000)
+    limit: int = Field(default=200, ge=1, le=5000)
     rate_per_second: float = Field(default=1.0, ge=0.2, le=3.0)
     dry_run: bool = False
     model_tag: str = "gpt-4.1-nano"
@@ -84,9 +88,9 @@ class RunPreview(BaseModel):
         # Get model pricing
         model_pricing = MODEL_PRICING.get(model_tag, MODEL_PRICING["gpt-4.1-nano"])
         # Use input pricing for estimation (conservative estimate)
-        cost_per_1k_tokens = model_pricing["input"]
+        cost_per_1m_tokens = model_pricing["input"]  # Price per 1M tokens
 
-        estimated_cost = (item_count * AVG_TOKENS_PER_ITEM * cost_per_1k_tokens) / 1000
+        estimated_cost = (item_count * AVG_TOKENS_PER_ITEM * cost_per_1m_tokens) / 1_000_000
         estimated_duration = (item_count / rate_per_second) / 60  # minutes
 
         return cls(

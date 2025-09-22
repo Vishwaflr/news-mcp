@@ -10,6 +10,12 @@ class Settings(BaseSettings):
     fetch_interval_minutes: int = 15
     max_concurrent_fetches: int = 10
 
+    # LLM Analysis Configuration
+    openai_api_key: Optional[str] = None
+    analysis_model: str = "gpt-4o-mini"
+    analysis_batch_limit: int = 200
+    analysis_rps: float = 1.0
+
     class Config:
         env_file = ".env"
 

@@ -37,23 +37,30 @@
                hx-include="[name='category_id'], [name='feed_id'], [name='search']">
     </div>
     <div class="col-md-3">
-        <select class="form-select" name="category_id"
+        <select class="form-select" name="category_id" id="category-selector"
                 hx-get="/htmx/items-list" hx-trigger="change" hx-target="#items-list"
                 hx-include="[name='search'], [name='feed_id'], [name='category_id']">
-            <option value="">All Categories</option>
+            <option value="0">All Categories</option>
         </select>
     </div>
     <div class="col-md-3">
         <select class="form-select" name="feed_id" id="feed-selector"
                 hx-get="/htmx/items-list" hx-trigger="change" hx-target="#items-list"
                 hx-include="[name='search'], [name='category_id'], [name='feed_id']">
-            <option value="">All Feeds</option>
+            <option value="0">All Feeds</option>
         </select>
     </div>
 </div>
 
-<!-- Load feed options -->
-<div hx-get="/htmx/feeds-options" hx-trigger="load" hx-target="#feed-selector" hx-swap="beforeend" style="display: none;"></div>
+<!-- Load options on page load -->
+<script>
+    htmx.onLoad(function() {
+        // Load feed options
+        htmx.ajax('GET', '/htmx/feeds-options', {target: '#feed-selector', swap: 'beforeend'});
+        // Load category options
+        htmx.ajax('GET', '/htmx/categories-options', {target: '#category-selector', swap: 'beforeend'});
+    });
+</script>
 
 <div id="items-list" hx-get="/htmx/items-list" hx-trigger="load">
     <div class="text-center">
@@ -74,4 +81,20 @@
         Load More
     </button>
 </div>
+
+<script>
+function toggleSentimentDetails(element) {
+    const sentimentDiv = element.closest('.sentiment-analysis');
+    const detailsDiv = sentimentDiv.querySelector('.sentiment-details');
+    const toggleText = element.querySelector('small');
+
+    if (detailsDiv.style.display === 'none' || detailsDiv.style.display === '') {
+        detailsDiv.style.display = 'block';
+        toggleText.textContent = 'Details ⌃';
+    } else {
+        detailsDiv.style.display = 'none';
+        toggleText.textContent = 'Details ⌄';
+    }
+}
+</script>
 {% endblock %}

@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 from sqlmodel import Session, select
 from app.database import engine
-from app.models import Feed, Item, FetchLog, FeedHealth, FeedStatus
+from app.models import FeedStatus, FeedHealth, Feed, Item, FetchLog
 from app.config import settings
 from app.processors.manager import ContentProcessingManager
 from app.services.dynamic_template_manager import get_dynamic_template_manager
@@ -24,18 +24,24 @@ class FeedFetcher:
         )
 
     async def fetch_feed(self, feed: Feed) -> FetchLog:
-        # Create initial log entry
+        # Create initial log entry using raw SQL
         log_id = None
         with Session(engine) as session:
-            log = FetchLog(
-                feed_id=feed.id,
-                started_at=datetime.utcnow(),
-                status="running"
+            from sqlmodel import text
+            result = session.execute(
+                text("""
+                    INSERT INTO fetch_log (feed_id, started_at, status, items_found, items_new)
+                    VALUES (:feed_id, :started_at, :status, 0, 0)
+                    RETURNING id
+                """),
+                {
+                    "feed_id": feed.id,
+                    "started_at": datetime.utcnow(),
+                    "status": "running"
+                }
             )
-            session.add(log)
+            log_id = result.fetchone()[0]
             session.commit()
-            session.refresh(log)
-            log_id = log.id
 
         try:
             start_time = datetime.utcnow()
@@ -51,15 +57,34 @@ class FeedFetcher:
 
             if response.status_code == 304:
                 with Session(engine) as session:
-                    log = session.get(FetchLog, log_id)
-                    log.completed_at = datetime.utcnow()
-                    log.status = "not_modified"
-                    log.response_time_ms = response_time
-                    session.add(log)
+                    from sqlmodel import text
+                    session.execute(
+                        text("""
+                            UPDATE fetch_log
+                            SET completed_at = :completed_at, status = :status, response_time_ms = :response_time
+                            WHERE id = :log_id
+                        """),
+                        {
+                            "completed_at": datetime.utcnow(),
+                            "status": "not_modified",
+                            "response_time": response_time,
+                            "log_id": log_id
+                        }
+                    )
                     session.commit()
-                    session.refresh(log)
 
                 await self._update_health(feed.id, True, response_time)
+                # Return a log object for compatibility
+                log = FetchLog(
+                    id=log_id,
+                    feed_id=feed.id,
+                    started_at=datetime.utcnow(),
+                    completed_at=datetime.utcnow(),
+                    status="not_modified",
+                    items_found=0,
+                    items_new=0,
+                    response_time_ms=response_time
+                )
                 return log
 
             response.raise_for_status()
@@ -88,9 +113,10 @@ class FeedFetcher:
                 # Initialize content processor and get dynamic template
                 content_manager = ContentProcessingManager(session)
 
-                # Get dynamic template for this feed
-                with get_dynamic_template_manager(session) as template_manager:
-                    template = template_manager.get_template_for_feed(feed_db.id)
+                # Get dynamic template for this feed (temporarily disabled due to SQLModel issues)
+                # with get_dynamic_template_manager(session) as template_manager:
+                #     template = template_manager.get_template_for_feed(feed_db.id)
+                template = None
 
                 # Process each entry individually with isolated transactions
                 for entry in parsed.entries:
@@ -133,15 +159,25 @@ class FeedFetcher:
 
             # Update log in separate session to avoid detached instance issues
             with Session(engine) as log_session:
-                log = log_session.get(FetchLog, log_id)
-                log.completed_at = datetime.utcnow()
-                log.status = "success"
-                log.items_found = items_found
-                log.items_new = items_new
-                log.response_time_ms = response_time
-                log_session.add(log)
+                from sqlmodel import text
+                log_session.execute(
+                    text("""
+                        UPDATE fetch_log
+                        SET completed_at = :completed_at, status = :status,
+                            items_found = :items_found, items_new = :items_new,
+                            response_time_ms = :response_time
+                        WHERE id = :log_id
+                    """),
+                    {
+                        "completed_at": datetime.utcnow(),
+                        "status": "success",
+                        "items_found": items_found,
+                        "items_new": items_new,
+                        "response_time": response_time,
+                        "log_id": log_id
+                    }
+                )
                 log_session.commit()
-                log_session.refresh(log)
 
             await self._update_health(feed.id, True, response_time)
             logger.info(f"Feed {feed.id} fetched successfully: {items_new}/{items_found} new items")
@@ -162,14 +198,23 @@ class FeedFetcher:
                     session.commit()
 
                 with Session(engine) as log_session:
-                    log = log_session.get(FetchLog, log_id)
-                    log.completed_at = datetime.utcnow()
-                    log.status = "success"
-                    log.items_found = items_found
-                    log.items_new = items_new
-                    log_session.add(log)
+                    from sqlmodel import text
+                    log_session.execute(
+                        text("""
+                            UPDATE fetch_log
+                            SET completed_at = :completed_at, status = :status,
+                                items_found = :items_found, items_new = :items_new
+                            WHERE id = :log_id
+                        """),
+                        {
+                            "completed_at": datetime.utcnow(),
+                            "status": "success",
+                            "items_found": items_found,
+                            "items_new": items_new,
+                            "log_id": log_id
+                        }
+                    )
                     log_session.commit()
-                    log_session.refresh(log)
 
                 await self._update_health(feed.id, True, response_time if 'response_time' in locals() else None)
                 logger.info(f"Feed {feed.id} completed successfully despite session error: {items_new}/{items_found} new items")
@@ -185,34 +230,47 @@ class FeedFetcher:
                     session.commit()
 
                 with Session(engine) as log_session:
-                    log = log_session.get(FetchLog, log_id)
-                    log.completed_at = datetime.utcnow()
-                    log.status = "error"
-                    log.error_message = error_msg
-                    log.items_found = items_found if 'items_found' in locals() else 0
-                    log.items_new = items_new if 'items_new' in locals() else 0
-                    log_session.add(log)
+                    from sqlmodel import text
+                    log_session.execute(
+                        text("""
+                            UPDATE fetch_log
+                            SET completed_at = :completed_at, status = :status,
+                                error_message = :error_message,
+                                items_found = :items_found, items_new = :items_new
+                            WHERE id = :log_id
+                        """),
+                        {
+                            "completed_at": datetime.utcnow(),
+                            "status": "error",
+                            "error_message": error_msg,
+                            "items_found": items_found if 'items_found' in locals() else 0,
+                            "items_new": items_new if 'items_new' in locals() else 0,
+                            "log_id": log_id
+                        }
+                    )
                     log_session.commit()
-                    log_session.refresh(log)
 
                 await self._update_health(feed.id, False, response_time if 'response_time' in locals() else None)
 
-        # Return final log state - create new instance to avoid session issues
+        # Return final log state using raw SQL to avoid session issues
         with Session(engine) as session:
-            final_log = session.get(FetchLog, log_id)
-            if final_log:
-                # Create detached copy to avoid session binding issues
-                from copy import deepcopy
+            from sqlmodel import text
+            result = session.execute(
+                text("SELECT * FROM fetch_log WHERE id = :log_id"),
+                {"log_id": log_id}
+            ).fetchone()
+
+            if result:
                 log_copy = FetchLog(
-                    id=final_log.id,
-                    feed_id=final_log.feed_id,
-                    started_at=final_log.started_at,
-                    completed_at=final_log.completed_at,
-                    status=final_log.status,
-                    items_found=final_log.items_found,
-                    items_new=final_log.items_new,
-                    response_time_ms=final_log.response_time_ms,
-                    error_message=final_log.error_message
+                    id=result[0],
+                    feed_id=result[1],
+                    started_at=result[2],
+                    completed_at=result[3],
+                    status=result[4],
+                    items_found=result[5],
+                    items_new=result[6],
+                    error_message=result[7],
+                    response_time_ms=result[8]
                 )
                 return log_copy
             return None
@@ -302,58 +360,95 @@ class FeedFetcher:
 
     async def _update_health(self, feed_id: int, success: bool, response_time_ms: Optional[int]):
         with Session(engine) as session:
-            health = session.exec(
-                select(FeedHealth).where(FeedHealth.feed_id == feed_id)
-            ).first()
+            from sqlmodel import text
 
-            if not health:
-                health = FeedHealth(
-                    feed_id=feed_id,
-                    ok_ratio=1.0 if success else 0.0,
-                    consecutive_failures=0 if success else 1,
-                    avg_response_time_ms=response_time_ms,
-                    last_success=datetime.utcnow() if success else None,
-                    last_failure=None if success else datetime.utcnow()
+            # Check if health record exists
+            health_result = session.execute(
+                text("SELECT * FROM feed_health WHERE feed_id = :feed_id"),
+                {"feed_id": feed_id}
+            ).fetchone()
+
+            if not health_result:
+                # Create new health record
+                session.execute(
+                    text("""
+                        INSERT INTO feed_health
+                        (feed_id, ok_ratio, consecutive_failures, avg_response_time_ms,
+                         last_success, last_failure, uptime_24h, uptime_7d, updated_at)
+                        VALUES (:feed_id, :ok_ratio, :consecutive_failures, :avg_response_time_ms,
+                                :last_success, :last_failure, 0.0, 0.0, :updated_at)
+                    """),
+                    {
+                        "feed_id": feed_id,
+                        "ok_ratio": 1.0 if success else 0.0,
+                        "consecutive_failures": 0 if success else 1,
+                        "avg_response_time_ms": response_time_ms,
+                        "last_success": datetime.utcnow() if success else None,
+                        "last_failure": None if success else datetime.utcnow(),
+                        "updated_at": datetime.utcnow()
+                    }
                 )
             else:
-                if success:
-                    health.consecutive_failures = 0
-                    health.last_success = datetime.utcnow()
-                    if response_time_ms:
-                        if health.avg_response_time_ms:
-                            health.avg_response_time_ms = (health.avg_response_time_ms + response_time_ms) / 2
-                        else:
-                            health.avg_response_time_ms = response_time_ms
-                else:
-                    health.consecutive_failures += 1
-                    health.last_failure = datetime.utcnow()
+                # Update existing health record
+                updates = {
+                    "feed_id": feed_id,
+                    "updated_at": datetime.utcnow()
+                }
 
-                recent_logs = session.exec(
-                    select(FetchLog)
-                    .where(FetchLog.feed_id == feed_id)
-                    .where(FetchLog.started_at >= datetime.utcnow() - timedelta(hours=24))
-                    .order_by(FetchLog.started_at.desc())
-                    .limit(100)
-                ).all()
+                if success:
+                    updates["consecutive_failures"] = 0
+                    updates["last_success"] = datetime.utcnow()
+
+                    if response_time_ms and health_result[4]:  # avg_response_time_ms column
+                        updates["avg_response_time_ms"] = (health_result[4] + response_time_ms) / 2
+                    elif response_time_ms:
+                        updates["avg_response_time_ms"] = response_time_ms
+                else:
+                    updates["consecutive_failures"] = health_result[3] + 1  # consecutive_failures column
+                    updates["last_failure"] = datetime.utcnow()
+
+                # Calculate recent success rates
+                recent_logs = session.execute(
+                    text("""
+                        SELECT status FROM fetch_log
+                        WHERE feed_id = :feed_id AND started_at >= :cutoff_24h
+                        ORDER BY started_at DESC LIMIT 100
+                    """),
+                    {
+                        "feed_id": feed_id,
+                        "cutoff_24h": datetime.utcnow() - timedelta(hours=24)
+                    }
+                ).fetchall()
 
                 if recent_logs:
-                    successful = len([log for log in recent_logs if log.status == "success"])
-                    health.uptime_24h = successful / len(recent_logs)
+                    successful = len([log for log in recent_logs if log[0] == "success"])
+                    updates["uptime_24h"] = successful / len(recent_logs)
 
-                week_logs = session.exec(
-                    select(FetchLog)
-                    .where(FetchLog.feed_id == feed_id)
-                    .where(FetchLog.started_at >= datetime.utcnow() - timedelta(days=7))
-                    .order_by(FetchLog.started_at.desc())
-                ).all()
+                week_logs = session.execute(
+                    text("""
+                        SELECT status FROM fetch_log
+                        WHERE feed_id = :feed_id AND started_at >= :cutoff_7d
+                        ORDER BY started_at DESC
+                    """),
+                    {
+                        "feed_id": feed_id,
+                        "cutoff_7d": datetime.utcnow() - timedelta(days=7)
+                    }
+                ).fetchall()
 
                 if week_logs:
-                    successful = len([log for log in week_logs if log.status == "success"])
-                    health.uptime_7d = successful / len(week_logs)
+                    successful = len([log for log in week_logs if log[0] == "success"])
+                    updates["uptime_7d"] = successful / len(week_logs)
 
-                health.updated_at = datetime.utcnow()
+                # Build dynamic update query
+                set_clauses = []
+                for key in updates:
+                    if key != "feed_id":
+                        set_clauses.append(f"{key} = :{key}")
 
-            session.add(health)
+                update_query = f"UPDATE feed_health SET {', '.join(set_clauses)} WHERE feed_id = :feed_id"
+                session.execute(text(update_query), updates)
+
             session.commit()
 
     def _save_item_isolated(self, item_data: dict, processing_metadata: dict = None) -> bool:
@@ -374,64 +469,52 @@ class FeedFetcher:
         try:
             # Use get_session context manager for isolated transaction
             with next(get_session()) as session:
-                # Check for duplicates first
-                existing = session.exec(
-                    select(Item).where(Item.content_hash == item_data.get('content_hash'))
-                ).first()
+                from sqlmodel import text
+
+                # Check for duplicates first using raw SQL
+                existing = session.execute(
+                    text("SELECT id FROM items WHERE content_hash = :content_hash"),
+                    {"content_hash": item_data.get('content_hash')}
+                ).fetchone()
 
                 if existing:
                     logger.debug(f"Skipping existing item: {item_data.get('title', 'Unknown')[:50]}...")
                     return False
 
-                # Create fresh Item object from data dictionary
-                new_item = Item(**item_data)
+                # Insert item using raw SQL to avoid SQLModel issues
+                from sqlmodel import text
+                insert_result = session.execute(
+                    text("""
+                        INSERT INTO items (title, link, description, content, author, published,
+                                         guid, content_hash, feed_id, created_at)
+                        VALUES (:title, :link, :description, :content, :author, :published,
+                                :guid, :content_hash, :feed_id, :created_at)
+                        RETURNING id
+                    """),
+                    {
+                        "title": item_data.get('title'),
+                        "link": item_data.get('link'),
+                        "description": item_data.get('description'),
+                        "content": item_data.get('content'),
+                        "author": item_data.get('author'),
+                        "published": item_data.get('published'),
+                        "guid": item_data.get('guid'),
+                        "content_hash": item_data.get('content_hash'),
+                        "feed_id": item_data.get('feed_id'),
+                        "created_at": datetime.utcnow()
+                    }
+                )
+                new_item_id = insert_result.fetchone()[0]
 
-                # Add and commit the item first to get an ID
-                session.add(new_item)
-                session.flush()  # Get the ID without committing
-
-                # Create processing log if metadata is available
-                if processing_metadata:
-                    try:
-                        # Determine processor type from name
-                        processor_name = processing_metadata.get('processor_name', '')
-                        processor_type = ProcessorType.UNIVERSAL
-                        if "Heise" in processor_name:
-                            processor_type = ProcessorType.HEISE
-                        elif "Cointelegraph" in processor_name:
-                            processor_type = ProcessorType.COINTELEGRAPH
-
-                        # Get processing data
-                        content_item = processing_metadata.get('content_item')
-                        processed = processing_metadata.get('processed')
-                        validation_result = processing_metadata.get('validation_result', {})
-
-                        # Include validation information in transformations
-                        transformations = processed.transformations.copy() if processed and processed.transformations else []
-                        if validation_result.get("warnings"):
-                            transformations.extend([f"validation_warning: {w}" for w in validation_result["warnings"][:3]])
-                        if validation_result.get("quality_adjustments"):
-                            adjustments = list(validation_result["quality_adjustments"].keys())[:3]
-                            transformations.extend([f"quality_adjustment: {adj}" for adj in adjustments])
-
-                        log_entry = ContentProcessingLog(
-                            item_id=new_item.id,
-                            feed_id=item_data.get('feed_id'),
-                            processor_type=processor_type,
-                            processing_status=processing_metadata.get('processing_status', ProcessingStatus.SUCCESS),
-                            original_title=content_item.title if content_item else None,
-                            processed_title=processed.title if processed else None,
-                            original_description=content_item.description if content_item else None,
-                            processed_description=processed.description if processed else None,
-                            transformations=transformations,
-                            error_message=processing_metadata.get('error_message'),
-                            processing_time_ms=processing_metadata.get('processing_time', 0)
-                        )
-
-                        session.add(log_entry)
-                    except Exception as log_error:
-                        # Don't fail item saving due to logging issues
-                        logger.warning(f"Failed to create processing log: {log_error}")
+                # Create processing log if metadata is available (temporarily disabled due to SQLModel issues)
+                # if processing_metadata:
+                #     try:
+                #         # Processing log creation disabled
+                #         pass
+                #     except Exception as log_error:
+                #         # Don't fail item saving due to logging issues
+                #         logger.warning(f"Failed to create processing log: {log_error}")
+                pass  # Processing log disabled
 
                 # Commit everything together
                 session.commit()

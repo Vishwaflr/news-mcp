@@ -40,6 +40,7 @@ class FeedUpdate(BaseModel):
     description: Optional[str] = None
     status: Optional[FeedStatus] = None
     fetch_interval_minutes: Optional[int] = None
+    category_ids: Optional[List[int]] = None
 
 class FeedResponse(BaseModel):
     id: int

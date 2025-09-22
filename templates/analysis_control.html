@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,6 +11,140 @@
     <script src="//unpkg.com/alpinejs" defer></script>
 
     <style>
+        /* Dark mode variables */
+        :root {
+            --bs-body-bg: #121212;
+            --bs-body-color: #e0e0e0;
+            --bs-card-bg: #1e1e1e;
+            --bs-border-color: #333333;
+        }
+
+        body {
+            background-color: var(--bs-body-bg) !important;
+            color: var(--bs-body-color) !important;
+        }
+
+        .card {
+            background-color: var(--bs-card-bg) !important;
+            border-color: var(--bs-border-color) !important;
+            border: 1px solid var(--bs-border-color) !important;
+        }
+
+        .card-header {
+            background-color: #2a2a2a !important;
+            border-bottom: 1px solid var(--bs-border-color) !important;
+        }
+
+        .form-control, .form-select {
+            background-color: #2a2a2a !important;
+            border-color: var(--bs-border-color) !important;
+            color: var(--bs-body-color) !important;
+        }
+
+        .form-control:focus, .form-select:focus {
+            background-color: #2a2a2a !important;
+            border-color: #0d6efd !important;
+            color: var(--bs-body-color) !important;
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25) !important;
+        }
+
+        .alert-info {
+            background-color: #1a4d66 !important;
+            border-color: #2d5a73 !important;
+            color: #b3d9f0 !important;
+        }
+
+        .alert-success {
+            background-color: #1a4d2d !important;
+            border-color: #2d5a47 !important;
+            color: #b3f0c7 !important;
+        }
+
+        .alert-warning {
+            background-color: #66511a !important;
+            border-color: #73612d !important;
+            color: #f0e1b3 !important;
+        }
+
+        .alert-danger {
+            background-color: #661a1a !important;
+            border-color: #732d2d !important;
+            color: #f0b3b3 !important;
+        }
+
+        .alert-primary {
+            background-color: #1a4d66 !important;
+            border-color: #2d5a73 !important;
+            color: #b3d9f0 !important;
+        }
+
+        .bg-light {
+            background-color: #2a2a2a !important;
+        }
+
+        .text-muted {
+            color: #a0a0a0 !important;
+        }
+
+        .table {
+            --bs-table-bg: transparent;
+            --bs-table-color: var(--bs-body-color);
+            --bs-table-border-color: var(--bs-border-color);
+        }
+
+        .table-striped > tbody > tr:nth-of-type(odd) > td {
+            background-color: #1a1a1a;
+        }
+
+        .nav-tabs .nav-link {
+            background-color: transparent;
+            border-color: var(--bs-border-color);
+            color: var(--bs-body-color);
+        }
+
+        .nav-tabs .nav-link.active {
+            background-color: var(--bs-card-bg);
+            border-color: var(--bs-border-color) var(--bs-border-color) var(--bs-card-bg);
+            color: var(--bs-body-color);
+        }
+
+        .tab-content {
+            background-color: var(--bs-card-bg);
+            border: 1px solid var(--bs-border-color);
+            border-top: none;
+        }
+
+        .btn-outline-primary {
+            border-color: #0d6efd;
+            color: #6ea8fe;
+        }
+
+        .btn-outline-primary:hover {
+            background-color: #0d6efd;
+            border-color: #0d6efd;
+            color: #ffffff;
+        }
+
+        .btn-outline-info {
+            border-color: #0dcaf0;
+            color: #6edff6;
+        }
+
+        .btn-outline-info:hover {
+            background-color: #0dcaf0;
+            border-color: #0dcaf0;
+            color: #000000;
+        }
+
+        /* Progress bar styling */
+        .progress {
+            background-color: #2a2a2a !important;
+        }
+
+        /* Badge improvements */
+        .badge.bg-secondary {
+            background-color: #4a4a4a !important;
+        }
         .slo-indicator {
             width: 12px;
             height: 12px;
@@ -27,7 +161,7 @@
         }
         .metric-card:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            box-shadow: 0 4px 12px rgba(255,255,255,0.1);
         }
 
         .cost-warning {
@@ -49,7 +183,7 @@
         }
     </style>
 </head>
-<body>
+<body class="bg-dark text-light">
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
             <a class="navbar-brand" href="/">
@@ -278,7 +412,7 @@
                                                     <span class="input-group-text">Latest</span>
                                                     <input type="number" class="form-control"
                                                            x-model="customCount"
-                                                           placeholder="Number of articles" min="1" max="1000">
+                                                           placeholder="Number of articles" min="1" max="5000">
                                                     <span class="input-group-text">articles</span>
                                                     <button type="button" class="btn btn-success btn-lg"
                                                             @click="setLatestCount(parseInt(customCount))"
@@ -287,7 +421,7 @@
                                                     </button>
                                                 </div>
                                                 <div class="form-text mt-2">
-                                                    Enter number of latest articles to analyze (1-1000)
+                                                    Enter number of latest articles to analyze (1-5000)
                                                 </div>
                                             </div>
                                         </div>
@@ -359,7 +493,7 @@
                                 <div class="col-md-3">
                                     <label class="form-label">Limit:</label>
                                     <input type="number" class="form-control" x-model="params.limit"
-                                           min="1" max="1000" @input="updatePreview()">
+                                           min="1" max="5000" @input="updatePreview()">
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label">Rate (RPS):</label>
@@ -398,13 +532,27 @@
                                     <small class="text-muted">Input/Output per 1K tokens</small>
                                 </div>
                             </div>
+
+                            <!-- SET Button for Parameters -->
+                            <div class="row mt-3">
+                                <div class="col-md-12 text-end">
+                                    <button type="button" class="btn btn-outline-success btn-sm"
+                                            @click="saveParametersAsDefault()"
+                                            style="font-weight: bold;">
+                                        <i class="fas fa-save"></i> SET AS DEFAULT
+                                    </button>
+                                    <div class="form-text mt-1 small text-muted">
+                                        Save current parameters as defaults for future runs
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Preview & Actions -->
                         <div class="border-top pt-4 mt-4">
                             <div class="row align-items-end">
                                 <div class="col-md-8">
-                                    <div id="run-preview" class="alert alert-light">
+                                    <div id="run-preview" class="alert alert-secondary bg-opacity-25">
                                         <div class="d-flex align-items-center">
                                             <div class="spinner-border spinner-border-sm text-primary me-2" role="status">
                                                 <span class="visually-hidden">Loading preview...</span>
@@ -460,7 +608,7 @@
                     <div class="card-body" id="overall-stats"
                          hx-get="/htmx/analysis/stats"
                          hx-target="#overall-stats"
-                         hx-trigger="load, every 30s">
+                         hx-trigger="load, every 5s">
                         <div class="text-center">
                             <div class="spinner-border text-primary" role="status">
                                 <span class="visually-hidden">Loading stats...</span>
@@ -559,6 +707,7 @@
                 customCount: 50,
 
                 init() {
+                    this.loadDefaultParameters();
                     this.loadFeeds();
                     this.updatePreview();
 
@@ -725,7 +874,7 @@
                             </div>
                         </div>
                         ${totalItems > 0 ? `
-                        <div class="mt-3 p-2 bg-light rounded">
+                        <div class="mt-3 p-2 bg-secondary bg-opacity-25 rounded">
                             <div class="row text-center small">
                                 <div class="col-4">
                                     <strong class="text-success">${analyzedItems}</strong><br>
@@ -804,6 +953,40 @@
                         }
                     } catch (error) {
                         this.showAlert('Failed to save preset: ' + error.message, 'danger');
+                    }
+                },
+
+                async saveParametersAsDefault() {
+                    try {
+                        const response = await fetch('/api/user-settings/default-params', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(this.params)
+                        });
+
+                        if (response.ok) {
+                            this.showAlert('Parameters saved as defaults!', 'success');
+                        } else {
+                            const error = await response.json();
+                            this.showAlert(error.detail || 'Failed to save parameters', 'danger');
+                        }
+                    } catch (error) {
+                        this.showAlert('Failed to save parameters: ' + error.message, 'danger');
+                    }
+                },
+
+                async loadDefaultParameters() {
+                    try {
+                        const response = await fetch('/api/user-settings/default-params');
+                        if (response.ok) {
+                            const defaultParams = await response.json();
+                            // Update current params with loaded defaults
+                            Object.assign(this.params, defaultParams);
+                            this.updatePreview();
+                        }
+                    } catch (error) {
+                        console.error('Failed to load default parameters:', error);
+                        // Keep hardcoded defaults as fallback
                     }
                 },
 

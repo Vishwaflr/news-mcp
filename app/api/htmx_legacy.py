@@ -3,7 +3,7 @@ from fastapi.responses import HTMLResponse
 from sqlmodel import Session, select
 from typing import Optional
 from app.database import get_session
-from app.models import Feed, Source, Category, Item, FeedHealth, FeedCategory, FeedProcessorConfig, ProcessorTemplate, ProcessorType, FeedType
+from app.models import Feed, Source, Category, Item, FeedHealth, FeedCategory, FeedProcessorConfig, ProcessorTemplate, ProcessorType, FeedType, ItemAnalysis
 from app.utils.feed_detector import FeedTypeDetector
 # Old template engine removed - now using dynamic templates
 import feedparser
@@ -191,9 +191,10 @@ def get_items_list(
     limit: int = 20
 ):
     from datetime import datetime, timedelta
-    from sqlmodel import or_
+    from sqlmodel import or_, outerjoin
 
-    query = select(Item, Feed).join(Feed)
+    # Join with sentiment analysis data
+    query = select(Item, Feed, ItemAnalysis).join(Feed).outerjoin(ItemAnalysis, Item.id == ItemAnalysis.item_id)
 
     # Convert string parameters to int, handle empty strings
     try:
@@ -242,7 +243,7 @@ def get_items_list(
     results = session.exec(query).all()
 
     html = ""
-    for item, feed in results:
+    for item, feed, analysis in results:
         published_date = item.published.strftime("%d.%m.%Y %H:%M") if item.published else item.created_at.strftime("%d.%m.%Y %H:%M")
         description = item.description[:200] + "..." if item.description and len(item.description) > 200 else item.description or ""
 
@@ -250,6 +251,9 @@ def get_items_list(
         clean_title = item.title.replace('"', '&quot;') if item.title else 'Untitled'
         clean_description = description.replace('"', '&quot;') if description else ''
         feed_name = (feed.title or feed.url[:30] + "...") if feed else 'Unknown Feed'
+
+        # Generate sentiment display
+        sentiment_display = generate_sentiment_display(analysis)
 
         html += f"""
         <div class="card mb-3 shadow-sm">
@@ -264,6 +268,7 @@ def get_items_list(
                     <span><i class="bi bi-rss me-1"></i>{feed_name}</span>
                     {f'<span><i class="bi bi-person me-1"></i>{item.author}</span>' if item.author else ''}
                 </div>
+                {sentiment_display}
                 {f'<p class="card-text text-body-secondary">{clean_description}</p>' if clean_description else ''}
             </div>
         </div>
@@ -273,6 +278,90 @@ def get_items_list(
         html = '<div class="alert alert-info">No articles found.</div>'
 
     return html
+
+def generate_sentiment_display(analysis):
+    """Generate HTML for sentiment analysis display with expandable details"""
+    if not analysis or not analysis.sentiment_json:
+        return '<div class="sentiment-analysis mb-2"><span class="badge bg-secondary">No Analysis</span></div>'
+
+    sentiment = analysis.sentiment_json
+    impact = analysis.impact_json
+    model = analysis.model_tag or 'unknown'
+
+    # Extract key values
+    overall = sentiment.get('overall', {})
+    market = sentiment.get('market', {})
+    label = overall.get('label', 'neutral')
+    score = overall.get('score', 0.0)
+    confidence = overall.get('confidence', 0.0)
+    urgency = sentiment.get('urgency', 0.0)
+    impact_overall = impact.get('overall', 0.0)
+    impact_volatility = impact.get('volatility', 0.0)
+    themes = sentiment.get('themes', [])
+
+    # Sentiment icon and color
+    if label == 'positive':
+        icon = '🟢'
+        color = 'success'
+    elif label == 'negative':
+        icon = '🔴'
+        color = 'danger'
+    else:
+        icon = '⚪'
+        color = 'secondary'
+
+    # Compact display (always visible)
+    compact_html = f"""
+    <div class="sentiment-analysis mb-2">
+        <div class="d-flex align-items-center gap-2 sentiment-compact" style="cursor: pointer;" onclick="toggleSentimentDetails(this)">
+            <span class="sentiment-icon">{icon}</span>
+            <span class="badge bg-{color}">{score:.1f}</span>
+            <span class="badge bg-warning">⚡ {urgency:.1f}</span>
+            <span class="badge bg-info">📊 {impact_overall:.1f}</span>
+            <small class="text-muted">Details ⌄</small>
+        </div>
+"""
+
+    # Detailed display (initially hidden)
+    market_display = f"📉 Bearish ({market.get('bearish', 0):.1f})" if market.get('bearish', 0) > 0.6 else f"📈 Bullish ({market.get('bullish', 0):.1f})" if market.get('bullish', 0) > 0.6 else "➡️ Neutral"
+    time_horizon = market.get('time_horizon', 'medium').title()
+    themes_display = ' • '.join([f"🏷️ {theme}" for theme in themes[:4]])  # Show max 4 themes
+
+    detailed_html = f"""
+        <div class="sentiment-details mt-2" style="display: none;">
+            <div class="card border-light bg-light">
+                <div class="card-header bg-transparent border-bottom-0 py-2">
+                    <h6 class="mb-0 text-muted">📊 Sentiment Analysis ({model})</h6>
+                </div>
+                <div class="card-body py-2">
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <div class="mb-2">
+                                <strong>Overall:</strong>
+                                <span class="badge bg-{color}">{label.title()} ({score:.1f})</span>
+                                <small class="text-muted">• {int(confidence*100)}% confident</small>
+                            </div>
+                            <div class="mb-2">
+                                <strong>Market:</strong> {market_display} • {time_horizon}-term
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-2">
+                                <strong>Impact:</strong> ⚡ {impact_overall:.1f} • Volatility: 📈 {impact_volatility:.1f}
+                            </div>
+                            <div class="mb-2">
+                                <strong>Urgency:</strong> ⏰ {urgency:.1f}
+                            </div>
+                        </div>
+                    </div>
+                    {f'<div class="mt-2"><strong>Themes:</strong> {themes_display}</div>' if themes else ''}
+                </div>
+            </div>
+        </div>
+    </div>
+    """
+
+    return compact_html + detailed_html
 
 @router.get("/system-status", response_class=HTMLResponse)
 def get_system_status(session: Session = Depends(get_session)):

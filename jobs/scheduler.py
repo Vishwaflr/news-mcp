@@ -5,7 +5,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from sqlmodel import Session, select
 from app.database import engine
-from app.models import Feed, FeedStatus
+from app.models import FeedStatus, Feed
 from app.config import settings
 from jobs.fetcher import FeedFetcher
 

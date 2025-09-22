@@ -80,9 +80,72 @@ def get_feeds_list(
 
         if not category_badges:
             category_badges = '<span class="badge bg-secondary ms-1">No Category</span>'
-        # Check if feed has articles
+        # Check if feed has articles and get analysis stats
         article_count = len(session.exec(select(Item).where(Item.feed_id == feed.id)).all())
         has_articles = article_count > 0
+
+        # Get sentiment analysis statistics for this feed
+        sentiment_stats = None
+        analysis_count = 0
+
+        if has_articles:
+            try:
+                # Use direct SQL execution to get comprehensive feed metrics
+                import psycopg2
+                from app.config import settings
+
+                # Parse DATABASE_URL
+                db_url = settings.database_url
+                if db_url.startswith("postgresql://"):
+                    # Extract connection params from URL
+                    import re
+                    match = re.match(r'postgresql://([^:]+):([^@]+)@([^:]+):?(\d+)?/(.+)', db_url)
+                    if match:
+                        user, password, host, port, db = match.groups()
+                        port = port or 5432
+
+                        # Connect directly with psycopg2
+                        with psycopg2.connect(
+                            host=host,
+                            port=port,
+                            user=user,
+                            password=password,
+                            database=db
+                        ) as conn:
+                            with conn.cursor() as cur:
+                                cur.execute("""
+                                    SELECT
+                                        COUNT(*) as total_analyzed,
+                                        COUNT(CASE WHEN sentiment_json->'overall'->>'label' = 'positive' THEN 1 END) as positive_count,
+                                        COUNT(CASE WHEN sentiment_json->'overall'->>'label' = 'negative' THEN 1 END) as negative_count,
+                                        COUNT(CASE WHEN sentiment_json->'overall'->>'label' = 'neutral' THEN 1 END) as neutral_count,
+                                        COUNT(CASE WHEN CAST(sentiment_json->>'urgency' AS NUMERIC) >= 0.7 THEN 1 END) as high_urgency,
+                                        COUNT(CASE WHEN CAST(impact_json->>'overall' AS NUMERIC) >= 0.7 THEN 1 END) as high_impact,
+                                        COUNT(CASE WHEN CAST(sentiment_json->>'urgency' AS NUMERIC) >= 0.7 AND CAST(impact_json->>'overall' AS NUMERIC) >= 0.7 THEN 1 END) as highly_relevant,
+                                        ROUND(AVG(CAST(sentiment_json->>'urgency' AS NUMERIC)), 2) as avg_urgency,
+                                        ROUND(AVG(CAST(impact_json->>'overall' AS NUMERIC)), 2) as avg_impact
+                                    FROM item_analysis ia
+                                    JOIN items i ON ia.item_id = i.id
+                                    WHERE i.feed_id = %s
+                                """, (feed.id,))
+
+                                result = cur.fetchone()
+                                if result and result[0] > 0:
+                                    analysis_count = result[0]
+                                    sentiment_stats = {
+                                        'total_analyzed': result[0],
+                                        'positive_count': result[1],
+                                        'negative_count': result[2],
+                                        'neutral_count': result[3],
+                                        'high_urgency': result[4],
+                                        'high_impact': result[5],
+                                        'highly_relevant': result[6],
+                                        'avg_urgency': float(result[7]) if result[7] else 0,
+                                        'avg_impact': float(result[8]) if result[8] else 0
+                                    }
+            except Exception as e:
+                logger.warning(f"Could not fetch sentiment stats for feed {feed.id}: {e}")
+                analysis_count = 0
 
         status_badge = {
             "active": "success",
@@ -102,6 +165,77 @@ def get_feeds_list(
                             <i class="bi bi-download"></i> Load
                         </button>"""
 
+        # Build comprehensive analysis info
+        analysis_info = ""
+        if sentiment_stats and analysis_count > 0:
+            positive_pct = round((sentiment_stats['positive_count'] / analysis_count) * 100, 1)
+            negative_pct = round((sentiment_stats['negative_count'] / analysis_count) * 100, 1)
+            neutral_pct = round((sentiment_stats['neutral_count'] / analysis_count) * 100, 1)
+
+            # Calculate quality metrics
+            analysis_coverage = round((analysis_count / article_count) * 100, 1) if article_count > 0 else 0
+            relevance_pct = round((sentiment_stats['highly_relevant'] / analysis_count) * 100, 1)
+
+            # Determine quality badge
+            quality_badge = "secondary"
+            quality_text = "Unknown"
+            if relevance_pct >= 30:
+                quality_badge = "success"
+                quality_text = "High Quality"
+            elif relevance_pct >= 15:
+                quality_badge = "warning"
+                quality_text = "Medium Quality"
+            elif analysis_count >= 5:
+                quality_badge = "danger"
+                quality_text = "Low Quality"
+
+            analysis_info = f"""
+                        <div class="mt-2 p-2 bg-light rounded">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <small class="text-muted"><strong>Analysis ({analysis_count}/{article_count} = {analysis_coverage}%):</strong></small>
+                                <span class="badge bg-{quality_badge}">{quality_text}</span>
+                            </div>
+
+                            <!-- Sentiment Distribution -->
+                            <div class="row text-center mb-2">
+                                <div class="col-4">
+                                    <span class="badge bg-success">{sentiment_stats['positive_count']} Pos ({positive_pct}%)</span>
+                                </div>
+                                <div class="col-4">
+                                    <span class="badge bg-secondary">{sentiment_stats['neutral_count']} Neu ({neutral_pct}%)</span>
+                                </div>
+                                <div class="col-4">
+                                    <span class="badge bg-danger">{sentiment_stats['negative_count']} Neg ({negative_pct}%)</span>
+                                </div>
+                            </div>
+
+                            <!-- Quality Metrics -->
+                            <div class="row text-center">
+                                <div class="col-3">
+                                    <small class="text-muted">📈 {sentiment_stats['highly_relevant']}<br>Relevant ({relevance_pct}%)</small>
+                                </div>
+                                <div class="col-3">
+                                    <small class="text-muted">🚨 {sentiment_stats['high_urgency']}<br>Urgent</small>
+                                </div>
+                                <div class="col-3">
+                                    <small class="text-muted">💥 {sentiment_stats['high_impact']}<br>Impact</small>
+                                </div>
+                                <div class="col-3">
+                                    <small class="text-muted">⚡ {sentiment_stats['avg_urgency']}<br>Avg Urg</small>
+                                </div>
+                            </div>
+                        </div>"""
+        elif has_articles and analysis_count == 0:
+            # Show warning for feeds with articles but no analysis
+            analysis_coverage = 0
+            analysis_info = f"""
+                        <div class="mt-2 p-2 bg-warning bg-opacity-25 rounded">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-warning"><strong>⚠️ No analysis available</strong></small>
+                                <small class="text-muted">{article_count} articles waiting for analysis</small>
+                            </div>
+                        </div>"""
+
         html += f"""
         <div class="card mb-2">
             <div class="card-body">
@@ -111,6 +245,7 @@ def get_feeds_list(
                             {feed.title or 'Untitled Feed'}
                             <span class="badge bg-{status_badge} ms-2">{feed.status.value}</span>
                             {f'<span class="badge bg-info ms-1">{article_count} Articles</span>' if has_articles else '<span class="badge bg-warning ms-1">No Articles</span>'}
+                            {f'<span class="badge bg-primary ms-1">{analysis_count} Analyzed</span>' if analysis_count > 0 else f'<span class="badge bg-secondary ms-1">0 Analyzed</span>' if has_articles else ''}
                             {category_badges}
                         </h6>
                         <p class="card-text small text-muted mb-1">
@@ -122,6 +257,7 @@ def get_feeds_list(
                         </p>
                         {f'<p class="card-text small text-muted"><strong>Last Fetch:</strong> {feed.last_fetched.strftime("%d.%m.%Y %H:%M")}</p>' if feed.last_fetched else '<p class="card-text small text-warning"><strong>Never fetched</strong></p>'}
                         <div id="fetch-status-{feed.id}"></div>
+                        {analysis_info}
                     </div>
                     <div class="btn-group">
                         <button class="btn btn-sm btn-outline-primary"

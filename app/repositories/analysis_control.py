@@ -5,7 +5,7 @@ from app.domain.analysis.control import (
     RunPreview, RunStatus, ItemState, ScopeType
 )
 from typing import List, Optional, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import json
 import logging
 
@@ -29,16 +29,16 @@ class AnalysisControlRepo:
                 query = AnalysisControlRepo._build_scope_query(scope_for_preview)
 
                 # Execute count query for total items in scope
-                count_result = session.execute(text(f"SELECT COUNT(*) FROM ({query}) as preview_query")).first()
+                count_result = session.execute(text("SELECT COUNT(*) FROM (" + query + ") as preview_query")).first()
                 total_items = count_result[0] if count_result else 0
 
                 # Count already analyzed items (unless override_existing is True)
                 already_analyzed_count = 0
                 if total_items > 0:
-                    analyzed_query = f"""
-                    SELECT COUNT(*) FROM ({query}) as scope_items
-                    WHERE scope_items.id IN (SELECT DISTINCT item_id FROM item_analysis)
-                    """
+                    analyzed_query = (
+                        "SELECT COUNT(*) FROM (" + query + ") as scope_items " +
+                        "WHERE scope_items.id IN (SELECT DISTINCT item_id FROM item_analysis)"
+                    )
                     analyzed_result = session.execute(text(analyzed_query)).first()
                     already_analyzed_count = analyzed_result[0] if analyzed_result else 0
 
@@ -222,11 +222,11 @@ class AnalysisControlRepo:
             query_with_filter = f"{query} LIMIT {params.limit}"
 
         # Insert items into run queue
-        session.execute(text(f"""
-            INSERT INTO analysis_run_items (run_id, item_id, state, created_at)
-            SELECT {run_id}, id, 'queued', NOW()
-            FROM ({query_with_filter}) as items_to_queue
-        """))
+        session.execute(text(
+            "INSERT INTO analysis_run_items (run_id, item_id, state, created_at) " +
+            "SELECT :run_id, id, 'queued', NOW() " +
+            "FROM (" + query_with_filter + ") as items_to_queue"
+        ), {"run_id": run_id})
 
         # Return count of queued items
         count_result = session.execute(text("""
@@ -252,27 +252,31 @@ class AnalysisControlRepo:
                 if not run_result:
                     return None
 
-                # Get current metrics
-                metrics_result = session.execute(text("""
-                    SELECT * FROM calculate_run_metrics(:run_id)
-                """), {"run_id": run_id}).first()
+                # Get current metrics using AnalysisQueueRepo
+                from app.repositories.analysis_queue import AnalysisQueueRepo
+                queue_metrics = AnalysisQueueRepo.get_run_metrics(run_id)
 
                 # Calculate additional metrics
                 items_per_min = 0.0
                 if run_result[8]:  # started_at
-                    elapsed_minutes = (datetime.utcnow() - run_result[8]).total_seconds() / 60
-                    if elapsed_minutes > 0:
-                        items_per_min = metrics_result[1] / elapsed_minutes  # processed_count / elapsed_minutes
+                    started_at = run_result[8]
+                    if started_at.tzinfo is None:
+                        # Make timezone-naive datetime timezone-aware (UTC)
+                        started_at = started_at.replace(tzinfo=timezone.utc)
 
-                # Build metrics object
+                    elapsed_minutes = (datetime.utcnow().replace(tzinfo=timezone.utc) - started_at).total_seconds() / 60
+                    if elapsed_minutes > 0:
+                        items_per_min = queue_metrics.get("processed_count", 0) / elapsed_minutes
+
+                # Build metrics object using queue_metrics (which has correct costs)
                 metrics = RunMetrics(
-                    queued_count=metrics_result[0],
-                    processed_count=metrics_result[1],
-                    failed_count=metrics_result[2],
-                    error_rate=float(metrics_result[3]),
-                    eta_seconds=metrics_result[4],
+                    queued_count=queue_metrics.get("queued_count", 0),
+                    processed_count=queue_metrics.get("processed_count", 0),
+                    failed_count=queue_metrics.get("failed_count", 0),
+                    error_rate=queue_metrics.get("error_rate", 0.0),
+                    eta_seconds=None,  # Not provided by queue_metrics
                     items_per_minute=round(items_per_min, 2),
-                    actual_cost_usd=float(run_result[11]) if run_result[11] else 0.0,
+                    actual_cost_usd=queue_metrics.get("actual_cost_usd", 0.0),  # Use correct cost from items
                     estimated_cost_usd=float(run_result[10]) if run_result[10] else 0.0,
                     coverage_10m=float(run_result[12]) if run_result[12] else 0.0,
                     coverage_60m=float(run_result[13]) if run_result[13] else 0.0
@@ -307,11 +311,17 @@ class AnalysisControlRepo:
             try:
                 results = session.execute(text("""
                     SELECT
-                        id, created_at, updated_at, scope_json, params_json, scope_hash,
-                        status, started_at, completed_at, last_error,
-                        cost_estimate, actual_cost, queued_count, processed_count, failed_count
-                    FROM analysis_runs
-                    ORDER BY created_at DESC
+                        ar.id, ar.created_at, ar.updated_at, ar.scope_json, ar.params_json, ar.scope_hash,
+                        ar.status, ar.started_at, ar.completed_at, ar.last_error,
+                        ar.cost_estimate,
+                        COALESCE(SUM(ari.cost_usd), 0) as actual_cost,  -- Calculate real cost from items
+                        ar.queued_count, ar.processed_count, ar.failed_count
+                    FROM analysis_runs ar
+                    LEFT JOIN analysis_run_items ari ON ari.run_id = ar.id
+                    GROUP BY ar.id, ar.created_at, ar.updated_at, ar.scope_json, ar.params_json, ar.scope_hash,
+                             ar.status, ar.started_at, ar.completed_at, ar.last_error,
+                             ar.cost_estimate, ar.queued_count, ar.processed_count, ar.failed_count
+                    ORDER BY ar.created_at DESC
                     LIMIT :limit OFFSET :offset
                 """), {"limit": limit, "offset": offset}).fetchall()
 
@@ -392,17 +402,121 @@ class AnalysisControlRepo:
         """Get all currently active runs"""
         with Session(engine) as session:
             try:
+                # Quick fix: Limit to prevent hanging + direct query instead of N+1
                 results = session.execute(text("""
-                    SELECT id FROM analysis_runs
+                    SELECT id, status, created_at, started_at, completed_at, scope_json,
+                           cost_estimate, updated_at, params_json, scope_hash
+                    FROM analysis_runs
                     WHERE status IN ('pending', 'running', 'paused')
                     ORDER BY created_at ASC
+                    LIMIT 10
                 """)).fetchall()
 
-                return [AnalysisControlRepo.get_run_by_id(row[0]) for row in results if row[0]]
+                # Convert to AnalysisRun objects without additional queries
+                runs = []
+                for row in results:
+                    try:
+                        # Get metrics for this run (single query)
+                        metrics_result = session.execute(text("""
+                            SELECT state, COUNT(*) as count
+                            FROM analysis_run_items
+                            WHERE run_id = :run_id
+                            GROUP BY state
+                        """), {"run_id": row[0]}).fetchall()
+
+                        # Build metrics dict
+                        metrics_dict = {r[0]: r[1] for r in metrics_result}
+                        total = sum(metrics_dict.values())
+
+                        # Calculate progress
+                        processed = metrics_dict.get('completed', 0)
+                        failed = metrics_dict.get('failed', 0)
+                        progress_percent = round((processed / total * 100), 1) if total > 0 else 0.0
+
+                        runs.append(AnalysisRun(
+                            id=row[0],
+                            status=row[1],
+                            created_at=row[2],
+                            started_at=row[3],
+                            completed_at=row[4],
+                            scope=row[5] if row[5] else {},
+                            cost_estimate=row[6],
+                            updated_at=row[7],
+                            params=row[8] if row[8] else {},
+                            scope_hash=row[9],
+                            metrics=RunMetrics(
+                                total_count=total,
+                                processed_count=processed,
+                                failed_count=failed,
+                                queued_count=metrics_dict.get('queued', 0),
+                                progress_percent=progress_percent
+                            )
+                        ))
+                    except Exception as e:
+                        logger.warning(f"Failed to build run {row[0]}: {e}")
+                        continue
+
+                return runs
 
             except Exception as e:
                 logger.error(f"Failed to get active runs: {e}")
                 return []
+
+    @staticmethod
+    def get_run(run_id: int) -> Optional[AnalysisRun]:
+        """Get a specific analysis run by ID"""
+        with Session(engine) as session:
+            try:
+                result = session.execute(text("""
+                    SELECT id, status, created_at, started_at, completed_at, scope_json,
+                           cost_estimate, updated_at, params_json, scope_hash
+                    FROM analysis_runs
+                    WHERE id = :run_id
+                """), {"run_id": run_id}).fetchone()
+
+                if not result:
+                    return None
+
+                # Get metrics for this run
+                metrics_result = session.execute(text("""
+                    SELECT state, COUNT(*) as count
+                    FROM analysis_run_items
+                    WHERE run_id = :run_id
+                    GROUP BY state
+                """), {"run_id": run_id}).fetchall()
+
+                # Build metrics dict
+                metrics_dict = {r[0]: r[1] for r in metrics_result}
+                total = sum(metrics_dict.values())
+
+                # Calculate progress
+                processed = metrics_dict.get('completed', 0)
+                failed = metrics_dict.get('failed', 0)
+                progress_percent = round((processed / total * 100), 1) if total > 0 else 0.0
+
+                return AnalysisRun(
+                    id=result[0],
+                    status=result[1],
+                    created_at=result[2],
+                    started_at=result[3],
+                    completed_at=result[4],
+                    scope=result[5] if result[5] else {},
+                    cost_estimate=result[6],
+                    updated_at=result[7],
+                    params=result[8] if result[8] else {},
+                    scope_hash=result[9],
+                    metrics=RunMetrics(
+                        total_count=total,
+                        processed_count=processed,
+                        failed_count=failed,
+                        queued_count=metrics_dict.get('queued', 0),
+                        progress_percent=progress_percent
+                    )
+                )
+
+            except Exception as e:
+                logger.error(f"Failed to get run {run_id}: {e}")
+                return None
 
     # Preset Management
     @staticmethod

@@ -1,4 +1,4 @@
-from sqlmodel import SQLModel, Field, Relationship
+from sqlmodel import SQLModel, Field, Relationship, Column, JSON
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from enum import Enum
@@ -407,3 +407,27 @@ class FeedSchedulerState(SQLModel, table=True):
     last_heartbeat: Optional[datetime] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class UserSettings(SQLModel, table=True):
+    """User settings for analysis parameters"""
+    __tablename__ = "user_settings"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    # Analysis parameters
+    default_limit: int = Field(default=200)
+    default_rate_per_second: float = Field(default=1.0)
+    default_model_tag: str = Field(default="gpt-4.1-nano")
+    default_dry_run: bool = Field(default=False)
+    default_override_existing: bool = Field(default=False)
+
+    # Additional settings as JSON
+    extra_settings: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+
+    # Metadata
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    # Single row constraint (only one settings record)
+    user_id: str = Field(default="default", unique=True, index=True)

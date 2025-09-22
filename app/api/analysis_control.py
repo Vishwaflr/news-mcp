@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Query, Body
+from fastapi import APIRouter, HTTPException, Query, Body, Depends
 from fastapi.responses import HTMLResponse
 from typing import List, Optional
 import logging
@@ -7,48 +7,56 @@ from app.domain.analysis.control import (
     RunScope, RunParams, RunPreview, AnalysisRun, AnalysisPreset,
     SLO_TARGETS
 )
+from app.services.domain.analysis_service import AnalysisService
+from app.dependencies import get_analysis_service
 from app.repositories.analysis_control import AnalysisControlRepo
 
 router = APIRouter(prefix="/analysis", tags=["analysis-control"])
 logger = logging.getLogger(__name__)
 
+# Updated limit to 1000 articles - forced reload
+
 @router.post("/preview")
 async def preview_run(
-    scope: RunScope = Body(...),
-    params: RunParams = Body(...)
+    scope: Optional[RunScope] = Body(None),
+    params: Optional[RunParams] = Body(None),
+    item_ids: Optional[List[int]] = Body(None),
+    analysis_service: AnalysisService = Depends(get_analysis_service)
 ) -> RunPreview:
-    """Preview what a run would analyze"""
-    try:
-        preview = AnalysisControlRepo.preview_run(scope, params)
-        return preview
-    except Exception as e:
-        logger.error(f"Preview failed: {e}")
-        raise HTTPException(status_code=400, detail=str(e))
+    """Preview what a run would analyze - supports both new and legacy formats"""
+
+    # Handle legacy format with just item_ids
+    if item_ids is not None and scope is None:
+        scope = RunScope(type="items", item_ids=item_ids)
+        params = RunParams()  # Use defaults
+    elif scope is None or params is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Either provide item_ids or both scope and params"
+        )
+
+    result = analysis_service.preview_analysis_run(scope, params)
+
+    if not result.success:
+        raise HTTPException(status_code=400, detail=result.error)
+
+    return result.data
 
 @router.post("/start")
 async def start_run(
     scope: RunScope = Body(...),
-    params: RunParams = Body(...)
+    params: RunParams = Body(...),
+    analysis_service: AnalysisService = Depends(get_analysis_service)
 ) -> AnalysisRun:
     """Start a new analysis run"""
-    try:
-        # Validate cost estimate
-        preview = AnalysisControlRepo.preview_run(scope, params)
-        if preview.estimated_cost_usd > SLO_TARGETS["max_cost_per_run"]:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Estimated cost ${preview.estimated_cost_usd:.2f} exceeds limit ${SLO_TARGETS['max_cost_per_run']:.2f}"
-            )
+    result = analysis_service.start_analysis_run(scope, params)
 
-        run = AnalysisControlRepo.create_run(scope, params)
-        logger.info(f"Started analysis run {run.id} with {run.metrics.total_count} items")
-        return run
+    if not result.success:
+        if "exceeds limit" in result.error or "concurrent runs" in result.error:
+            raise HTTPException(status_code=400, detail=result.error)
+        raise HTTPException(status_code=500, detail=result.error)
 
-    except ValueError as e:
-        raise HTTPException(status_code=409, detail=str(e))
-    except Exception as e:
-        logger.error(f"Failed to start run: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    return result.data
 
 @router.post("/pause/{run_id}")
 async def pause_run(run_id: int) -> dict:
@@ -79,62 +87,69 @@ async def resume_run(run_id: int) -> dict:
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/cancel/{run_id}")
-async def cancel_run(run_id: int) -> dict:
+async def cancel_run(
+    run_id: int,
+    analysis_service: AnalysisService = Depends(get_analysis_service)
+) -> dict:
     """Cancel an analysis run"""
-    try:
-        success = AnalysisControlRepo.update_run_status(run_id, "cancelled")
-        if not success:
-            raise HTTPException(status_code=404, detail="Run not found or cannot be cancelled")
+    result = analysis_service.cancel_analysis_run(run_id, "User cancelled")
 
-        return {"status": "cancelled", "run_id": run_id}
+    if not result.success:
+        if "not found" in result.error:
+            raise HTTPException(status_code=404, detail=result.error)
+        raise HTTPException(status_code=400, detail=result.error)
 
-    except Exception as e:
-        logger.error(f"Failed to cancel run {run_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    return {"status": "cancelled", "run_id": run_id}
 
 @router.get("/status/{run_id}")
-async def get_run_status(run_id: int) -> AnalysisRun:
+async def get_run_status(
+    run_id: int,
+    analysis_service: AnalysisService = Depends(get_analysis_service)
+) -> AnalysisRun:
     """Get current status of an analysis run"""
-    try:
-        run = AnalysisControlRepo.get_run_by_id(run_id)
-        if not run:
-            raise HTTPException(status_code=404, detail="Run not found")
+    result = analysis_service.get_analysis_run(run_id)
 
-        return run
+    if not result.success:
+        if "not found" in result.error:
+            raise HTTPException(status_code=404, detail=result.error)
+        raise HTTPException(status_code=500, detail=result.error)
 
-    except Exception as e:
-        logger.error(f"Failed to get run status {run_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    return result.data
 
 @router.get("/status")
-async def get_active_runs() -> List[AnalysisRun]:
+async def get_active_runs(
+    analysis_service: AnalysisService = Depends(get_analysis_service)
+) -> List[AnalysisRun]:
     """Get status of all active runs"""
-    try:
-        return AnalysisControlRepo.get_active_runs()
-    except Exception as e:
-        logger.error(f"Failed to get active runs: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    result = analysis_service.get_active_runs()
+
+    if not result.success:
+        raise HTTPException(status_code=500, detail=result.error)
+
+    return result.data
 
 @router.get("/history")
 async def get_run_history(
     page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100)
+    limit: int = Query(20, ge=1, le=100),
+    analysis_service: AnalysisService = Depends(get_analysis_service)
 ) -> dict:
     """Get paginated run history"""
-    try:
-        offset = (page - 1) * limit
-        runs = AnalysisControlRepo.get_recent_runs(limit=limit, offset=offset)
+    result = analysis_service.list_analysis_runs(limit=limit, days_back=30)
 
-        return {
-            "runs": runs,
-            "page": page,
-            "limit": limit,
-            "has_more": len(runs) == limit
-        }
+    if not result.success:
+        raise HTTPException(status_code=500, detail=result.error)
 
-    except Exception as e:
-        logger.error(f"Failed to get run history: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    runs = result.data
+    offset = (page - 1) * limit
+    paginated_runs = runs[offset:offset + limit]
+
+    return {
+        "runs": paginated_runs,
+        "page": page,
+        "limit": limit,
+        "has_more": len(runs) > offset + limit
+    }
 
 # Preset endpoints
 @router.post("/presets")
@@ -179,7 +194,7 @@ async def get_quick_actions() -> List:
 @router.get("/articles")
 async def get_available_articles(
     page: int = Query(1, ge=1),
-    limit: int = Query(50, ge=1, le=1000),
+    limit: int = Query(50, ge=1, le=5000),
     feed_id: Optional[int] = Query(None),
     unanalyzed_only: bool = Query(True)
 ) -> dict:
@@ -253,59 +268,25 @@ async def get_available_articles(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/feeds")
-async def get_available_feeds() -> List[dict]:
+async def get_available_feeds(
+    analysis_service: AnalysisService = Depends(get_analysis_service)
+) -> List[dict]:
     """Get available feeds for selection"""
-    from sqlmodel import Session, text
-    from app.database import engine
+    result = analysis_service.get_available_feeds()
 
-    try:
-        with Session(engine) as session:
-            results = session.execute(text("""
-                SELECT f.id, f.title, f.url, COUNT(i.id) as item_count
-                FROM feeds f
-                LEFT JOIN items i ON i.feed_id = f.id
-                GROUP BY f.id, f.title, f.url
-                ORDER BY f.title ASC
-            """)).fetchall()
+    if not result.success:
+        raise HTTPException(status_code=500, detail=result.error)
 
-            feeds = []
-            for row in results:
-                feeds.append({
-                    "id": row[0],
-                    "title": row[1] or row[2][:50] + "...",
-                    "url": row[2],
-                    "item_count": row[3]
-                })
-
-            return feeds
-
-    except Exception as e:
-        logger.error(f"Failed to get feeds: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    return result.data
 
 @router.get("/stats")
-async def get_analysis_stats() -> dict:
+async def get_analysis_stats(
+    analysis_service: AnalysisService = Depends(get_analysis_service)
+) -> dict:
     """Get overall analysis statistics"""
-    from app.repositories.analysis import AnalysisRepo
+    result = analysis_service.get_analysis_statistics(days_back=30)
 
-    try:
-        stats = AnalysisRepo.get_analysis_stats()
-        pending_count = AnalysisRepo.count_pending_analysis()
+    if not result.success:
+        raise HTTPException(status_code=500, detail=result.error)
 
-        # Calculate coverage metrics
-        total_items = stats.get("total_analyzed", 0) + pending_count
-        coverage = stats.get("total_analyzed", 0) / max(total_items, 1)
-
-        return {
-            "total_items": total_items,
-            "analyzed_items": stats.get("total_analyzed", 0),
-            "pending_items": pending_count,
-            "coverage_percent": round(coverage * 100, 1),
-            "sentiment_distribution": stats.get("sentiment_distribution", {}),
-            "avg_impact": stats.get("avg_impact", 0.0),
-            "avg_urgency": stats.get("avg_urgency", 0.0)
-        }
-
-    except Exception as e:
-        logger.error(f"Failed to get analysis stats: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    return result.data

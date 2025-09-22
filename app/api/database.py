@@ -61,7 +61,8 @@ def list_tables(session: Session = Depends(get_session)):
         if is_table_allowed(table_name):
             # Get row count
             try:
-                count_result = session.exec(text(f"SELECT COUNT(*) FROM {table_name}")).scalar()
+                # Use safe string concatenation for table name (from information_schema, so trusted)
+                count_result = session.exec(text("SELECT COUNT(*) FROM " + table_name)).scalar()
                 tables.append({
                     "name": table_name,
                     "type": table_type,

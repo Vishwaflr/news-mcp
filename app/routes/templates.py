@@ -7,7 +7,8 @@ from fastapi import APIRouter, Request, Form, HTTPException, Depends
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from typing import Optional, List
-from sqlmodel import Session, select
+from sqlmodel import Session, select, text
+import json
 
 from ..database import get_session
 from ..models import DynamicFeedTemplate, Feed, FeedTemplateAssignment
@@ -26,45 +27,76 @@ async def templates_page(request: Request):
 async def templates_list(request: Request, session: Session = Depends(get_session)):
     """Get list of all templates with their assignments"""
 
-    # Get all templates with their assignments
-    templates_query = session.exec(
-        select(DynamicFeedTemplate).order_by(DynamicFeedTemplate.created_at.desc())
-    ).all()
+    # Get all templates using raw SQL to avoid SQLModel issues
+    templates_result = session.execute(
+        text("""
+        SELECT id, name, description, version, url_patterns, field_mappings,
+               content_processing_rules, quality_filters, categorization_rules,
+               fetch_settings, is_active, is_builtin, created_by, created_at, updated_at
+        FROM dynamic_feed_templates
+        ORDER BY created_at DESC
+        """)
+    ).fetchall()
 
     # Get all feeds for assignment dropdown
-    all_feeds = session.exec(select(Feed)).all()
+    feeds_result = session.execute(
+        text("SELECT id, title, url FROM feeds ORDER BY title")
+    ).fetchall()
+
+    all_feeds = [{"id": f[0], "title": f[1], "url": f[2]} for f in feeds_result]
 
     # Enrich templates with assignment info
     enriched_templates = []
-    for template in templates_query:
-        assignments = session.exec(
-            select(FeedTemplateAssignment)
-            .where(
-                FeedTemplateAssignment.template_id == template.id,
-                FeedTemplateAssignment.is_active == True
-            )
-        ).all()
+    for template_row in templates_result:
+        # Get assignments for this template
+        assignments_result = session.execute(
+            text("""
+            SELECT fta.id, fta.feed_id, fta.template_id, fta.is_active,
+                   fta.assigned_by, fta.assigned_at, fta.priority,
+                   f.title, f.url
+            FROM feed_template_assignments fta
+            JOIN feeds f ON f.id = fta.feed_id
+            WHERE fta.template_id = :template_id AND fta.is_active = true
+            """),
+            {"template_id": template_row[0]}
+        ).fetchall()
+
+        # Parse JSON fields
+        try:
+            url_patterns = json.loads(template_row[4]) if template_row[4] else []
+        except:
+            url_patterns = []
 
         # Create a dict with template data plus assignment info
         template_dict = {
-            'id': template.id,
-            'name': template.name,
-            'description': template.description,
-            'url_patterns': template.url_pattern_list,
-            'is_active': template.is_active,
-            'is_builtin': template.is_builtin,
-            'created_at': template.created_at,
+            'id': template_row[0],
+            'name': template_row[1],
+            'description': template_row[2],
+            'url_patterns': url_patterns,
+            'is_active': template_row[10],
+            'is_builtin': template_row[11],
+            'created_at': template_row[13],
             'assignments': [],
             'assigned_feed_ids': []
         }
 
-        for assignment in assignments:
-            feed = session.get(Feed, assignment.feed_id)
-            if feed:
-                assignment_with_feed = assignment
-                assignment_with_feed.feed = feed  # Add feed info to assignment
-                template_dict['assignments'].append(assignment_with_feed)
-                template_dict['assigned_feed_ids'].append(feed.id)
+        for assignment in assignments_result:
+            assignment_dict = {
+                'id': assignment[0],
+                'feed_id': assignment[1],
+                'template_id': assignment[2],
+                'is_active': assignment[3],
+                'assigned_by': assignment[4],
+                'assigned_at': assignment[5],
+                'priority': assignment[6],
+                'feed': {
+                    'id': assignment[1],
+                    'title': assignment[7],
+                    'url': assignment[8]
+                }
+            }
+            template_dict['assignments'].append(assignment_dict)
+            template_dict['assigned_feed_ids'].append(assignment[1])
 
         enriched_templates.append(template_dict)
 

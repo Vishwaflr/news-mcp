@@ -1,24 +1,29 @@
 """
 HTMX Router Aggregator
 
-This module aggregates all HTMX routes from specialized view modules.
-Previously this was a single 1279 LOC monster file - now cleanly split into:
-- feed_views.py (Feed management HTMX)
-- item_views.py (Article/Item HTMX)
-- system_views.py (System/Health/Processor HTMX)
+This module aggregates all HTMX routes from specialized component modules.
+The monolithic htmx_legacy.py (1,368 lines) has been refactored into:
+- feed_components.py (Feed management HTMX)
+- item_components.py (Article/Item HTMX)
+- processor_components.py (Processor management HTMX)
+- system_components.py (System/Health HTMX)
 """
 
 from fastapi import APIRouter
 
-# Import all specialized HTMX routers
-from app.web.views.feed_views import router as feed_router
-from app.web.views.item_views import router as item_router
-from app.web.views.system_views import router as system_router
+# Import all specialized HTMX routers from components
+from app.web.components.feed_components import router as feed_router
+from app.web.components.item_components import router as item_router
+from app.web.components.processor_components import router as processor_router
+from app.web.components.system_components import router as system_router
+from app.web.views.analysis_control import router as analysis_router
 
 # Create main router that includes all specialized routers
-router = APIRouter(prefix="/htmx", tags=["htmx"])
+router = APIRouter(tags=["htmx"])
 
-# Include all specialized routers (they already have /htmx prefix)
+# Include all specialized routers
 router.include_router(feed_router, prefix="")
 router.include_router(item_router, prefix="")
+router.include_router(processor_router, prefix="")
 router.include_router(system_router, prefix="")
+router.include_router(analysis_router, prefix="")

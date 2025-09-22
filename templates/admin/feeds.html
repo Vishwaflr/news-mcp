@@ -53,7 +53,7 @@
                 <h5 class="modal-title">Add New Feed</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form hx-post="/api/feeds" hx-target="#feeds-list" hx-trigger="submit" hx-on="htmx:afterRequest: if(event.detail.successful) { bootstrap.Modal.getInstance(document.getElementById('addFeedModal')).hide(); }">
+            <form hx-post="/api/feeds" hx-target="#feeds-list" hx-trigger="submit" hx-on="htmx:afterRequest: if(event.detail.successful) { try { const modal = bootstrap.Modal.getInstance(document.getElementById('addFeedModal')); if(modal) modal.hide(); } catch(e) { console.warn('Modal close error:', e); } }">
                 <div class="modal-body">
                     <!-- Step 1: URL Input with Live Test -->
                     <div class="mb-3">
@@ -159,6 +159,19 @@
             <div class="text-center p-4">
                 <div class="spinner-border" role="status">
                     <span class="visually-hidden">Loading feed...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Health Modal -->
+<div class="modal fade" id="healthModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content" id="health-modal-content">
+            <div class="text-center p-4">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Loading health data...</span>
                 </div>
             </div>
         </div>
