@@ -78,7 +78,8 @@ class FeedService(BaseService[Feed, FeedCreate, FeedUpdate]):
                 self._assign_categories(feed.id, create_data.category_ids)
 
             # Track the change
-            track_feed_changes(feed.id, "created", {"url": create_data.url})
+            # TODO: Fix change tracking - for now just log
+            logger.info(f"Created feed {feed.id} with URL: {create_data.url}")
 
             # Trigger initial fetch
             self._trigger_initial_fetch(feed.id)
@@ -129,7 +130,8 @@ class FeedService(BaseService[Feed, FeedCreate, FeedUpdate]):
                     changes[field] = {"from": original_value, "to": current_value}
 
             if changes:
-                track_feed_changes(feed_id, "updated", changes)
+                # TODO: Fix change tracking - for now just log
+                logger.info(f"Updated feed {feed_id} with changes: {changes}")
 
             logger.info(f"Updated feed {feed_id}: {changes}")
             return ServiceResult.ok(feed)
@@ -146,20 +148,63 @@ class FeedService(BaseService[Feed, FeedCreate, FeedUpdate]):
             if not feed:
                 return ServiceResult.error(f"Feed with id {feed_id} not found")
 
-            # Store feed info for logging
+            # Store feed info for logging before deletion
             feed_title = feed.title or feed.url
 
-            # Delete related data (CASCADE should handle this, but being explicit)
-            self.session.exec(select(FeedCategory).where(FeedCategory.feed_id == feed_id)).all()
-            for category_link in self.session.exec(select(FeedCategory).where(FeedCategory.feed_id == feed_id)):
+            # Track the change before deletion (when relationships still exist)
+            # TODO: Fix change tracking - for now just log
+            logger.info(f"Preparing to delete feed {feed_id}: {feed_title}")
+
+            # Delete related data in the correct order to avoid foreign key constraints
+
+            # 1. Delete items related to this feed (and their related records)
+            items_to_delete = self.session.exec(select(Item).where(Item.feed_id == feed_id)).all()
+            for item in items_to_delete:
+                # Delete content processing logs first
+                from app.models.content import ContentProcessingLog
+                processing_logs = self.session.exec(select(ContentProcessingLog).where(ContentProcessingLog.item_id == item.id)).all()
+                for log in processing_logs:
+                    self.session.delete(log)
+
+                # Delete item tags
+                from app.models.content import ItemTag
+                item_tags = self.session.exec(select(ItemTag).where(ItemTag.item_id == item.id)).all()
+                for tag in item_tags:
+                    self.session.delete(tag)
+
+                # Then delete the item itself
+                self.session.delete(item)
+
+            # 2. Delete fetch logs
+            fetch_logs_to_delete = self.session.exec(select(FetchLog).where(FetchLog.feed_id == feed_id)).all()
+            for fetch_log in fetch_logs_to_delete:
+                self.session.delete(fetch_log)
+
+            # 3. Delete feed health records
+            feed_health_to_delete = self.session.exec(select(FeedHealth).where(FeedHealth.feed_id == feed_id)).all()
+            for feed_health in feed_health_to_delete:
+                self.session.delete(feed_health)
+
+            # 4. Delete feed categories
+            categories_to_delete = self.session.exec(select(FeedCategory).where(FeedCategory.feed_id == feed_id)).all()
+            for category_link in categories_to_delete:
                 self.session.delete(category_link)
 
-            # Delete the feed
+            # 5. Delete feed template assignments
+            from app.models.configuration import FeedTemplateAssignment
+            template_assignments_to_delete = self.session.exec(select(FeedTemplateAssignment).where(FeedTemplateAssignment.feed_id == feed_id)).all()
+            for assignment in template_assignments_to_delete:
+                self.session.delete(assignment)
+
+            # 6. Delete feed configuration changes
+            from app.models.configuration import FeedConfigurationChange
+            config_changes_to_delete = self.session.exec(select(FeedConfigurationChange).where(FeedConfigurationChange.feed_id == feed_id)).all()
+            for config_change in config_changes_to_delete:
+                self.session.delete(config_change)
+
+            # 7. Finally delete the feed itself
             self.session.delete(feed)
             self.session.commit()
-
-            # Track the change
-            track_feed_changes(feed_id, "deleted", {"title": feed_title})
 
             logger.info(f"Deleted feed {feed_id}: {feed_title}")
             return ServiceResult.ok(True)
