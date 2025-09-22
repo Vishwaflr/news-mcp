@@ -114,6 +114,24 @@ dmypy.json
 /backups/
 /uploads/
 
+# QM Agent files
+.qmagent_*
+
+# Temporary test files
+test_*.py
+add_test_*.py
+quick_*.py
+*_test.html
+*test.html
+temp_files/
+tests/manual/
+
+# Invalid files
+=*
+
+# DBeaver IDE files
+.dbeaver/
+
 # Configuration files with secrets (keep .env.example)
 config.local.yaml
 secrets.yaml
