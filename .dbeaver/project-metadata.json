@@ -1,0 +1,70 @@
+{
+  "version": "1.0",
+  "name": "News-MCP Database",
+  "description": "News aggregation and processing platform database",
+  "resources": {
+    "erd-diagrams": [
+      {
+        "name": "Core Tables",
+        "tables": [
+          "feeds",
+          "items",
+          "fetch_log",
+          "feed_health"
+        ]
+      },
+      {
+        "name": "Configuration Tables",
+        "tables": [
+          "sources",
+          "categories",
+          "feed_types",
+          "dynamic_feed_templates"
+        ]
+      },
+      {
+        "name": "Analysis Tables",
+        "tables": [
+          "item_analysis",
+          "analysis_runs",
+          "analysis_run_items"
+        ]
+      }
+    ],
+    "sql-scripts": [
+      {
+        "name": "Health Check",
+        "path": "scripts/db/health_check.sql"
+      },
+      {
+        "name": "Statistics",
+        "path": "scripts/db/statistics.sql"
+      }
+    ],
+    "bookmarks": [
+      {
+        "name": "Active Feeds",
+        "query": "SELECT * FROM feeds WHERE status = 'active' ORDER BY last_fetched DESC;"
+      },
+      {
+        "name": "Recent Items",
+        "query": "SELECT * FROM items ORDER BY created_at DESC LIMIT 100;"
+      },
+      {
+        "name": "Failed Fetches",
+        "query": "SELECT * FROM fetch_log WHERE status = 'error' ORDER BY started_at DESC LIMIT 50;"
+      }
+    ]
+  },
+  "connection": {
+    "note": "Configure connection locally with your credentials",
+    "template": {
+      "driver": "postgresql",
+      "host": "localhost",
+      "port": 5432,
+      "database": "news_db",
+      "username": "news_user",
+      "ssl": false
+    }
+  }
+}

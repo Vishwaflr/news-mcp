@@ -47,8 +47,8 @@ class FeedCategory(BaseTableModel, table=True):
     """Many-to-many relationship between feeds and categories."""
     __tablename__ = "feed_categories"
 
-    feed_id: int = BaseTableModel.Field(foreign_key="feeds.id", primary_key=True)
-    category_id: int = BaseTableModel.Field(foreign_key="categories.id", primary_key=True)
+    feed_id: int = BaseTableModel.Field(foreign_key="feeds.id")
+    category_id: int = BaseTableModel.Field(foreign_key="categories.id")
 
 
 # Feed and FetchLog are now in models.py to avoid duplication

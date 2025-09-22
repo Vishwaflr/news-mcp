@@ -33,18 +33,35 @@ class ProcessingStatus(str, Enum):
     SKIPPED = "skipped"
 
 
-class BaseModel(SQLModel):
-    """Base model with common fields."""
+class BaseCreatedOnly(SQLModel):
+    """Base model for append-only tables (only created_at)."""
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: Optional[datetime] = Field(default=None)
-
-
-class BaseTableModel(BaseModel):
-    """Base table model with ID and timestamps."""
-    id: Optional[int] = Field(default=None, primary_key=True)
 
     # Make Field, Relationship, Column, JSON available as class attributes
     Field: ClassVar = Field
     Relationship: ClassVar = Relationship
     Column: ClassVar = Column
     JSON: ClassVar = JSON
+
+
+class BaseCreatedUpdated(SQLModel):
+    """Base model for mutable tables (created_at + updated_at)."""
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    # Make Field, Relationship, Column, JSON available as class attributes
+    Field: ClassVar = Field
+    Relationship: ClassVar = Relationship
+    Column: ClassVar = Column
+    JSON: ClassVar = JSON
+
+
+# Legacy compatibility - will be phased out
+class BaseModel(BaseCreatedUpdated):
+    """Legacy base model - use BaseCreatedOnly or BaseCreatedUpdated instead."""
+    pass
+
+
+class BaseTableModel(BaseCreatedUpdated):
+    """Legacy base table model - use specific base classes instead."""
+    id: Optional[int] = Field(default=None, primary_key=True)

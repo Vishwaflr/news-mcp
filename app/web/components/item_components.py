@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 import logging
 
 from app.database import get_session
+from app.repositories.analysis import AnalysisRepo
 from .base_component import BaseComponent
 
 router = APIRouter(tags=["htmx-items"])
@@ -16,6 +17,91 @@ logger = logging.getLogger(__name__)
 
 class ItemComponent(BaseComponent):
     """Component for item-related HTMX endpoints."""
+
+    @staticmethod
+    def generate_sentiment_display(analysis):
+        """Generate HTML for sentiment analysis display with expandable details"""
+        if not analysis or not analysis.get('sentiment_json'):
+            return '<div class="sentiment-analysis mb-2"><span class="badge bg-secondary">No Analysis</span></div>'
+
+        sentiment_json = analysis.get('sentiment_json', {})
+        impact_json = analysis.get('impact_json', {})
+        model = analysis.get('model_tag', 'unknown')
+
+        # Extract key values
+        overall = sentiment_json.get('overall', {})
+        market = sentiment_json.get('market', {})
+        label = overall.get('label', 'neutral')
+        score = overall.get('score', 0.0)
+        confidence = overall.get('confidence', 0.0)
+        urgency = sentiment_json.get('urgency', 0.0)
+        impact_overall = impact_json.get('overall', 0.0)
+        impact_volatility = impact_json.get('volatility', 0.0)
+        themes = sentiment_json.get('themes', [])
+
+        # Sentiment icon and color
+        if label == 'positive':
+            icon = '🟢'
+            color = 'success'
+        elif label == 'negative':
+            icon = '🔴'
+            color = 'danger'
+        else:
+            icon = '⚪'
+            color = 'secondary'
+
+        # Compact display (always visible)
+        compact_html = f"""
+        <div class="sentiment-analysis mb-2">
+            <div class="d-flex align-items-center gap-2 sentiment-compact" style="cursor: pointer;" onclick="toggleSentimentDetails(this)">
+                <span class="sentiment-icon">{icon}</span>
+                <span class="badge bg-{color}">{score:.1f}</span>
+                <span class="badge bg-warning">⚡ {urgency:.1f}</span>
+                <span class="badge bg-info">📊 {impact_overall:.1f}</span>
+                <small class="text-muted">Details ⌄</small>
+            </div>
+    """
+
+        # Detailed display (initially hidden)
+        market_display = f"📉 Bearish ({market.get('bearish', 0):.1f})" if market.get('bearish', 0) > 0.6 else f"📈 Bullish ({market.get('bullish', 0):.1f})" if market.get('bullish', 0) > 0.6 else "➡️ Neutral"
+        time_horizon = market.get('time_horizon', 'medium').title()
+        themes_display = ' • '.join([f"🏷️ {theme}" for theme in themes[:4]])  # Show max 4 themes
+
+        detailed_html = f"""
+            <div class="sentiment-details mt-2" style="display: none;">
+                <div class="card border-light bg-light">
+                    <div class="card-header bg-transparent border-bottom-0 py-2">
+                        <h6 class="mb-0 text-muted">📊 Sentiment Analysis ({model})</h6>
+                    </div>
+                    <div class="card-body py-2">
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <div class="mb-2">
+                                    <strong>Overall:</strong>
+                                    <span class="badge bg-{color}">{label.title()} ({score:.1f})</span>
+                                    <small class="text-muted">• {int(confidence*100)}% confident</small>
+                                </div>
+                                <div class="mb-2">
+                                    <strong>Market:</strong> {market_display} • {time_horizon}-term
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-2">
+                                    <strong>Impact:</strong> ⚡ {impact_overall:.1f} • Volatility: 📈 {impact_volatility:.1f}
+                                </div>
+                                <div class="mb-2">
+                                    <strong>Urgency:</strong> ⏰ {urgency:.1f}
+                                </div>
+                            </div>
+                        </div>
+                        {f'<div class="mt-2"><strong>Themes:</strong> {themes_display}</div>' if themes else ''}
+                    </div>
+                </div>
+            </div>
+        </div>
+        """
+
+        return compact_html + detailed_html
 
     @staticmethod
     def build_item_card(item_data: dict) -> str:
@@ -30,14 +116,21 @@ class ItemComponent(BaseComponent):
 
         author_info = f'<span><i class="bi bi-person me-1"></i>{item_data.get("author")}</span>' if item_data.get('author') else ''
 
+        # Get analysis data for sentiment display
+        analysis = AnalysisRepo.get_by_item_id(item_data.get('id'))
+        analysis_display = ItemComponent.generate_sentiment_display(analysis)
+
         return f'''
         <div class="card mb-3 shadow-sm">
             <div class="card-body">
-                <h5 class="card-title mb-2">
-                    <a href="{item_data.get('link', '#')}" target="_blank" class="text-decoration-none text-primary">
-                        {clean_title}
-                    </a>
-                </h5>
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <h5 class="card-title mb-0 flex-grow-1">
+                        <a href="{item_data.get('link', '#')}" target="_blank" class="text-decoration-none text-primary">
+                            {clean_title}
+                        </a>
+                    </h5>
+                    {analysis_display}
+                </div>
                 <div class="d-flex flex-wrap gap-3 text-muted small mb-2">
                     <span><i class="bi bi-calendar me-1"></i>{published_date}</span>
                     <span><i class="bi bi-rss me-1"></i>{feed_name}</span>

@@ -96,8 +96,11 @@ class DynamicFeedTemplate(BaseTableModel, table=True):
     # Metadata
     is_builtin: bool = BaseTableModel.Field(default=False)
     is_active: bool = BaseTableModel.Field(default=True)
-    # Removed last_used and usage_count - these columns don't exist in database
     created_by: Optional[str] = None
+
+    # Usage tracking (exists in DB, needed for operations)
+    last_used: Optional[datetime] = None
+    usage_count: int = BaseTableModel.Field(default=0)
 
     # JSON property helpers
     @property

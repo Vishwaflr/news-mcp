@@ -1,0 +1,374 @@
+// News-MCP Database Schema for dbdiagram.io
+// Generated from PostgreSQL schema
+// Copy this to https://dbdiagram.io/d
+
+Project news_mcp {
+  database_type: 'PostgreSQL'
+  Note: 'News aggregation and processing platform'
+}
+
+// Core Tables
+
+Table feeds {
+  id int [pk, increment]
+  url varchar [unique, not null]
+  title varchar
+  description varchar
+  status feedstatus [not null]
+  fetch_interval_minutes int [not null]
+  last_fetched timestamp
+  next_fetch_scheduled timestamp
+  last_modified varchar
+  etag varchar
+  configuration_hash varchar
+  source_id int [ref: > sources.id, not null]
+  feed_type_id int [ref: > feed_types.id]
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+
+  indexes {
+    url
+  }
+}
+
+Table items {
+  id int [pk, increment]
+  title varchar [not null]
+  link varchar [not null]
+  description varchar
+  content varchar
+  author varchar
+  published timestamp
+  guid varchar
+  content_hash varchar [unique, not null]
+  feed_id int [ref: > feeds.id, not null]
+  created_at timestamp [not null]
+
+  indexes {
+    content_hash
+    guid
+    link
+  }
+}
+
+Table fetch_log {
+  id int [pk, increment]
+  feed_id int [ref: > feeds.id, not null]
+  started_at timestamp [not null]
+  completed_at timestamp
+  status varchar [not null]
+  items_found int [not null]
+  items_new int [not null]
+  error_message varchar
+  response_time_ms int
+}
+
+Table feed_health {
+  id int [pk, increment]
+  feed_id int [ref: - feeds.id, unique, not null]
+  ok_ratio float [not null]
+  consecutive_failures int [not null]
+  avg_response_time_ms float
+  last_success timestamp
+  last_failure timestamp
+  uptime_24h float [not null]
+  uptime_7d float [not null]
+  updated_at timestamp [not null]
+  created_at timestamp [default: 'now()']
+}
+
+// Configuration Tables
+
+Table sources {
+  id int [pk, increment]
+  name varchar
+  type sourcetype
+  created_at timestamp
+  updated_at timestamp [Note: 'Missing in DB, exists in model']
+}
+
+Table categories {
+  id int [pk, increment]
+  name varchar [unique]
+  description varchar
+  created_at timestamp
+  updated_at timestamp [Note: 'Missing in DB, exists in model']
+
+  indexes {
+    name
+  }
+}
+
+Table feed_types {
+  id int [pk, increment]
+  name varchar [unique]
+  default_interval_minutes int
+  created_at timestamp
+  updated_at timestamp [Note: 'Missing in DB, exists in model']
+
+  indexes {
+    name
+  }
+}
+
+// Template Tables
+
+Table dynamic_feed_templates {
+  id int [pk, increment]
+  name varchar [unique, not null]
+  description varchar
+  version varchar [not null]
+  url_patterns varchar [not null, Note: 'JSON array']
+  field_mappings varchar [not null, Note: 'JSON object']
+  content_processing_rules varchar [not null, Note: 'JSON array']
+  quality_filters varchar [not null, Note: 'JSON object']
+  categorization_rules varchar [not null, Note: 'JSON object']
+  fetch_settings varchar [not null, Note: 'JSON object']
+  is_active boolean [not null]
+  is_builtin boolean [not null]
+  created_by varchar
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  last_used timestamp [Note: 'In DB but removed from model']
+  usage_count int [default: 0, Note: 'In DB but removed from model']
+
+  indexes {
+    name
+  }
+}
+
+Table processor_templates {
+  id int [pk, increment]
+  name varchar [unique]
+  processor_type processortype
+  description varchar
+  config_json varchar [default: '{}']
+  url_patterns varchar [default: '[]']
+  is_builtin boolean [default: false]
+  is_active boolean [default: true]
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    name
+  }
+}
+
+// Processing Tables
+
+Table feed_processor_configs {
+  id int [pk, increment]
+  feed_id int [ref: - feeds.id, unique]
+  processor_type processortype [default: 'UNIVERSAL']
+  config_json varchar [default: '{}']
+  is_active boolean [default: true]
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table content_processing_logs {
+  id int [pk, increment]
+  item_id int [ref: > items.id]
+  feed_id int [ref: > feeds.id]
+  processor_type processortype
+  processing_status processingstatus
+  original_title varchar
+  processed_title varchar
+  original_description varchar
+  processed_description varchar
+  transformations_applied varchar [default: '[]']
+  error_message varchar
+  processing_time_ms int
+  processed_at timestamp
+  created_at timestamp
+  updated_at timestamp
+}
+
+// Association Tables
+
+Table feed_categories {
+  id int [pk, increment]
+  feed_id int [ref: > feeds.id]
+  category_id int [ref: > categories.id]
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table feed_template_assignments {
+  id int [pk, increment]
+  feed_id int [ref: > feeds.id]
+  template_id int [ref: > dynamic_feed_templates.id]
+  custom_overrides varchar [default: '{}']
+  is_active boolean [default: true]
+  priority int [default: 100]
+  assigned_by varchar
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    feed_id
+    template_id
+  }
+}
+
+Table item_tags {
+  id int [pk, increment]
+  item_id int [ref: > items.id]
+  tag varchar
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    tag
+  }
+}
+
+// Monitoring Tables
+
+Table feed_configuration_changes {
+  id int [pk, increment]
+  feed_id int [ref: > feeds.id]
+  template_id int [ref: > dynamic_feed_templates.id]
+  change_type varchar
+  old_config varchar
+  new_config varchar
+  changed_by varchar
+  requires_reload boolean [default: false]
+  reload_acknowledged boolean [default: false]
+  acknowledged_at timestamp
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    change_type
+    feed_id
+    template_id
+  }
+}
+
+Table feed_scheduler_state {
+  id int [pk, increment]
+  scheduler_instance varchar [unique]
+  last_configuration_check timestamp
+  configuration_version varchar
+  active_feeds_count int
+  next_reload_required boolean [default: false]
+  is_active boolean [default: true]
+  started_at timestamp
+  last_heartbeat timestamp
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    scheduler_instance
+  }
+}
+
+// Analysis Tables
+
+Table item_analysis {
+  id int [pk, increment]
+  item_id int [ref: - items.id, unique]
+  sentiment_score float
+  sentiment_label varchar
+  impact_score float
+  urgency_score int
+  relevance_score float
+  impact_overall int
+  model_tag varchar
+  raw_analysis_data jsonb
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    sentiment_label
+    impact_overall
+    urgency_score
+    updated_at
+  }
+}
+
+Table analysis_runs {
+  id int [pk, increment]
+  created_at timestamp
+  started_at timestamp
+  completed_at timestamp
+  status varchar
+  scope_hash varchar
+  filters jsonb
+  total_items int
+  processed_items int
+  failed_items int
+  error_message varchar
+  avg_processing_time float
+  model_tag varchar
+
+  indexes {
+    status
+    created_at
+    scope_hash
+  }
+}
+
+Table analysis_run_items {
+  id int [pk, increment]
+  run_id int [ref: > analysis_runs.id]
+  item_id int [ref: > items.id]
+  state varchar
+  processing_started_at timestamp
+  processing_completed_at timestamp
+  error_message varchar
+  retry_count int [default: 0]
+
+  indexes {
+    run_id
+    item_id
+    state
+  }
+}
+
+// User Settings
+
+Table user_settings {
+  id int [pk, increment]
+  default_limit int [default: 200]
+  default_rate_per_second float [default: 1.0]
+  default_model_tag varchar [default: 'gpt-4.1-nano']
+  default_dry_run boolean [default: false]
+  default_override_existing boolean [default: false]
+  extra_settings json
+  user_id varchar [unique, default: 'default']
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    user_id
+  }
+}
+
+// Enums (for reference)
+Enum feedstatus {
+  ACTIVE
+  INACTIVE
+  ERROR
+}
+
+Enum sourcetype {
+  RSS
+  API
+  MANUAL
+}
+
+Enum processortype {
+  UNIVERSAL
+  HEISE
+  COINTELEGRAPH
+  CUSTOM
+}
+
+Enum processingstatus {
+  SUCCESS
+  PARTIAL
+  FAILED
+  SKIPPED
+}

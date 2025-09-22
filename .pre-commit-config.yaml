@@ -1,0 +1,219 @@
+# Pre-commit configuration for News MCP
+# See https://pre-commit.com for more information
+
+repos:
+  # Ruff - Fast Python linter and formatter
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.1.8
+    hooks:
+      # Run the linter
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+        # Exclude generated files
+        exclude: ^(alembic/versions/.*\.py|scripts/.*\.py)$
+      # Run the formatter
+      - id: ruff-format
+        exclude: ^(alembic/versions/.*\.py)$
+
+  # MyPy - Static type checking
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.8.0
+    hooks:
+      - id: mypy
+        additional_dependencies:
+          - types-requests
+          - types-python-dateutil
+          - sqlalchemy-stubs
+        args: [--config-file=pyproject.toml]
+        exclude: ^(alembic/versions/.*\.py|tests/.*\.py|scripts/.*\.py)$
+
+  # General code quality checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      # Check for merge conflicts
+      - id: check-merge-conflict
+      # Check YAML syntax
+      - id: check-yaml
+        exclude: ^(docker-compose\.yml|\.github/workflows/.*\.yml)$
+      # Check TOML syntax
+      - id: check-toml
+      # Check JSON syntax
+      - id: check-json
+      # Check for added large files
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      # Check for case conflicts
+      - id: check-case-conflict
+      # Check executable files have shebangs
+      - id: check-executables-have-shebangs
+      # Check shebang scripts are executable
+      - id: check-shebang-scripts-are-executable
+      # Prevent committing to main branch
+      - id: no-commit-to-branch
+        args: ['--branch', 'main', '--branch', 'master']
+      # Trim trailing whitespace
+      - id: trailing-whitespace
+        exclude: ^(.*\.md|.*\.txt)$
+      # Ensure files end with newline
+      - id: end-of-file-fixer
+        exclude: ^(.*\.txt)$
+      # Check for debug imports
+      - id: debug-statements
+      # Check requirements.txt format
+      - id: requirements-txt-fixer
+
+  # Security checks
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.5
+    hooks:
+      - id: bandit
+        args: ['-r', '.', '-f', 'json', '-o', '/tmp/bandit-report.json']
+        exclude: ^(tests/.*\.py|scripts/.*\.py)$
+
+  # SQL formatting (for migration files)
+  - repo: https://github.com/sqlfluff/sqlfluff
+    rev: 2.3.5
+    hooks:
+      - id: sqlfluff-lint
+        args: [--dialect=postgres]
+        files: ^alembic/versions/.*\.py$
+        # Only check SQL strings in migration files
+        types_or: [sql]
+
+  # Check for secrets in code
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.4.0
+    hooks:
+      - id: detect-secrets
+        args: ['--baseline', '.secrets.baseline']
+        exclude: ^(tests/.*\.py|.*\.lock|.*\.env\.example)$
+
+  # Documentation checks
+  - repo: https://github.com/pre-commit/pygrep-hooks
+    rev: v1.10.0
+    hooks:
+      # Check for TODO comments without issue numbers
+      - id: python-check-blanket-noqa
+      - id: python-check-blanket-type-ignore
+      # Check for proper TODO format
+      - id: text-unicode-replacement-char
+
+  # Docker file linting
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.12.0
+    hooks:
+      - id: hadolint-docker
+        files: Dockerfile.*
+
+# Configuration for specific file types
+ci:
+  # Don't run on CI (we run these in GitHub Actions)
+  skip: [mypy, bandit]
+
+# Repository-specific settings
+default_stages: [commit]
+fail_fast: false
+
+# Custom local hooks for News MCP
+repos:
+  - repo: local
+    hooks:
+      # Database migration validation
+      - id: validate-migrations
+        name: Validate Alembic migrations
+        entry: python
+        args: ['-m', 'alembic', 'check']
+        language: system
+        types: [python]
+        files: ^alembic/versions/.*\.py$
+        pass_filenames: false
+
+      # Feature flag validation
+      - id: validate-feature-flags
+        name: Validate feature flag usage
+        entry: python
+        args: ['-c', 'import sys; import ast; import re; [sys.exit(1) for f in sys.argv[1:] if "feature_flag" in open(f).read() and not re.search(r"is_feature_enabled|record_feature", open(f).read())]']
+        language: system
+        types: [python]
+        files: ^app/.*\.py$
+
+      # Repository pattern validation
+      - id: validate-repository-pattern
+        name: Validate repository pattern usage
+        entry: python
+        args: ['-c', 'import sys; [sys.exit(1) for f in sys.argv[1:] if "session.exec(" in open(f).read() and "repositories/" not in f and "legacy" not in f]']
+        language: system
+        types: [python]
+        files: ^app/api/.*\.py$
+
+      # Index performance check
+      - id: check-index-performance
+        name: Check database index performance
+        entry: python
+        args: ['scripts/index_check.py', '--ci']
+        language: system
+        pass_filenames: false
+        # Only run if database-related files changed
+        files: ^(app/models/.*\.py|alembic/versions/.*\.py|app/repositories/.*\.py)$
+
+      # Check for raw SQL usage outside repositories
+      - id: no-raw-sql-outside-repos
+        name: Prevent raw SQL outside repository layer
+        entry: python
+        args: ['-c', 'import sys; import re; [sys.exit(1) for f in sys.argv[1:] if re.search(r"SELECT|INSERT|UPDATE|DELETE", open(f).read(), re.IGNORECASE) and "repositories/" not in f and "migrations/" not in f and "legacy" not in f]']
+        language: system
+        types: [python]
+        files: ^app/.*\.py$
+        exclude: ^(app/repositories/.*\.py|alembic/versions/.*\.py|.*legacy.*\.py|.*test.*\.py)$
+
+      # Check for raw analysis SQL in worker/API code
+      - id: no-analysis-raw-sql
+        name: Prevent raw analysis SQL outside AnalysisRepository
+        entry: scripts/check-analysis-raw-sql.sh
+        language: script
+        files: ^(app/worker/|app/api/|app/services/).*\.py$
+        pass_filenames: false
+
+      # Validate AnalysisRepository usage
+      - id: validate-analysis-repo-usage
+        name: Validate AnalysisRepository usage patterns
+        entry: python
+        args: ['-c', '
+import sys; import re;
+for f in sys.argv[1:]:
+    content = open(f).read();
+    if "item_analysis" in content and "repositories/" not in f:
+        if re.search(r"(INSERT INTO item_analysis|UPDATE item_analysis|session\.exec.*item_analysis)", content):
+            print(f"❌ Raw item_analysis SQL in {f}"); sys.exit(1);
+        if "analysis" in f.lower() and "AnalysisRepository" not in content:
+            print(f"⚠️  Analysis file {f} should use AnalysisRepository")
+']
+        language: system
+        types: [python]
+        files: ^(app/worker/|app/api/).*\.py$
+        exclude: ^(.*legacy.*\.py|.*test.*\.py)$
+
+# Error handling
+exclude: |
+  (?x)^(
+    # Exclude generated files
+    alembic/versions/.*\.py|
+    # Exclude third-party files
+    static/vendor/.*|
+    # Exclude compiled files
+    .*\.pyc|
+    .*\.pyo|
+    # Exclude temporary files
+    \..*\.swp|
+    \..*\.tmp|
+    # Exclude log files
+    .*\.log|
+    # Exclude backup files
+    .*\.bak|
+    # Exclude cache directories
+    __pycache__/.*|
+    \.pytest_cache/.*|
+    \.mypy_cache/.*|
+    \.ruff_cache/.*
+  )$

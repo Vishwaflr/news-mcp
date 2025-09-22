@@ -338,6 +338,71 @@ Worker war implementiert aber nicht gestartet.
    - Database Backup Strategie
    - Access Control Review
 
+## 11. Sentiment Analysis Display (September 22, 2025)
+
+### Problem
+Sentiment Analysis Ergebnisse wurden im Artikel-Stream nicht angezeigt, obwohl 2,299 Analyse-Einträge in der Datenbank vorhanden waren.
+
+### Root Cause
+Nach Refactoring wurden zwei konkurrierende Routes für die Artikel-Liste gefunden:
+- `item_views.py`: Vollständige Sentiment-Unterstützung (nicht aktiv)
+- `item_components.py`: Aktive Route OHNE Sentiment-Unterstützung
+
+### Lösung
+Sentiment-Funktionalität von `item_views.py` in aktive `item_components.py` Route integriert:
+
+```python
+# Hinzugefügter Import
+from app.repositories.analysis import AnalysisRepo
+
+# Neue Methode
+@staticmethod
+def generate_sentiment_display(analysis):
+    """Generate HTML for sentiment analysis display with expandable details"""
+    if not analysis or not analysis.get('sentiment_json'):
+        return '<div class="sentiment-analysis mb-2"><span class="badge bg-secondary">No Analysis</span></div>'
+
+    # Sentiment badges mit Farb-Icons
+    # Expandierbare Details mit Market Impact
+    # Urgency und Theme-Analyse
+
+# Modified build_item_card
+analysis = AnalysisRepo.get_by_item_id(item_data.get('id'))
+analysis_display = ItemComponent.generate_sentiment_display(analysis)
+```
+
+### Features Wiederhergestellt
+- ✅ Sentiment Badges mit Farb-Icons (🟢/🔴/⚪)
+- ✅ Score-Anzeige für Overall, Urgency, Impact
+- ✅ Expandierbare Details mit vollständiger Analyse
+- ✅ Market-Informationen (Bullish/Bearish/Neutral)
+- ✅ Theme-Tags und Confidence-Levels
+
+**Status:** ✅ Gelöst
+
+## 12. Feed Deletion Cascade-Probleme (September 22, 2025)
+
+### Problem
+Feed-Löschung über Web-Interface zeigte 500 Internal Server Error.
+
+### Root Cause
+Fehlende Cascade-Löschung für `feed_template_assignments` Tabelle verursachte Foreign Key Constraint Violation.
+
+### Lösung
+Erweitert `feed_service.py` delete-Methode:
+
+```python
+# 5. Delete feed template assignments
+from app.models.configuration import FeedTemplateAssignment
+template_assignments_to_delete = self.session.exec(
+    select(FeedTemplateAssignment).where(FeedTemplateAssignment.feed_id == feed_id)
+).all()
+for assignment in template_assignments_to_delete:
+    self.session.delete(assignment)
+```
+
+**Status:** ✅ Gelöst
+
 ---
 **Reparaturen durchgeführt am:** September 22, 2025
 **System Status:** ✅ Vollständig Produktionsbereit

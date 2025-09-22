@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Repository Cutover Pattern**: Standardized methodology for all SQL→Repository migrations
+  - Comprehensive team standard documentation in `docs/REPOSITORY_CUTOVER_PATTERN.md`
+  - Template-based approach for future repository cutovers
+  - Universal checklist and validation tool templates
+  - Feature flag controlled rollouts with emergency rollback capabilities
+- **AnalysisRepo Go-Live Infrastructure**: Complete cutover preparation for analysis operations
+  - Worker feature flag integration for dynamic repository switching
+  - Analysis-specific shadow comparison system for Legacy vs Repository validation
+  - Comprehensive validation tools (`scripts/go_live_check_analysis.py`)
+  - Analysis worker API endpoints for monitoring and control
+  - Go-Live checklist tailored for write-heavy, worker-based operations
+
+### Security
+- **CI/CD Raw SQL Prevention**: Multi-layered enforcement to prevent repository pattern violations
+  - GitHub Actions workflow for analysis-specific SQL validation
+  - Enhanced pre-commit hooks preventing raw SQL outside repository layer
+  - Shell script validator for comprehensive analysis SQL checking
+  - Repository pattern enforcement in CI pipeline
+
+### Changed
+- **Analysis Worker**: Enhanced with feature flag support for repository cutover
+  - Dynamic switching between Legacy and Repository modes via feature flags
+  - Hash-based canary rollout (30s feature flag check interval)
+  - Graceful mode switching without worker restart
+- **Feature Flag Admin API**: Extended with analysis shadow comparison endpoints
+  - Analysis shadow comparison metrics and control endpoints
+  - Dedicated analysis shadow comparison reset functionality
+  - Enable/disable analysis shadow comparison with configurable sample rates
+
+### Infrastructure
+- **Cutover Automation**: Reusable infrastructure for all future repository migrations
+  - Standardized validation tools and checklists
+  - Shadow comparison framework for A/B testing during migrations
+  - Circuit breaker patterns with auto-rollback capabilities
+  - Template-driven approach reducing migration risks
+
+### Fixed
+- **Sentiment Analysis Display**: Restored sentiment analysis display in article stream
+  - Fixed missing sentiment badges and expandable details in item cards
+  - Integrated sentiment display functionality from `item_views.py` to active `item_components.py` route
+  - Sentiment analysis data (2,299 entries) now properly displayed with color-coded badges
+  - Added expandable details with market impact, urgency scores, and theme analysis
+- **Feed Deletion**: Fixed cascade deletion issues in Feed Management
+  - Added proper deletion of `feed_template_assignments` to prevent foreign key constraint violations
+  - Fixed 500 errors when deleting feeds through the web interface
+- **Console Errors**: Identified and documented browser extension false positives
+  - Feed Management page console errors were from browser extensions, not application errors
+  - Application functionality confirmed working correctly with 200 OK responses
+
 ## [2.2.0] - 2025-09-22 - Critical System Restoration
 
 ### 🚨 Emergency System Recovery

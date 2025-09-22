@@ -1,0 +1,294 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "news-mcp"
+version = "3.0.0"
+description = "Enterprise RSS Management & Content Processing System with Repository Pattern"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+authors = [
+    {name = "News MCP Development Team"},
+]
+keywords = [
+    "rss",
+    "news",
+    "mcp",
+    "fastapi",
+    "repository-pattern",
+    "ai-analysis"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Framework :: FastAPI",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content :: News/Diary",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+]
+
+dependencies = [
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "sqlmodel>=0.0.14",
+    "sqlalchemy>=2.0.25",
+    "alembic>=1.13.0",
+    "psycopg2-binary>=2.9.9",
+    "pydantic>=2.5.0",
+    "pydantic-settings>=2.1.0",
+    "jinja2>=3.1.2",
+    "python-multipart>=0.0.6",
+    "feedparser>=6.0.10",
+    "requests>=2.31.0",
+    "aiohttp>=3.9.0",
+    "beautifulsoup4>=4.12.0",
+    "python-dateutil>=2.8.2",
+    "openai>=1.3.0",
+    "rich>=13.7.0",
+    "typer>=0.9.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.1.8",
+    "mypy>=1.8.0",
+    "pre-commit>=3.6.0",
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
+    "httpx>=0.25.0",
+    "locust>=2.17.0",
+]
+
+test = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
+    "httpx>=0.25.0",
+    "factory-boy>=3.3.0",
+    "faker>=20.1.0",
+]
+
+docs = [
+    "mkdocs>=1.5.0",
+    "mkdocs-material>=9.4.0",
+    "mkdocstrings[python]>=0.24.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/your-org/news-mcp"
+Documentation = "https://your-org.github.io/news-mcp"
+Repository = "https://github.com/your-org/news-mcp"
+Issues = "https://github.com/your-org/news-mcp/issues"
+
+[project.scripts]
+news-mcp = "app.main:main"
+news-scheduler = "jobs.scheduler_manager:main"
+news-mcp-server = "start_mcp_server:main"
+
+# Ruff configuration
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+    "ARG", # flake8-unused-arguments
+    "SIM", # flake8-simplify
+    "TCH", # flake8-type-checking
+    "PTH", # flake8-use-pathlib
+    "ERA", # eradicate
+    "PL",  # pylint
+    "RUF", # ruff-specific rules
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "B008",   # do not perform function calls in argument defaults (FastAPI dependency injection)
+    "PLR0913", # too many arguments
+    "PLR2004", # magic value used in comparison
+    "ARG002",  # unused method argument (common in FastAPI)
+    "ARG001",  # unused function argument
+]
+exclude = [
+    ".git",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "alembic/versions/*.py",  # Generated migration files
+    "build",
+    "dist",
+]
+
+[tool.ruff.per-file-ignores]
+"tests/**/*.py" = [
+    "PLR2004", # magic values in tests
+    "S101",    # assert usage
+    "ARG",     # unused arguments in fixtures
+]
+"scripts/**/*.py" = [
+    "T201",    # print statements allowed in scripts
+    "PLR2004", # magic values in scripts
+]
+
+[tool.ruff.isort]
+known-first-party = ["app", "jobs", "mcp_server"]
+force-sort-within-sections = true
+
+[tool.ruff.pylint]
+max-args = 8
+max-branches = 15
+max-returns = 8
+max-statements = 60
+
+# MyPy configuration
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+
+# Ignore generated files and third party
+exclude = [
+    "alembic/versions/.*\\.py$",
+    "venv/.*",
+    ".venv/.*",
+]
+
+# Third party libraries without type stubs
+[[tool.mypy.overrides]]
+module = [
+    "feedparser.*",
+    "sqlmodel.*",
+    "alembic.*",
+    "uvicorn.*",
+]
+ignore_missing_imports = true
+
+# Pytest configuration
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--cov=app",
+    "--cov=jobs",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "--cov-report=xml",
+    "--cov-fail-under=80",
+]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+    "migration: marks tests related to repository migration",
+    "performance: marks performance tests",
+]
+asyncio_mode = "auto"
+
+# Coverage configuration
+[tool.coverage.run]
+source = ["app", "jobs", "mcp_server"]
+omit = [
+    "*/tests/*",
+    "*/alembic/versions/*",
+    "*/__init__.py",
+    "*/config.py",  # Configuration files often have coverage issues
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+    "# pragma: no cover",
+    "...",
+]
+show_missing = true
+skip_covered = false
+precision = 2
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+# Hatch build configuration
+[tool.hatch.build.targets.wheel]
+packages = ["app", "jobs", "mcp_server"]
+
+[tool.hatch.envs.default]
+dependencies = [
+    "ruff",
+    "mypy",
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+    "httpx",
+]
+
+[tool.hatch.envs.default.scripts]
+test = "pytest {args:tests}"
+test-cov = "pytest --cov {args:tests}"
+test-migration = "pytest -m migration {args}"
+test-performance = "pytest -m performance {args}"
+lint = "ruff check {args:.}"
+lint-fix = "ruff check --fix {args:.}"
+format = "ruff format {args:.}"
+type-check = "mypy {args:app jobs mcp_server}"
+check-all = [
+    "lint",
+    "type-check",
+    "test-cov",
+]
+
+[tool.hatch.envs.test]
+dependencies = [
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+    "httpx",
+    "factory-boy",
+    "faker",
+]
+
+[tool.hatch.envs.docs]
+dependencies = [
+    "mkdocs",
+    "mkdocs-material",
+    "mkdocstrings[python]",
+]
+
+[tool.hatch.envs.docs.scripts]
+build = "mkdocs build"
+serve = "mkdocs serve"
+deploy = "mkdocs gh-deploy"

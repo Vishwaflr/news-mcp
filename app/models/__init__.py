@@ -51,6 +51,14 @@ from .user import (
     UserSettings,
 )
 
+# Import analysis-related models (for metadata registration)
+from .analysis import (
+    ItemAnalysis,
+    AnalysisRun,
+    AnalysisRunItem,
+    AnalysisPreset,
+)
+
 # Export all models
 __all__ = [
     # Base classes and enums
@@ -89,4 +97,10 @@ __all__ = [
 
     # User models
     "UserSettings",
+
+    # Analysis models
+    "ItemAnalysis",
+    "AnalysisRun",
+    "AnalysisRunItem",
+    "AnalysisPreset",
 ]

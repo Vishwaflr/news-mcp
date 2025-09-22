@@ -1,0 +1,160 @@
+{
+  "status": "tasks_available",
+  "message": "Found 13 changes requiring documentation updates",
+  "timestamp": "2025-09-22T10:58:30.016088",
+  "priority_summary": {
+    "critical": 1,
+    "high": 4,
+    "medium": 7,
+    "low": 1
+  },
+  "docs_affected": [
+    "README.md",
+    "DEVELOPER_SETUP.md",
+    "MONITORING.md",
+    "TESTING.md"
+  ],
+  "task_description": "\ud83e\udd16 **QMAgent Documentation Update Request**\n\n## \ud83d\udea8 CRITICAL PRIORITY\n- **Feature flag system changes** in `app/utils/feature_flags.py`\n  \ud83d\udcdd Update: MONITORING.md, DEVELOPER_SETUP.md\n\n## \u26a1 HIGH PRIORITY\n- **Repository Pattern changes detected** in `app/repositories/analysis_control.py`\n  \ud83d\udcdd Update: README.md, DEVELOPER_SETUP.md, TESTING.md\n\n- **Repository Pattern changes detected** in `app/repositories/items_repo.py`\n  \ud83d\udcdd Update: README.md, DEVELOPER_SETUP.md, TESTING.md\n\n- **Repository Pattern changes detected** in `app/repositories/base.py`\n  \ud83d\udcdd Update: README.md, DEVELOPER_SETUP.md, TESTING.md\n\n- **Shadow comparison system changes** in `app/utils/shadow_compare.py`\n  \ud83d\udcdd Update: MONITORING.md, TESTING.md\n\n## \ud83d\udcdd MEDIUM PRIORITY\n- **Monitoring system changes** in `app/utils/monitoring.py`\n  \ud83d\udcdd Update: MONITORING.md\n\n- **API changes detected** in `app/api/feature_flags_admin.py`\n  \ud83d\udcdd Update: README.md\n\n- **API changes detected** in `app/api/analysis_control.py`\n  \ud83d\udcdd Update: README.md\n\n- **API changes detected** in `app/api/feeds.py`\n  \ud83d\udcdd Update: README.md\n\n- **Main application changes** in `app/main.py`\n  \ud83d\udcdd Update: README.md\n\n- **Database schema changes** in `alembic/versions/e796582016c8_initial_baseline_from_existing_database.py`\n  \ud83d\udcdd Update: README.md, DEVELOPER_SETUP.md\n\n- **Database schema changes** in `alembic/versions/de68ec3b50e5_drop_basetablemodel_artifact_table.py`\n  \ud83d\udcdd Update: README.md, DEVELOPER_SETUP.md\n\n## \ud83d\udd0d LOW PRIORITY\n- **Dependencies or project configuration changes** in `pyproject.toml`\n  \ud83d\udcdd Update: DEVELOPER_SETUP.md\n\n\n## \ud83c\udfaf Instructions for Claude Code Agent\n\n1. **Use TodoWrite** to track these documentation tasks\n2. **Read the changed files** to understand what needs documenting\n3. **Update documentation** with current information:\n   - Repository Pattern implementation details\n   - Feature flag usage and monitoring\n   - API changes and examples\n   - Setup and testing procedures\n4. **Focus on Repository Migration** - ensure all migration-related changes are documented\n5. **Validate cross-references** between documentation files\n6. **Mark tasks completed** in TodoWrite when done\n\n## \ud83d\udccb Specific Focus Areas\n- Repository Pattern vs Raw SQL migration status\n- Feature flag rollout percentages and monitoring\n- Shadow comparison results and procedures\n- Performance monitoring and SLOs\n- Developer setup and testing workflows\n\n**Priority:** Handle CRITICAL and HIGH priority items first.\n",
+  "changes": [
+    {
+      "file": "app/repositories/analysis_control.py",
+      "pattern": "app/repositories/",
+      "priority": "high",
+      "docs_affected": [
+        "README.md",
+        "DEVELOPER_SETUP.md",
+        "TESTING.md"
+      ],
+      "reason": "Repository Pattern changes detected",
+      "timestamp": "2025-09-22T06:47:44.286229"
+    },
+    {
+      "file": "app/repositories/items_repo.py",
+      "pattern": "app/repositories/",
+      "priority": "high",
+      "docs_affected": [
+        "README.md",
+        "DEVELOPER_SETUP.md",
+        "TESTING.md"
+      ],
+      "reason": "Repository Pattern changes detected",
+      "timestamp": "2025-09-22T10:14:16.516018"
+    },
+    {
+      "file": "app/repositories/base.py",
+      "pattern": "app/repositories/",
+      "priority": "high",
+      "docs_affected": [
+        "README.md",
+        "DEVELOPER_SETUP.md",
+        "TESTING.md"
+      ],
+      "reason": "Repository Pattern changes detected",
+      "timestamp": "2025-09-22T10:12:44.778510"
+    },
+    {
+      "file": "app/utils/feature_flags.py",
+      "pattern": "app/utils/feature_flags.py",
+      "priority": "critical",
+      "docs_affected": [
+        "MONITORING.md",
+        "DEVELOPER_SETUP.md"
+      ],
+      "reason": "Feature flag system changes",
+      "timestamp": "2025-09-22T10:21:05.363687"
+    },
+    {
+      "file": "app/utils/shadow_compare.py",
+      "pattern": "app/utils/shadow_compare.py",
+      "priority": "high",
+      "docs_affected": [
+        "MONITORING.md",
+        "TESTING.md"
+      ],
+      "reason": "Shadow comparison system changes",
+      "timestamp": "2025-09-22T10:20:31.252381"
+    },
+    {
+      "file": "app/utils/monitoring.py",
+      "pattern": "app/utils/monitoring.py",
+      "priority": "medium",
+      "docs_affected": [
+        "MONITORING.md"
+      ],
+      "reason": "Monitoring system changes",
+      "timestamp": "2025-09-22T10:21:48.593342"
+    },
+    {
+      "file": "app/api/feature_flags_admin.py",
+      "pattern": "app/api/",
+      "priority": "medium",
+      "docs_affected": [
+        "README.md"
+      ],
+      "reason": "API changes detected",
+      "timestamp": "2025-09-22T10:24:16.428000"
+    },
+    {
+      "file": "app/api/analysis_control.py",
+      "pattern": "app/api/",
+      "priority": "medium",
+      "docs_affected": [
+        "README.md"
+      ],
+      "reason": "API changes detected",
+      "timestamp": "2025-09-22T06:01:22.679525"
+    },
+    {
+      "file": "app/api/feeds.py",
+      "pattern": "app/api/",
+      "priority": "medium",
+      "docs_affected": [
+        "README.md"
+      ],
+      "reason": "API changes detected",
+      "timestamp": "2025-09-22T07:59:17.862583"
+    },
+    {
+      "file": "app/main.py",
+      "pattern": "app/main.py",
+      "priority": "medium",
+      "docs_affected": [
+        "README.md"
+      ],
+      "reason": "Main application changes",
+      "timestamp": "2025-09-22T10:32:24.371662"
+    },
+    {
+      "file": "alembic/versions/e796582016c8_initial_baseline_from_existing_database.py",
+      "pattern": "alembic/versions/",
+      "priority": "medium",
+      "docs_affected": [
+        "README.md",
+        "DEVELOPER_SETUP.md"
+      ],
+      "reason": "Database schema changes",
+      "timestamp": "2025-09-22T09:54:48.220199"
+    },
+    {
+      "file": "alembic/versions/de68ec3b50e5_drop_basetablemodel_artifact_table.py",
+      "pattern": "alembic/versions/",
+      "priority": "medium",
+      "docs_affected": [
+        "README.md",
+        "DEVELOPER_SETUP.md"
+      ],
+      "reason": "Database schema changes",
+      "timestamp": "2025-09-22T10:03:40.830684"
+    },
+    {
+      "file": "pyproject.toml",
+      "pattern": "pyproject.toml",
+      "priority": "low",
+      "docs_affected": [
+        "DEVELOPER_SETUP.md"
+      ],
+      "reason": "Dependencies or project configuration changes",
+      "timestamp": "2025-09-22T10:34:52.890340"
+    }
+  ]
+}

@@ -45,7 +45,7 @@ class Feed(SQLModel, table=True):
 
 
 class Item(SQLModel, table=True):
-    """News item/article model."""
+    """News item/article model - append-only table."""
     __tablename__ = "items"
 
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -59,6 +59,7 @@ class Item(SQLModel, table=True):
     content_hash: str = Field(unique=True, index=True)
     feed_id: int = Field(foreign_key="feeds.id")
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    # No updated_at - items are immutable once created
 
     # Relationships
     feed: Feed = Relationship(back_populates="items")
@@ -66,7 +67,7 @@ class Item(SQLModel, table=True):
 
 
 class FetchLog(SQLModel, table=True):
-    """Log of feed fetch operations."""
+    """Log of feed fetch operations - uses custom timestamps."""
     __tablename__ = "fetch_log"
 
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -78,6 +79,7 @@ class FetchLog(SQLModel, table=True):
     items_new: int = Field(default=0)
     error_message: Optional[str] = None
     response_time_ms: Optional[int] = None
+    # No created_at/updated_at - uses started_at/completed_at instead
 
     # Relationships
     feed: Feed = Relationship(back_populates="fetch_logs")

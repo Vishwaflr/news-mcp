@@ -6,7 +6,7 @@ import logging
 
 from app.config import settings
 from app.database import create_db_and_tables
-from app.api import feeds, items, health, categories, sources, htmx, processors, statistics, database, analysis_control, user_settings
+from app.api import feeds, items, health, categories, sources, htmx, processors, statistics, database, analysis_control, user_settings, feature_flags_admin
 from app.routes import templates as template_routes
 from app.web.views import analysis_control as analysis_htmx
 
@@ -21,9 +21,70 @@ logging.basicConfig(level=settings.log_level)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
-    title="News MCP API",
-    description="MCP-compatible newsreader API",
-    version="1.0.0"
+    title="News MCP - Enterprise RSS Management System",
+    description="""
+    🚀 **Enterprise-Ready RSS Management & Content Processing System**
+
+    ## 🏗️ **Modern Repository Architecture**
+    - **Repository Pattern**: Type-safe data access with SQLAlchemy Core
+    - **Feature Flags**: Safe gradual rollout with automatic fallback
+    - **Shadow Comparison**: A/B testing between old and new implementations
+    - **Performance Monitoring**: P50/P95/P99 metrics with alerting
+
+    ## 🎛️ **Advanced Features**
+    - **Dynamic Templates**: Hot-reload configuration without restart
+    - **Sentiment Analysis**: AI-powered content analysis with OpenAI integration
+    - **MCP Integration**: Complete Model Context Protocol implementation
+    - **HTMX Interface**: Modern progressive enhancement
+
+    ## 🔧 **Production Ready**
+    - **Circuit Breaker**: Auto-disable on >5% error rate or >30% latency increase
+    - **Index Optimization**: Automated performance monitoring and optimization
+    - **Alembic Migrations**: Schema-first with drop protection
+    - **Health Monitoring**: Comprehensive system health checks
+    """,
+    version="3.0.0-repository-migration",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
+    contact={
+        "name": "News MCP Development Team",
+        "url": "https://github.com/your-repo/news-mcp",
+    },
+    license_info={
+        "name": "MIT",
+        "url": "https://opensource.org/licenses/MIT",
+    },
+    tags_metadata=[
+        {
+            "name": "feeds",
+            "description": "RSS feed management operations",
+        },
+        {
+            "name": "items",
+            "description": "Article/item operations with Repository pattern",
+        },
+        {
+            "name": "admin",
+            "description": "Administrative operations and feature flags",
+        },
+        {
+            "name": "feature-flags",
+            "description": "Feature flag management and monitoring",
+        },
+        {
+            "name": "htmx",
+            "description": "HTMX-powered web interface endpoints",
+        },
+        {
+            "name": "analysis",
+            "description": "AI-powered content analysis operations",
+        },
+        {
+            "name": "health",
+            "description": "System health monitoring and diagnostics",
+        }
+    ]
 )
 
 # Register global exception handlers
@@ -50,6 +111,7 @@ app.include_router(htmx.router, prefix="/htmx")
 app.include_router(template_routes.router)
 app.include_router(analysis_control.router, prefix="/api")
 app.include_router(user_settings.router, prefix="/api")
+app.include_router(feature_flags_admin.router)
 app.include_router(analysis_htmx.router)
 
 # Include monitoring routers (schrittweise aktiviert)

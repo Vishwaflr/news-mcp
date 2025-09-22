@@ -136,7 +136,7 @@ class AnalysisOrchestrator:
             # Calculate cost
             tokens_used = AVG_TOKENS_PER_ITEM  # Estimate for now
             model_pricing = MODEL_PRICING.get(model_tag, MODEL_PRICING["gpt-4.1-nano"])
-            cost_usd = (tokens_used * model_pricing["input"]) / 1000
+            cost_usd = (tokens_used * model_pricing["input"]) / 1_000_000
 
             # Mark item as completed
             self.queue_repo.update_item_state(
@@ -167,7 +167,7 @@ class AnalysisOrchestrator:
             # Mark as completed with simulated cost
             tokens_used = AVG_TOKENS_PER_ITEM
             model_pricing = MODEL_PRICING.get(model_tag, MODEL_PRICING["gpt-4.1-nano"])
-            cost_usd = (tokens_used * model_pricing["input"]) / 1000
+            cost_usd = (tokens_used * model_pricing["input"]) / 1_000_000
 
             self.queue_repo.update_item_state(
                 queue_id, "completed",

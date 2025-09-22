@@ -57,7 +57,7 @@ def get_feeds_list(
     query = select(Feed, Source).join(Source)
 
     # Apply filters
-    if category_id and category_id > 0:  # Only filter if category_id is provided and not 0 (All Categories)
+    if category_id is not None and category_id > 0:  # Only filter if category_id is provided and not 0 (All Categories)
         query = query.join(FeedCategory).where(FeedCategory.category_id == category_id)
 
     if status and status.strip():

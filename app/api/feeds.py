@@ -112,8 +112,8 @@ def create_feed(
         raise HTTPException(status_code=400, detail=result.error)
 
     # Return updated feed list as HTML
-    from app.api.htmx import get_feeds_list
-    return get_feeds_list(session)
+    from app.web.views.feed_views import get_feeds_list
+    return get_feeds_list(session, category_id=None, status=None)
 
 @router.put("/{feed_id}", response_model=FeedResponse)
 def update_feed(
@@ -167,8 +167,8 @@ def update_feed_form(
         raise HTTPException(status_code=400, detail=result.error)
 
     # Return updated feed list as HTML
-    from app.api.htmx import get_feeds_list
-    return get_feeds_list(session)
+    from app.web.views.feed_views import get_feeds_list
+    return get_feeds_list(session, category_id=None, status=None)
 
 @router.post("/{feed_id}/fetch")
 def fetch_feed_now(feed_id: int, session: Session = Depends(get_session)):
@@ -198,5 +198,5 @@ def delete_feed(feed_id: int, session: Session = Depends(get_session)):
         raise HTTPException(status_code=500, detail=result.error)
 
     # Return updated feed list as HTML
-    from app.api.htmx import get_feeds_list
-    return get_feeds_list(session)
+    from app.web.views.feed_views import get_feeds_list
+    return get_feeds_list(session, category_id=None, status=None)

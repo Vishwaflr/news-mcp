@@ -1,0 +1,355 @@
+name: Documentation Updates
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'app/**/*.py'
+      - 'alembic/versions/*.py'
+      - 'pyproject.toml'
+      - 'requirements.txt'
+      - '.env.example'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'app/**/*.py'
+      - 'alembic/versions/*.py'
+      - 'docs/**/*.md'
+  schedule:
+    # Update docs weekly on Sundays at 2 AM UTC
+    - cron: '0 2 * * 0'
+
+jobs:
+  update-openapi-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Generate OpenAPI spec
+        run: |
+          python -c "
+          import sys
+          sys.path.insert(0, '.')
+          from app.main import app
+          import json
+
+          openapi_spec = app.openapi()
+          with open('docs/openapi.json', 'w') as f:
+              json.dump(openapi_spec, f, indent=2)
+          "
+
+      - name: Generate API documentation
+        run: |
+          python -c "
+          import json
+          import os
+
+          # Read OpenAPI spec
+          with open('docs/openapi.json', 'r') as f:
+              spec = json.load(f)
+
+          # Generate markdown documentation
+          markdown = ['# API Documentation\n']
+          markdown.append('Auto-generated from OpenAPI specification.\n')
+          markdown.append(f'**Version:** {spec.get(\"info\", {}).get(\"version\", \"unknown\")}')
+          markdown.append(f'**Title:** {spec.get(\"info\", {}).get(\"title\", \"News MCP API\")}')
+          markdown.append('')
+          markdown.append(spec.get('info', {}).get('description', ''))
+          markdown.append('')
+
+          # Add endpoints
+          markdown.append('## Endpoints\n')
+          paths = spec.get('paths', {})
+
+          for path, methods in sorted(paths.items()):
+              markdown.append(f'### {path}')
+              for method, details in methods.items():
+                  if method.upper() in ['GET', 'POST', 'PUT', 'DELETE', 'PATCH']:
+                      summary = details.get('summary', 'No summary')
+                      description = details.get('description', '')
+                      tags = ', '.join(details.get('tags', []))
+
+                      markdown.append(f'**{method.upper()}** - {summary}')
+                      if tags:
+                          markdown.append(f'*Tags: {tags}*')
+                      if description:
+                          markdown.append(description)
+                      markdown.append('')
+
+          # Write documentation
+          os.makedirs('docs', exist_ok=True)
+          with open('docs/API.md', 'w') as f:
+              f.write('\\n'.join(markdown))
+          "
+
+      - name: Check for database schema changes
+        id: schema-check
+        run: |
+          # Check if there are new migration files
+          if [ -n \"$(find alembic/versions -name '*.py' -newer docs/SCHEMA.md 2>/dev/null || echo '')\" ]; then
+            echo \"schema_changed=true\" >> $GITHUB_OUTPUT
+          else
+            echo \"schema_changed=false\" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate schema documentation
+        if: steps.schema-check.outputs.schema_changed == 'true'
+        run: |
+          # This would ideally connect to a test database and generate schema docs
+          # For now, create a basic schema documentation file
+          cat > docs/SCHEMA.md << 'EOF'
+          # Database Schema Documentation
+
+          This file is automatically updated when database migrations are added.
+
+          ## Recent Migrations
+
+          EOF
+
+          # List recent migration files
+          find alembic/versions -name '*.py' -type f | sort | tail -5 | while read -r file; do
+            echo "- $(basename "$file")" >> docs/SCHEMA.md
+          done
+
+          echo "" >> docs/SCHEMA.md
+          echo "For complete schema information, run:" >> docs/SCHEMA.md
+          echo '```bash' >> docs/SCHEMA.md
+          echo "python scripts/index_check.py" >> docs/SCHEMA.md
+          echo '```' >> docs/SCHEMA.md
+
+      - name: Update requirements documentation
+        run: |
+          echo "# Dependencies" > docs/DEPENDENCIES.md
+          echo "" >> docs/DEPENDENCIES.md
+          echo "Auto-generated from pyproject.toml" >> docs/DEPENDENCIES.md
+          echo "" >> docs/DEPENDENCIES.md
+          echo "## Production Dependencies" >> docs/DEPENDENCIES.md
+          echo '```' >> docs/DEPENDENCIES.md
+          python -c "
+          import tomllib
+          with open('pyproject.toml', 'rb') as f:
+              data = tomllib.load(f)
+          deps = data.get('project', {}).get('dependencies', [])
+          for dep in sorted(deps):
+              print(dep)
+          " >> docs/DEPENDENCIES.md
+          echo '```' >> docs/DEPENDENCIES.md
+
+          echo "" >> docs/DEPENDENCIES.md
+          echo "## Development Dependencies" >> docs/DEPENDENCIES.md
+          echo '```' >> docs/DEPENDENCIES.md
+          python -c "
+          import tomllib
+          with open('pyproject.toml', 'rb') as f:
+              data = tomllib.load(f)
+          dev_deps = data.get('project', {}).get('optional-dependencies', {}).get('dev', [])
+          for dep in sorted(dev_deps):
+              print(dep)
+          " >> docs/DEPENDENCIES.md
+          echo '```' >> docs/DEPENDENCIES.md
+
+      - name: Generate feature flags documentation
+        run: |
+          cat > docs/FEATURE_FLAGS.md << 'EOF'
+          # Feature Flags Reference
+
+          ## Repository Migration Flags
+
+          ### `items_repo`
+          **Purpose:** Controls rollout of Repository Pattern for items API
+          **States:** `off`, `canary`, `on`, `emergency_off`
+          **Current Target:** Gradual migration from Raw SQL to Repository Pattern
+
+          **Usage:**
+          ```bash
+          # Check status
+          curl "http://localhost:8000/api/admin/feature-flags/items_repo"
+
+          # Update rollout
+          curl -X POST "http://localhost:8000/api/admin/feature-flags/items_repo" \
+            -d '{"status": "canary", "rollout_percentage": 25}'
+          ```
+
+          ### `shadow_compare`
+          **Purpose:** A/B testing between old and new implementations
+          **States:** `off`, `on`
+          **Current Target:** Validate repository implementation correctness
+
+          **Monitoring:**
+          ```bash
+          curl "http://localhost:8000/api/admin/feature-flags/metrics/shadow-comparison"
+          ```
+
+          ## Emergency Procedures
+
+          **Immediate Rollback:**
+          ```bash
+          curl -X POST "http://localhost:8000/api/admin/feature-flags/items_repo" \
+            -d '{"status": "emergency_off"}'
+          ```
+
+          **Health Check:**
+          ```bash
+          curl "http://localhost:8000/api/admin/feature-flags/health"
+          ```
+
+          ## Metrics Dashboard
+
+          Real-time monitoring:
+          ```bash
+          python monitoring_dashboard.py
+          ```
+          EOF
+
+      - name: Commit documentation updates
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+          git add docs/
+
+          if git diff --staged --quiet; then
+            echo "No documentation changes to commit"
+          else
+            git commit -m "docs: Auto-update documentation
+
+            🤖 Generated with GitHub Actions
+
+            - Updated OpenAPI specification
+            - Refreshed API documentation
+            - Updated schema documentation
+            - Refreshed dependencies list
+            - Updated feature flags reference
+            "
+            git push
+          fi
+
+  validate-documentation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate markdown files
+        run: |
+          # Check for broken internal links
+          find . -name "*.md" -not -path "./venv/*" -not -path "./.git/*" | while read -r file; do
+            echo "Checking $file"
+
+            # Extract markdown links [text](link)
+            grep -o '\[.*\](.*\.md)' "$file" | grep -o '(.*\.md)' | sed 's/[()]//g' | while read -r link; do
+              if [[ "$link" == /* ]]; then
+                # Absolute path
+                target_file=".$link"
+              else
+                # Relative path
+                dir=$(dirname "$file")
+                target_file="$dir/$link"
+              fi
+
+              if [ ! -f "$target_file" ]; then
+                echo "ERROR: Broken link in $file: $link -> $target_file"
+                exit 1
+              fi
+            done
+          done
+
+      - name: Check documentation completeness
+        run: |
+          # Ensure all key documentation files exist
+          required_docs=(
+            "README.md"
+            "DEVELOPER_SETUP.md"
+            "TESTING.md"
+            "MONITORING.md"
+          )
+
+          for doc in "${required_docs[@]}"; do
+            if [ ! -f "$doc" ]; then
+              echo "ERROR: Missing required documentation: $doc"
+              exit 1
+            fi
+          done
+
+      - name: Validate code quality configuration
+        run: |
+          # Check that pyproject.toml is valid
+          python -c "
+          import tomllib
+          try:
+              with open('pyproject.toml', 'rb') as f:
+                  data = tomllib.load(f)
+              print('✅ pyproject.toml is valid')
+          except Exception as e:
+              print(f'❌ pyproject.toml is invalid: {e}')
+              exit(1)
+          "
+
+          # Check pre-commit config
+          if [ -f ".pre-commit-config.yaml" ]; then
+            python -c "
+            import yaml
+            try:
+                with open('.pre-commit-config.yaml', 'r') as f:
+                    data = yaml.safe_load(f)
+                print('✅ .pre-commit-config.yaml is valid')
+            except Exception as e:
+                print(f'❌ .pre-commit-config.yaml is invalid: {e}')
+                exit(1)
+            "
+          fi
+
+  check-outdated-docs:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for outdated documentation
+        run: |
+          # Find markdown files that haven't been updated in 90 days
+          find . -name "*.md" -not -path "./venv/*" -not -path "./.git/*" -not -path "./docs/archive/*" -mtime +90 | while read -r file; do
+            echo "⚠️ Potentially outdated documentation: $file"
+            echo "Last modified: $(stat -c %y "$file")"
+          done
+
+      - name: Create issue for outdated docs
+        uses: actions/github-script@v6
+        if: env.OUTDATED_DOCS != ''
+        with:
+          script: |
+            const outdatedDocs = process.env.OUTDATED_DOCS || '';
+            if (outdatedDocs.trim()) {
+              github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: '📚 Documentation Review: Potentially Outdated Files',
+                body: `## Outdated Documentation Detected
+
+                The following documentation files haven't been updated in 90+ days:
+
+                ${outdatedDocs}
+
+                ## Action Required
+
+                Please review these files and either:
+                - Update them if they're still relevant
+                - Archive them to \`docs/archive/\` if they're historical
+                - Delete them if they're no longer needed
+
+                ## Automated Check
+
+                This issue was created automatically by the documentation maintenance workflow.
+                `,
+                labels: ['documentation', 'maintenance']
+              });
+            }

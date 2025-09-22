@@ -1,0 +1,334 @@
+# Ruff configuration for News MCP
+# Documentation: https://docs.astral.sh/ruff/
+
+target-version = "py311"
+line-length = 120
+indent-width = 4
+
+# Enable specific rule sets
+select = [
+    # Pyflakes
+    "F",
+    # pycodestyle
+    "E",
+    "W",
+    # isort
+    "I",
+    # pep8-naming
+    "N",
+    # pydocstyle
+    "D",
+    # pyupgrade
+    "UP",
+    # flake8-2020
+    "YTT",
+    # flake8-annotations
+    "ANN",
+    # flake8-async
+    "ASYNC",
+    # flake8-bandit (security)
+    "S",
+    # flake8-blind-except
+    "BLE",
+    # flake8-boolean-trap
+    "FBT",
+    # flake8-bugbear
+    "B",
+    # flake8-builtins
+    "A",
+    # flake8-comprehensions
+    "C4",
+    # flake8-debugger
+    "T10",
+    # flake8-django
+    "DJ",
+    # flake8-errmsg
+    "EM",
+    # flake8-executable
+    "EXE",
+    # flake8-implicit-str-concat
+    "ISC",
+    # flake8-import-conventions
+    "ICN",
+    # flake8-logging-format
+    "G",
+    # flake8-no-pep420
+    "INP",
+    # flake8-pie
+    "PIE",
+    # flake8-print
+    "T20",
+    # flake8-pytest-style
+    "PT",
+    # flake8-quotes
+    "Q",
+    # flake8-raise
+    "RSE",
+    # flake8-return
+    "RET",
+    # flake8-self
+    "SLF",
+    # flake8-simplify
+    "SIM",
+    # flake8-tidy-imports
+    "TID",
+    # flake8-type-checking
+    "TCH",
+    # flake8-unused-arguments
+    "ARG",
+    # flake8-use-pathlib
+    "PTH",
+    # eradicate
+    "ERA",
+    # pandas-vet
+    "PD",
+    # pygrep-hooks
+    "PGH",
+    # Pylint
+    "PL",
+    # flake8-pytest-style
+    "PT",
+    # tryceratops
+    "TRY",
+    # flynt
+    "FLY",
+    # NumPy-specific rules
+    "NPY",
+    # Airflow
+    "AIR",
+    # Perflint
+    "PERF",
+    # Refurb
+    "FURB",
+    # flake8-logging
+    "LOG",
+    # Ruff-specific rules
+    "RUF",
+]
+
+# Disable specific rules
+ignore = [
+    # Line too long (handled by formatter)
+    "E501",
+    # Blank line before class
+    "D203",
+    # Multi-line docstring summary should start at the first line
+    "D213",
+    # Missing docstring in public module
+    "D100",
+    # Missing docstring in public class
+    "D101",
+    # Missing docstring in public method
+    "D102",
+    # Missing docstring in public function
+    "D103",
+    # Missing docstring in public package
+    "D104",
+    # Missing docstring in magic method
+    "D105",
+    # Missing docstring in public nested class
+    "D106",
+    # Missing docstring in __init__
+    "D107",
+    # Function call in default argument (FastAPI dependencies)
+    "B008",
+    # Use of assert (common in tests)
+    "S101",
+    # Hardcoded password (often false positives)
+    "S105",
+    "S106",
+    # SQL injection (we use SQLAlchemy)
+    "S608",
+    # Too many arguments
+    "PLR0913",
+    # Too many branches
+    "PLR0912",
+    # Too many statements
+    "PLR0915",
+    # Magic value used in comparison
+    "PLR2004",
+    # Boolean positional argument
+    "FBT001",
+    "FBT002",
+    # Exception must not use string literal
+    "EM101",
+    "EM102",
+    # Long messages in exceptions
+    "TRY003",
+    # Unused method argument (common in FastAPI)
+    "ARG002",
+    # Unused function argument
+    "ARG001",
+    # Private member access (sometimes needed)
+    "SLF001",
+    # Complex type annotation
+    "ANN401",
+    # Missing type annotation for `self`
+    "ANN101",
+    # Missing type annotation for `cls`
+    "ANN102",
+]
+
+# Exclude files and directories
+exclude = [
+    ".git",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "build",
+    "dist",
+    "node_modules",
+    # Generated migration files
+    "alembic/versions/*.py",
+    # Third-party code
+    "static/vendor/",
+    # Legacy code (being phased out)
+    "**/legacy/**",
+    # Example/template files
+    "**/*example*",
+    "**/*template*",
+]
+
+# Allow unused variables when they start with an underscore
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[per-file-ignores]
+# Test files
+"tests/**/*.py" = [
+    "D",        # Missing docstrings
+    "S101",     # Use of assert
+    "ARG",      # Unused arguments (fixtures)
+    "PLR2004",  # Magic values
+    "ANN",      # Type annotations (less critical in tests)
+    "SLF001",   # Private member access (testing internals)
+]
+
+# Script files
+"scripts/**/*.py" = [
+    "T201",     # Print statements allowed
+    "S602",     # subprocess calls
+    "PLR2004",  # Magic values
+    "ANN",      # Type annotations (less critical in scripts)
+]
+
+# Configuration files
+"**/config.py" = [
+    "D",        # Missing docstrings
+]
+
+# Main application files
+"app/main.py" = [
+    "D",        # Missing docstrings (FastAPI app setup)
+]
+
+# Database models
+"app/models/*.py" = [
+    "A003",     # Builtin attribute shadowing (common in models)
+    "ANN",      # Type annotations (SQLModel handles this)
+]
+
+# Migration files (auto-generated)
+"alembic/versions/*.py" = [
+    "D",        # Missing docstrings
+    "E501",     # Line too long
+    "F401",     # Unused imports
+    "UP",       # pyupgrade
+]
+
+# Alembic environment
+"alembic/env.py" = [
+    "D",        # Missing docstrings
+    "T201",     # Print statements
+]
+
+# Legacy files (being phased out)
+"**/*legacy*.py" = [
+    "D",        # Missing docstrings
+    "ANN",      # Type annotations
+    "PLR",      # Pylint refactor rules
+]
+
+# Repository files (core business logic)
+"app/repositories/*.py" = [
+    # More strict for repository pattern
+]
+
+# API endpoint files
+"app/api/*.py" = [
+    "B008",     # Function call in default argument (FastAPI dependencies)
+]
+
+# HTMX view files
+"app/web/*.py" = [
+    "S703",     # Django-style templates (we use Jinja2)
+]
+
+[isort]
+# Import sorting configuration
+known-first-party = ["app", "jobs", "mcp_server"]
+known-third-party = ["fastapi", "sqlmodel", "pydantic", "alembic"]
+section-order = [
+    "future",
+    "standard-library",
+    "third-party",
+    "first-party",
+    "local-folder"
+]
+force-sort-within-sections = true
+split-on-trailing-comma = true
+
+[mccabe]
+# Maximum cyclomatic complexity
+max-complexity = 15
+
+[flake8-quotes]
+# Use double quotes
+inline-quotes = "double"
+multiline-quotes = "double"
+docstring-quotes = "double"
+avoid-escape = true
+
+[flake8-tidy-imports]
+# Ban relative imports
+ban-relative-imports = "all"
+
+[flake8-type-checking]
+# Enforce typing imports in TYPE_CHECKING blocks
+strict = true
+
+[flake8-annotations]
+# Allow untyped decorators
+allow-star-arg-any = true
+ignore-fully-untyped = true
+
+[pylint]
+# Pylint configuration
+max-args = 8
+max-branches = 15
+max-returns = 8
+max-statements = 60
+max-public-methods = 25
+max-bool-expr = 5
+
+[flake8-pytest-style]
+# Pytest style configuration
+fixture-parentheses = false
+parametrize-names-type = "tuple"
+parametrize-values-type = "tuple"
+parametrize-values-row-type = "tuple"
+
+[format]
+# Formatter configuration
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+# Respect gitignore
+respect-gitignore = true
+
+# Preview features (experimental)
+preview = false

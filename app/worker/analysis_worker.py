@@ -9,6 +9,7 @@ import time
 import signal
 import logging
 import argparse
+import requests
 from typing import Optional
 from datetime import datetime
 
@@ -17,6 +18,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 
 from app.services.analysis_orchestrator import AnalysisOrchestrator
 from app.domain.analysis.control import MODEL_PRICING
+from app.utils.feature_flags import feature_flags
 
 # Configure logging
 logging.basicConfig(
@@ -35,6 +37,8 @@ class AnalysisWorker:
     def __init__(self):
         self.running = True
         self.orchestrator = None
+        self.use_repository = False
+        self.last_feature_flag_check = 0
         self._setup_signal_handlers()
         self._load_config()
 
@@ -56,7 +60,9 @@ class AnalysisWorker:
             'stale_processing_seconds': int(os.getenv('WORKER_STALE_PROCESSING_SEC', '300')),
             'min_request_interval': float(os.getenv('WORKER_MIN_REQUEST_INTERVAL', '0.5')),
             'max_runs_per_cycle': int(os.getenv('WORKER_MAX_RUNS_PER_CYCLE', '5')),
-            'reset_stale_on_start': os.getenv('WORKER_RESET_STALE_ON_START', 'true').lower() == 'true'
+            'reset_stale_on_start': os.getenv('WORKER_RESET_STALE_ON_START', 'true').lower() == 'true',
+            'use_repository': os.getenv('WORKER_USE_REPOSITORY', 'false').lower() == 'true',
+            'feature_flag_check_interval': float(os.getenv('WORKER_FEATURE_FLAG_CHECK_INTERVAL', '30.0'))
         }
 
         logger.info(f"Worker config loaded: {self.config}")
@@ -183,11 +189,56 @@ class AnalysisWorker:
 
         return False
 
+    def _check_feature_flags(self):
+        """Check if repository usage should be enabled via feature flags"""
+        current_time = time.time()
+
+        if current_time - self.last_feature_flag_check < self.config['feature_flag_check_interval']:
+            return
+
+        try:
+            # Check analysis_repo feature flag
+            flag_status = feature_flags.get_flag_status('analysis_repo')
+
+            if flag_status:
+                status = flag_status.get('status')
+                rollout_percentage = flag_status.get('rollout_percentage', 0)
+
+                # Check if we should use repository based on flag status
+                should_use_repo = False
+
+                if status == 'on':
+                    should_use_repo = True
+                elif status == 'canary' and rollout_percentage > 0:
+                    # Simple hash-based rollout (could be more sophisticated)
+                    worker_hash = hash(os.getpid()) % 100
+                    should_use_repo = worker_hash < rollout_percentage
+                elif status == 'emergency_off':
+                    should_use_repo = False
+
+                if should_use_repo != self.use_repository:
+                    logger.info(f"Repository usage changing: {self.use_repository} -> {should_use_repo}")
+                    self.use_repository = should_use_repo
+
+                    # Reinitialize orchestrator with new mode
+                    if self.orchestrator:
+                        self.orchestrator.set_repository_mode(should_use_repo)
+
+            self.last_feature_flag_check = current_time
+
+        except Exception as e:
+            logger.error(f"Error checking feature flags: {e}")
+
     def _periodic_maintenance(self):
         """Perform periodic maintenance tasks"""
         try:
             logger.debug("Performing periodic maintenance")
+
+            # Check feature flags for repository usage
+            self._check_feature_flags()
+
             # Additional maintenance tasks can be added here
+
         except Exception as e:
             logger.error(f"Error in periodic maintenance: {e}")
 

@@ -2,6 +2,63 @@
 
 A comprehensive MCP-compatible news reader with dynamic template management, intelligent content processing, and hot-reload capabilities for enterprise-ready RSS feed aggregation.
 
+## 🏗️ **Architecture Overview**
+
+**NEW (v3.0)**: Modern Repository Pattern with Feature Flag-controlled Rollout
+
+| Layer | Technology | Status | Description |
+|-------|-----------|--------|-------------|
+| **Data Layer** | Repository Pattern + SQLAlchemy Core | 🟢 Production Ready | Type-safe, tested, feature-flag controlled |
+| **Legacy Layer** | Raw SQL + SQLModel | 🟡 Being Phased Out | Shadow-compared for safe migration |
+| **API Layer** | FastAPI + Pydantic DTOs | 🟢 Active | Clean interfaces, no ORM leakage |
+| **Frontend** | HTMX + Bootstrap | 🟢 Enhanced | Progressive enhancement with new features |
+| **Database** | PostgreSQL + Alembic | 🟢 Schema-First | Versioned migrations, automated docs |
+
+### 🎛️ **Feature Flags & Safe Deployment**
+
+🆕 **Latest Enhancements (2025-09-22)**:
+- **Circuit Breaker Protection**: Auto-disable on error rate >5% or latency >50% increase
+- **Repository-Specific Monitoring**: Dedicated shadow comparison for each repository
+- **Worker Integration**: AnalysisRepo with OpenAI GPT-4.1-nano integration
+- **Emergency Auto-Disable**: Automatic rollback on performance degradation
+
+**Core Features**:
+- **Canary Rollout**: New repository layer with gradual percentage rollout (5-100%)
+- **Shadow Comparison**: Automatic A/B testing between old and new implementations
+- **Emergency Fallback**: Auto-disable on >5% error rate or >30% latency increase
+- **Live Monitoring**: Real-time metrics dashboard with P50/P95/P99 percentiles
+- **Circuit Breaker**: Automatic fallback to legacy implementation on failures
+- **Risk-Free Migration**: Zero-downtime cutover with instant rollback capability
+
+### 🏭 **Repository Architecture**
+
+```python
+# Repository layer hierarchy
+app/repositories/
+├── base.py                 # CRUD operations base class
+├── items_repo.py          # ✅ Items timeline & search (OFF)
+├── analysis_repo.py       # ✅ Analysis worker integration (OFF)
+├── analysis_control.py    # ✅ Analysis run management (OFF)
+├── analysis_queue.py      # ✅ Worker queue processing (OFF)
+└── feeds_shadow_compare.py # ✅ Feeds-specific A/B testing
+
+# Feature flags control rollout
+items_repo: OFF      → 10% → 25% → 75% → 100%
+feeds_repo: OFF      → 5%  → 25% → 75% → 100%
+analysis_repo: OFF   → 15% → 25% → 75% → 100%
+shadow_compare: CANARY (10% sampling active)
+```
+
+## 📚 Database Documentation
+
+| Documentation | Description | Link |
+|--------------|-------------|------|
+| **Live Schema Docs** | Auto-generated database documentation | [Latest](https://YOUR_GITHUB_USER.github.io/news-mcp/db-docs/latest) |
+| **ERD Diagram** | Interactive entity relationship diagram | [dbdiagram.io](https://dbdiagram.io/d/news-mcp) |
+| **Data Architecture** | Complete system architecture | [DATA_ARCHITECTURE.md](./DATA_ARCHITECTURE.md) |
+| **Schema Migrations** | Alembic migration history | [/alembic/versions](./alembic/versions) |
+| **DBeaver Project** | Database IDE configuration | [/.dbeaver](/.dbeaver) |
+
 ## 🟢 Current System Status
 
 **Last Updated: September 22, 2025**
@@ -14,6 +71,7 @@ A comprehensive MCP-compatible news reader with dynamic template management, int
 | **Web Interface** | 🟢 Accessible | **100%** | Available at http://192.168.178.72:8000 |
 | **Analysis Worker** | 🟢 Processing | **100%** | OpenAI GPT-4.1-nano integration active |
 | **Analysis Control Center** | 🟢 Functional | **100%** | Preview, runs, and progress tracking working |
+| **Repository Migration** | 🟡 In Progress | **25%** | Feature flags ready, shadow comparison active |
 | **Feed Scheduler** | 🟢 Running | **100%** | Automatic fetching every 60 seconds |
 
 ### 🎯 Key Metrics
@@ -31,7 +89,7 @@ A comprehensive MCP-compatible news reader with dynamic template management, int
 - ✅ **Analysis System**: Fixed progress tracking and worker integration
 - ✅ **Frontend Accessibility**: Restored server binding and UI components
 
-For complete repair documentation, see `FIXES_DOCUMENTATION.md`.
+For detailed system changes, see `CHANGELOG.md`.
 
 ## 🚀 Key Features
 
@@ -68,6 +126,8 @@ For complete repair documentation, see `FIXES_DOCUMENTATION.md`.
   - Real-time preview with cost estimation and duplicate detection
   - Multiple AI model support (GPT-4.1-nano, GPT-4o-mini, etc.)
   - Analysis history tracking with detailed run metrics
+  - 🆕 **Worker-based processing**: Background analysis with OpenAI GPT-4.1-nano integration
+  - 🆕 **Repository integration**: AnalysisRepo for queue management and result tracking
 
 ### 🏗️ Robust Architecture
 - **Microservices**: Separate services for web UI and scheduler
@@ -78,25 +138,58 @@ For complete repair documentation, see `FIXES_DOCUMENTATION.md`.
 
 ## 🏛️ Architecture
 
+### 🗄️ **Data Layer (Repository Pattern)**
+```
+app/
+├── repositories/           # 🔄 Type-safe Repository Pattern
+│   ├── base.py            # BaseRepository with CRUD operations
+│   ├── items_repo.py      # ✅ Items timeline & search (OFF)
+│   ├── analysis_repo.py   # ✅ Analysis worker integration (OFF)
+│   ├── analysis_control.py # ✅ Analysis run management (OFF)
+│   ├── analysis_queue.py  # ✅ Worker queue processing (OFF)
+│   └── feeds_shadow_compare.py # ✅ Feeds-specific A/B testing
+├── schemas/               # 📝 Pydantic DTOs (no ORM leakage)
+│   ├── items.py          # ItemQuery, ItemResponse, ItemCreate
+│   └── __init__.py       # Schema exports
+├── core/                 # 🔧 Core Infrastructure
+│   └── ...               # Core application logic
+└── utils/                # 🛡️ Safety & Monitoring
+    ├── feature_flags.py  # 🆕 Circuit breaker & emergency auto-disable
+    ├── shadow_compare.py # 🆕 General A/B testing framework
+    ├── feeds_shadow_compare.py # 🆕 Feeds-specific comparison
+    └── monitoring.py     # 🆕 Performance metrics & alerting
+```
+
+### 🏢 **Application Structure**
 ```
 ├── data/                    # 🗄️ Local database storage
 │   └── postgres/            # PostgreSQL data directory (automatically created)
 ├── app/                     # FastAPI Web API and Admin Interface
 │   ├── api/                # REST API endpoints
 │   │   ├── feeds.py        # Feed Management API
-│   │   ├── items.py        # Article/Item API
+│   │   ├── items.py        # Article/Item API (Repository-based)
 │   │   ├── categories.py   # Category Management
 │   │   ├── sources.py      # Source Management
 │   │   ├── processors.py   # Content Processor API
 │   │   ├── statistics.py   # Analytics & Metrics
 │   │   ├── health.py       # Health Check Endpoints
 │   │   ├── htmx.py         # HTMX Templates Management
-│   │   ├── analysis_control.py # Analysis Control Center API
-│   │   └── database.py     # Database Management API
-│   ├── models.py           # SQLModel Database Models
+│   │   ├── htmx_legacy.py  # Legacy HTMX Support
+│   │   ├── analysis_control.py # 🆕 Analysis Control Center API
+│   │   ├── feature_flags_admin.py # 🆕 Feature Flag Management API
+│   │   ├── database.py     # Database Management API
+│   │   └── user_settings.py # User Settings API
+│   ├── web/                # 🎨 HTMX Web Interface
+│   │   ├── items_htmx.py   # Items list with feature flag toggle
+│   │   └── ...             # Progressive enhancement
+│   ├── models/             # 📊 SQLModel Database Models
+│   │   ├── base.py         # BaseCreatedOnly, BaseCreatedUpdated
+│   │   ├── items.py        # Item model with analysis relations
+│   │   └── ...             # Clean model separation
+│   ├── repositories/       # 🔄 Repository Pattern Implementation
+│   ├── schemas/            # 📝 Pydantic DTOs & Query Objects
 │   ├── database.py         # Database Configuration
 │   ├── config.py           # Application Configuration
-│   ├── schemas.py          # Pydantic Response Schemas
 │   ├── processors/         # Content Processing Engine
 │   │   ├── base.py         # Base Processor Classes
 │   │   ├── factory.py      # Processor Factory
@@ -109,9 +202,12 @@ For complete repair documentation, see `FIXES_DOCUMENTATION.md`.
 │   │   ├── dynamic_template_manager.py  # Template Management
 │   │   ├── feed_change_tracker.py       # Change Detection
 │   │   └── configuration_watcher.py     # Config Monitoring
-│   └── utils/              # Utility Functions
+│   └── utils/              # Utility Functions & Safety Tools
 │       ├── content_normalizer.py        # Content Normalization
-│       └── feed_detector.py             # Feed Type Detection
+│       ├── feed_detector.py             # Feed Type Detection
+│       ├── feature_flags.py             # Feature flag system
+│       ├── shadow_compare.py            # A/B testing framework
+│       └── monitoring.py                # Performance monitoring
 ├── jobs/                   # 🔄 Background Processing
 │   ├── scheduler.py        # Basic AsyncIO Scheduler
 │   ├── scheduler_manager.py # Production Scheduler Manager
@@ -133,15 +229,25 @@ For complete repair documentation, see `FIXES_DOCUMENTATION.md`.
 ├── static/                 # 📦 Static Assets (CSS, JS)
 ├── systemd/                # 🔧 System Service Configuration
 ├── scripts/                # 🛠️ Deployment & Utility Scripts
+│   ├── setup_cutover.sh   # Repository migration setup
+│   ├── index_check.py     # Database performance validation
+│   ├── check_migrations.py # Migration validation
+│   ├── qmagent.py         # QMAgent automation
+│   ├── github_deploy.sh   # GitHub deployment
+│   └── start-worker.sh    # Worker startup script
+├── alembic/                # 🗄️ Database Migrations
+│   ├── env.py             # Drop protection for critical tables
+│   └── versions/          # Versioned schema changes
 └── test_mcp_server.py     # 🧪 MCP Server Testing
 ```
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Python 3.8+
-- PostgreSQL (or SQLite for development)
-- Virtual environment recommended
+- Python 3.11+ (recommended for async performance)
+- PostgreSQL 14+ (with JSON support)
+- Virtual environment required
+- Git (for development)
 
 ### Installation
 
@@ -168,21 +274,30 @@ cp .env.example .env
 
 4. **Initialize database:**
 ```bash
-# Database will be automatically initialized on first run
-python app/main.py
+# Run migrations and create initial schema
+alembic upgrade head
+
+# Verify database setup and indexes
+python scripts/index_check.py
+
+# Optional: Create missing indexes if needed
+python scripts/index_check.py --create-missing
 ```
 
 ### Running the System
 
 #### Development Mode
 ```bash
-# Terminal 1: Start Web UI
-python app/main.py
+# Terminal 1: Start Web UI with hot reload
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 # Terminal 2: Start Scheduler
 python jobs/scheduler_manager.py start --debug
 
-# Terminal 3: Start MCP Server (optional)
+# Terminal 3: Monitor feature flags and performance
+python monitoring_dashboard.py
+
+# Terminal 4: Start MCP Server (optional)
 python start_mcp_server.py
 ```
 
@@ -223,8 +338,20 @@ curl -X POST "http://localhost:8000/api/feeds" \
   -H "Content-Type: application/json" \
   -d '{"url": "https://example.com/rss", "title": "Example Feed"}'
 
-# Get recent articles
-curl "http://localhost:8000/api/items?limit=10"
+# Get recent articles (Repository-based with feature flag)
+curl "http://localhost:8000/api/items?limit=10" \
+  -H "X-User-ID: user123"
+
+# Check feature flag status
+curl "http://localhost:8000/api/admin/feature-flags/"
+
+# Update feature flag (increase rollout)
+curl -X POST "http://localhost:8000/api/admin/feature-flags/items_repo" \
+  -H "Content-Type: application/json" \
+  -d '{"status": "canary", "rollout_percentage": 25}'
+
+# View performance metrics
+curl "http://localhost:8000/api/admin/feature-flags/metrics/dashboard"
 
 # Health check
 curl "http://localhost:8000/api/health"
@@ -235,13 +362,19 @@ curl "http://localhost:8000/api/health"
 ### Environment Variables (.env)
 ```env
 # Database
-DATABASE_URL=postgresql://user:pass@localhost/news_mcp
-# or for SQLite: DATABASE_URL=sqlite:///./news.db
+DATABASE_URL=postgresql://news_user:news_password@localhost:5432/news_db
+# Repository Feature Flags (JSON format)
+FEATURE_FLAGS_JSON={"items_repo":{"status":"canary","rollout_percentage":5}}
 
 # API Configuration
 API_HOST=0.0.0.0
 API_PORT=8000
 LOG_LEVEL=INFO
+
+# Performance & Monitoring
+MAX_QUERY_TIME_MS=1000
+SHADOW_COMPARE_SAMPLE_RATE=0.1  # 10% sampling
+METRICS_RETENTION_HOURS=24
 
 # MCP Server
 MCP_SERVER_HOST=localhost
@@ -250,6 +383,10 @@ MCP_SERVER_PORT=3001
 # Scheduler
 SCHEDULER_INTERVAL_MINUTES=5
 MAX_CONCURRENT_FEEDS=3
+
+# Analysis & AI
+OPENAI_API_KEY=your_openai_api_key_here
+ANALYSIS_MODEL=gpt-4o-mini
 ```
 
 ### Adding Custom Feed Templates
@@ -260,16 +397,30 @@ MAX_CONCURRENT_FEEDS=3
 
 ## 📊 Monitoring & Analytics
 
+### Feature Flag Management
+- `/api/admin/feature-flags/` - View all feature flags and status
+- `/api/admin/feature-flags/{flag_name}` - Get/update specific flag
+- `/api/admin/feature-flags/metrics/dashboard` - Comprehensive metrics
+- `/api/admin/feature-flags/metrics/shadow-comparison` - A/B test results
+- `/api/admin/feature-flags/metrics/performance` - Performance comparison
+
 ### Health Endpoints
 - `/api/health` - Overall system health
 - `/api/health/feeds` - Feed-specific health metrics
 - `/api/health/scheduler` - Scheduler status
+- `/api/admin/feature-flags/health` - Feature flag system health
 
-### Metrics Available
-- Feed fetch success rates
-- Article processing statistics
-- Template performance metrics
-- Error rates and recovery statistics
+### Repository Migration Monitoring
+- **Shadow Comparison**: Automatic A/B testing between old/new implementations
+- **Performance Metrics**: P50, P95, P99 latency tracking with alerting
+- **Error Rate Monitoring**: Automatic fallback on >5% error rate
+- **Circuit Breaker**: Emergency disable on performance regression
+- **Live Dashboard**: Real-time monitoring via `python monitoring_dashboard.py`
+
+### Database Performance
+- **Index Reality Check**: `python scripts/index_check.py`
+- **Query Performance SLOs**: <100ms for timeline, <50ms for feed queries
+- **Automated Optimization**: Missing index detection and creation
 
 ## 🐳 Docker Deployment
 
