@@ -557,6 +557,135 @@ class ComprehensiveNewsServer:
                         },
                         "required": ["q"]
                     }
+                ),
+
+                # Categories Management Tools
+                Tool(
+                    name="categories_list",
+                    description="List all categories with feed assignments",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "include_feeds": {"type": "boolean", "default": True, "description": "Include associated feeds"},
+                            "include_stats": {"type": "boolean", "default": True, "description": "Include category statistics"}
+                        }
+                    }
+                ),
+                Tool(
+                    name="categories_add",
+                    description="Create a new category",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string", "description": "Category name"},
+                            "description": {"type": "string", "description": "Category description"},
+                            "color": {"type": "string", "description": "Category color (hex)"}
+                        },
+                        "required": ["name"]
+                    }
+                ),
+                Tool(
+                    name="categories_update",
+                    description="Update category information",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "category_id": {"type": "integer", "description": "Category ID"},
+                            "name": {"type": "string", "description": "New category name"},
+                            "description": {"type": "string", "description": "New description"},
+                            "color": {"type": "string", "description": "New color (hex)"}
+                        },
+                        "required": ["category_id"]
+                    }
+                ),
+                Tool(
+                    name="categories_delete",
+                    description="Delete a category",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "category_id": {"type": "integer", "description": "Category ID to delete"},
+                            "confirm": {"type": "boolean", "description": "Confirmation required"}
+                        },
+                        "required": ["category_id", "confirm"]
+                    }
+                ),
+                Tool(
+                    name="categories_assign",
+                    description="Assign category to feed",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "category_id": {"type": "integer", "description": "Category ID"},
+                            "feed_id": {"type": "integer", "description": "Feed ID"}
+                        },
+                        "required": ["category_id", "feed_id"]
+                    }
+                ),
+
+                # Sources Management Tools
+                Tool(
+                    name="sources_list",
+                    description="List all sources with statistics",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "include_stats": {"type": "boolean", "default": True, "description": "Include source statistics"},
+                            "include_feeds": {"type": "boolean", "default": True, "description": "Include associated feeds"}
+                        }
+                    }
+                ),
+                Tool(
+                    name="sources_add",
+                    description="Add a new source",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string", "description": "Source name"},
+                            "url": {"type": "string", "format": "uri", "description": "Source website URL"},
+                            "description": {"type": "string", "description": "Source description"},
+                            "trust_level": {"type": "integer", "minimum": 1, "maximum": 5, "default": 3, "description": "Trust level (1-5)"}
+                        },
+                        "required": ["name", "url"]
+                    }
+                ),
+                Tool(
+                    name="sources_update",
+                    description="Update source information",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "source_id": {"type": "integer", "description": "Source ID"},
+                            "name": {"type": "string", "description": "New source name"},
+                            "url": {"type": "string", "format": "uri", "description": "New URL"},
+                            "description": {"type": "string", "description": "New description"},
+                            "trust_level": {"type": "integer", "minimum": 1, "maximum": 5, "description": "New trust level"}
+                        },
+                        "required": ["source_id"]
+                    }
+                ),
+                Tool(
+                    name="sources_delete",
+                    description="Delete a source",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "source_id": {"type": "integer", "description": "Source ID to delete"},
+                            "confirm": {"type": "boolean", "description": "Confirmation required"}
+                        },
+                        "required": ["source_id", "confirm"]
+                    }
+                ),
+                Tool(
+                    name="sources_stats",
+                    description="Get detailed source statistics",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "source_id": {"type": "integer", "description": "Specific source ID (optional)"},
+                            "days": {"type": "integer", "default": 30, "description": "Statistics period in days"}
+                        }
+                    }
                 )
             ]
 
@@ -642,6 +771,28 @@ class ComprehensiveNewsServer:
                     return await self.v2_handlers.items_recent(**arguments)
                 elif name == "items_search":
                     return await self.v2_handlers.items_search(**arguments)
+                # Categories Management Handlers
+                elif name == "categories_list":
+                    return await self._categories_list(**arguments)
+                elif name == "categories_add":
+                    return await self._categories_add(**arguments)
+                elif name == "categories_update":
+                    return await self._categories_update(**arguments)
+                elif name == "categories_delete":
+                    return await self._categories_delete(**arguments)
+                elif name == "categories_assign":
+                    return await self._categories_assign(**arguments)
+                # Sources Management Handlers
+                elif name == "sources_list":
+                    return await self._sources_list(**arguments)
+                elif name == "sources_add":
+                    return await self._sources_add(**arguments)
+                elif name == "sources_update":
+                    return await self._sources_update(**arguments)
+                elif name == "sources_delete":
+                    return await self._sources_delete(**arguments)
+                elif name == "sources_stats":
+                    return await self._sources_stats(**arguments)
                 else:
                     return [TextContent(type="text", text=f"Unknown tool: {name}")]
             except Exception as e:
@@ -719,14 +870,14 @@ class ComprehensiveNewsServer:
             ).one()
 
             # Feed status breakdown
-            status_stats = session.exec(text("""
+            status_stats = session.execute(text("""
                 SELECT status, COUNT(*) as count
                 FROM feeds
                 GROUP BY status
             """)).fetchall()
 
             # Top performing feeds
-            top_feeds = session.exec(text("""
+            top_feeds = session.execute(text("""
                 SELECT f.title, f.url, COUNT(i.id) as item_count
                 FROM feeds f
                 LEFT JOIN items i ON f.id = i.feed_id
@@ -866,7 +1017,7 @@ class ComprehensiveNewsServer:
             total_feeds = session.exec(select(func.count(Feed.id))).one()
 
             # Get actual status counts
-            status_counts = session.exec(text("""
+            status_counts = session.execute(text("""
                 SELECT status, COUNT(*) FROM feeds GROUP BY status
             """)).fetchall()
             status_dict = {status: count for status, count in status_counts}
@@ -875,16 +1026,16 @@ class ComprehensiveNewsServer:
             error_feeds = status_dict.get("ERROR", 0)
 
             # Recent fetch activity
-            recent_fetches = session.exec(text("""
+            recent_fetches = session.execute(text("""
                 SELECT COUNT(*) FROM fetch_log
                 WHERE started_at > NOW() - INTERVAL '1 hour'
             """)).one()
 
             # Database health
-            db_health = session.exec(text("SELECT COUNT(*) FROM items")).one()
+            db_health = session.execute(text("SELECT COUNT(*) FROM items")).fetchone()[0]
 
             # Average health metrics
-            avg_health_row = session.exec(text("""
+            avg_health_row = session.execute(text("""
                 SELECT
                     AVG(ok_ratio) as avg_success_rate,
                     AVG(avg_response_time_ms) as avg_response_time,
@@ -945,7 +1096,7 @@ class ComprehensiveNewsServer:
 
         try:
             with Session(engine) as session:
-                result = session.exec(text(query)).fetchall()
+                result = session.execute(text(query)).fetchall()
 
                 if result:
                     # Convert to list of dictionaries
@@ -1231,7 +1382,7 @@ class ComprehensiveNewsServer:
             # Performance metrics for last N days
             since_date = datetime.utcnow() - timedelta(days=days)
 
-            performance_data = session.exec(text("""
+            performance_data = session.execute(text("""
                 SELECT
                     f.id, f.title, f.url, s.name as source_name,
                     COUNT(i.id) as total_items,
@@ -1336,7 +1487,7 @@ class ComprehensiveNewsServer:
 
         with Session(engine) as session:
             if table == "feeds":
-                data = session.exec(text("""
+                data = session.execute(text("""
                     SELECT f.id, f.title, f.url, s.name as source, f.status,
                            f.fetch_interval_minutes, f.created_at, f.last_fetched,
                            COUNT(i.id) as total_items
@@ -1362,7 +1513,7 @@ class ComprehensiveNewsServer:
                     export_data = "\n".join(csv_lines)
 
             elif table == "items":
-                data = session.exec(text("""
+                data = session.execute(text("""
                     SELECT i.id, i.title, f.title as feed_title, i.link as url, i.published, i.created_at
                     FROM items i
                     LEFT JOIN feeds f ON i.feed_id = f.id
@@ -1403,10 +1554,9 @@ class ComprehensiveNewsServer:
                     "id": template.id,
                     "name": template.name,
                     "description": template.description,
-                    "domain_pattern": template.domain_pattern,
+                    "url_patterns": template.url_patterns,
                     "is_active": template.is_active,
-                    "created_at": str(template.created_at),
-                    "priority": template.priority
+                    "created_at": str(template.created_at)
                 }
 
                 if include_assignments:
@@ -1432,9 +1582,9 @@ class ComprehensiveNewsServer:
             since_date = datetime.utcnow() - timedelta(days=days)
 
             # Template performance analysis
-            performance_data = session.exec(text("""
+            performance_data = session.execute(text("""
                 SELECT
-                    dt.id, dt.name, dt.domain_pattern,
+                    dt.id, dt.name, dt.url_patterns,
                     COUNT(DISTINCT fta.feed_id) as assigned_feeds,
                     COUNT(i.id) as total_items,
                     COUNT(CASE WHEN i.created_at > :since_date THEN 1 END) as recent_items,
@@ -1446,7 +1596,7 @@ class ComprehensiveNewsServer:
                 LEFT JOIN items i ON f.id = i.feed_id
                 LEFT JOIN feed_health fh ON f.id = fh.feed_id
                 WHERE dt.is_active = true
-                GROUP BY dt.id, dt.name, dt.domain_pattern
+                GROUP BY dt.id, dt.name, dt.url_patterns
                 ORDER BY recent_items DESC
             """), {"since_date": since_date}).fetchall()
 
@@ -1455,7 +1605,7 @@ class ComprehensiveNewsServer:
                 performance.append({
                     "template_id": row[0],
                     "name": row[1],
-                    "domain_pattern": row[2],
+                    "url_patterns": row[2],
                     "assigned_feeds": row[3],
                     "total_items": row[4],
                     "recent_items": row[5],
@@ -1495,12 +1645,12 @@ class ComprehensiveNewsServer:
                 templates = session.exec(
                     select(DynamicFeedTemplate)
                     .where(DynamicFeedTemplate.is_active == True)
-                    .order_by(DynamicFeedTemplate.priority.desc())
+                    .order_by(DynamicFeedTemplate.id.desc())
                 ).all()
 
                 matched_template = None
                 for template in templates:
-                    if template.domain_pattern and template.domain_pattern in domain:
+                    if template.url_patterns and template.url_patterns in domain:
                         matched_template = template
                         break
 
@@ -1568,7 +1718,7 @@ class ComprehensiveNewsServer:
                 # Get info for specific table
                 try:
                     # Get column info
-                    columns = session.exec(text("""
+                    columns = session.execute(text("""
                         SELECT column_name, data_type, is_nullable, column_default
                         FROM information_schema.columns
                         WHERE table_name = :table_name
@@ -1580,7 +1730,7 @@ class ComprehensiveNewsServer:
 
                     # Get row count
                     try:
-                        row_count = session.exec(text(f"SELECT COUNT(*) FROM {table_name}")).one()
+                        row_count = session.execute(text(f"SELECT COUNT(*) FROM {table_name}")).fetchone()[0]
                     except:
                         row_count = "Unknown"
 
@@ -1602,7 +1752,7 @@ class ComprehensiveNewsServer:
 
             else:
                 # List all tables with basic info
-                tables = session.exec(text("""
+                tables = session.execute(text("""
                     SELECT table_name
                     FROM information_schema.tables
                     WHERE table_schema = 'public'
@@ -1612,7 +1762,7 @@ class ComprehensiveNewsServer:
                 table_list = []
                 for table in tables:
                     try:
-                        row_count = session.exec(text(f"SELECT COUNT(*) FROM {table[0]}")).one()
+                        row_count = session.execute(text(f"SELECT COUNT(*) FROM {table[0]}")).fetchone()[0]
                     except:
                         row_count = "Unknown"
 
@@ -1634,7 +1784,7 @@ class ComprehensiveNewsServer:
             if query_type == "summary":
                 # Database summary
                 # Get actual status counts from database
-                status_counts = session.exec(text("""
+                status_counts = session.execute(text("""
                     SELECT status, COUNT(*) FROM feeds GROUP BY status
                 """)).fetchall()
 
@@ -1681,7 +1831,7 @@ class ComprehensiveNewsServer:
 
             elif query_type == "feed_stats":
                 # Feed statistics
-                feed_stats = session.exec(text("""
+                feed_stats = session.execute(text("""
                     SELECT f.status, COUNT(*) as count,
                            AVG(fh.ok_ratio) as avg_success_rate,
                            AVG(fh.avg_response_time_ms) as avg_response_time
@@ -1794,7 +1944,7 @@ class ComprehensiveNewsServer:
 
             else:
                 # Overview of all feed health
-                health_overview = session.exec(text("""
+                health_overview = session.execute(text("""
                     SELECT f.id, f.title, f.status, fh.ok_ratio, fh.consecutive_failures,
                            fh.last_success, fh.last_failure
                     FROM feeds f
@@ -1940,7 +2090,7 @@ class ComprehensiveNewsServer:
             ).one()
 
             # Active feeds by interval
-            interval_stats = session.exec(text("""
+            interval_stats = session.execute(text("""
                 SELECT fetch_interval_minutes, COUNT(*) as feed_count
                 FROM feeds
                 WHERE status = 'ACTIVE'
@@ -2000,7 +2150,7 @@ class ComprehensiveNewsServer:
                         "cutoff_date": str(cutoff_date)
                     }
                 else:
-                    deleted = session.exec(
+                    deleted = session.execute(
                         text("DELETE FROM items WHERE created_at < :cutoff_date"),
                         {"cutoff_date": cutoff_date}
                     )
@@ -2021,7 +2171,7 @@ class ComprehensiveNewsServer:
                     }
                 else:
                     # Note: VACUUM cannot be run in a transaction
-                    session.exec(text("VACUUM ANALYZE"))
+                    session.execute(text("VACUUM ANALYZE"))
                     result = {
                         "task": "vacuum_database",
                         "dry_run": False,
@@ -2036,7 +2186,7 @@ class ComprehensiveNewsServer:
                         "note": "Would update table statistics"
                     }
                 else:
-                    session.exec(text("ANALYZE"))
+                    session.execute(text("ANALYZE"))
                     result = {
                         "task": "update_statistics",
                         "dry_run": False,
@@ -2052,8 +2202,8 @@ class ComprehensiveNewsServer:
                     }
                 else:
                     # Rebuild key indexes
-                    session.exec(text("REINDEX INDEX CONCURRENTLY IF EXISTS idx_items_created_at"))
-                    session.exec(text("REINDEX INDEX CONCURRENTLY IF EXISTS idx_items_feed_id"))
+                    session.execute(text("REINDEX INDEX CONCURRENTLY IF EXISTS idx_items_created_at"))
+                    session.execute(text("REINDEX INDEX CONCURRENTLY IF EXISTS idx_items_feed_id"))
                     result = {
                         "task": "rebuild_indexes",
                         "dry_run": False,
@@ -2217,7 +2367,7 @@ class ComprehensiveNewsServer:
 
             if detailed:
                 # Detailed breakdown by source
-                source_stats = session.exec(text("""
+                source_stats = session.execute(text("""
                     SELECT s.name, COUNT(DISTINCT f.id) as feed_count,
                            COUNT(i.id) as items_in_period
                     FROM sources s
@@ -2234,7 +2384,7 @@ class ComprehensiveNewsServer:
                 } for row in source_stats[:10]]  # Top 10 sources
 
                 # Template usage
-                template_stats = session.exec(text("""
+                template_stats = session.execute(text("""
                     SELECT dt.name, COUNT(DISTINCT fta.feed_id) as assigned_feeds,
                            COUNT(i.id) as items_in_period
                     FROM dynamic_feed_templates dt
@@ -2262,6 +2412,445 @@ class ComprehensiveNewsServer:
             "meta": {},
             "errors": []
         }
+        return [TextContent(type="text", text=safe_json_dumps(result, indent=2))]
+
+    # Categories Management Methods
+    async def _categories_list(self, include_feeds: bool = True, include_stats: bool = True) -> List[TextContent]:
+        """List all categories with optional feed assignments and statistics"""
+        with Session(engine) as session:
+            # Use raw SQL to avoid ORM model mismatch
+            category_rows = session.execute(text("SELECT id, name, description, color, created_at FROM categories ORDER BY name")).fetchall()
+
+            result = []
+            for row in category_rows:
+                category_data = {
+                    "id": row[0],
+                    "name": row[1],
+                    "description": row[2],
+                    "color": row[3],
+                    "created_at": row[4].isoformat() if row[4] else None
+                }
+
+                if include_feeds:
+                    # Get assigned feeds using raw SQL
+                    feeds_sql = """
+                    SELECT f.id, f.title, f.url, f.status
+                    FROM feeds f
+                    JOIN feed_categories fc ON f.id = fc.feed_id
+                    WHERE fc.category_id = :category_id
+                    ORDER BY f.title
+                    """
+                    feed_rows = session.execute(text(feeds_sql), {"category_id": row[0]}).fetchall()
+                    category_data["assigned_feeds"] = [
+                        {"id": feed[0], "title": feed[1], "url": feed[2], "status": feed[3]}
+                        for feed in feed_rows
+                    ]
+
+                if include_stats:
+                    # Get item count using raw SQL
+                    stats_sql = """
+                    SELECT COUNT(i.id) as total_items
+                    FROM items i
+                    JOIN feeds f ON i.feed_id = f.id
+                    JOIN feed_categories fc ON f.id = fc.feed_id
+                    WHERE fc.category_id = :category_id
+                    """
+                    stats_result = session.execute(text(stats_sql), {"category_id": row[0]}).fetchone()
+                    category_data["total_items"] = stats_result[0] if stats_result else 0
+
+                result.append(category_data)
+
+        return [TextContent(type="text", text=safe_json_dumps(result, indent=2))]
+
+    async def _categories_add(self, name: str, description: str = None, color: str = None) -> List[TextContent]:
+        """Create a new category"""
+        with Session(engine) as session:
+            try:
+                # Check if category already exists
+                existing_result = session.execute(text(
+                    "SELECT id FROM categories WHERE name = :name LIMIT 1"
+                ), {"name": name}).fetchone()
+
+                if existing_result:
+                    return [TextContent(type="text", text=f"Error: Category '{name}' already exists")]
+
+                # Insert new category using raw SQL
+                insert_sql = "INSERT INTO categories (name, description, color, created_at) VALUES (:name, :description, :color, NOW()) RETURNING id, name, description, color, created_at"
+
+                result_row = session.execute(text(insert_sql), {
+                    "name": name,
+                    "description": description,
+                    "color": color
+                }).fetchone()
+
+                session.commit()
+
+                result = {
+                    "success": True,
+                    "message": f"Category '{name}' created successfully",
+                    "category": {
+                        "id": result_row[0],
+                        "name": result_row[1],
+                        "description": result_row[2],
+                        "color": result_row[3],
+                        "created_at": result_row[4].isoformat() if result_row[4] else None
+                    }
+                }
+
+                return [TextContent(type="text", text=safe_json_dumps(result, indent=2))]
+
+            except Exception as e:
+                session.rollback()
+                return [TextContent(type="text", text=f"Error creating category: {str(e)}")]
+
+    async def _categories_update(self, category_id: int, name: str = None, description: str = None, color: str = None) -> List[TextContent]:
+        """Update category information"""
+        with Session(engine) as session:
+            try:
+                # Check if category exists
+                existing_result = session.execute(text(
+                    "SELECT id, name, description, color FROM categories WHERE id = :id LIMIT 1"
+                ), {"id": category_id}).fetchone()
+
+                if not existing_result:
+                    return [TextContent(type="text", text=f"Error: Category with ID {category_id} not found")]
+
+                # Build update query dynamically
+                update_fields = []
+                params = {"id": category_id}
+
+                if name is not None:
+                    # Check if new name already exists (exclude current category)
+                    name_check = session.execute(text(
+                        "SELECT id FROM categories WHERE name = :name AND id != :id LIMIT 1"
+                    ), {"name": name, "id": category_id}).fetchone()
+
+                    if name_check:
+                        return [TextContent(type="text", text=f"Error: Category name '{name}' already exists")]
+
+                    update_fields.append("name = :name")
+                    params["name"] = name
+
+                if description is not None:
+                    update_fields.append("description = :description")
+                    params["description"] = description
+
+                if color is not None:
+                    update_fields.append("color = :color")
+                    params["color"] = color
+
+                if not update_fields:
+                    return [TextContent(type="text", text="Error: No fields provided for update")]
+
+                # Execute update
+                update_sql = f"UPDATE categories SET {', '.join(update_fields)} WHERE id = :id RETURNING id, name, description, color, created_at"
+                updated_row = session.execute(text(update_sql), params).fetchone()
+                session.commit()
+
+                result = {
+                    "success": True,
+                    "message": f"Category updated successfully",
+                    "category": {
+                        "id": updated_row[0],
+                        "name": updated_row[1],
+                        "description": updated_row[2],
+                        "color": updated_row[3],
+                        "created_at": updated_row[4].isoformat() if updated_row[4] else None
+                    }
+                }
+
+                return [TextContent(type="text", text=safe_json_dumps(result, indent=2))]
+
+            except Exception as e:
+                session.rollback()
+                return [TextContent(type="text", text=f"Error updating category: {str(e)}")]
+
+    async def _categories_delete(self, category_id: int, confirm: bool = False) -> List[TextContent]:
+        """Delete a category"""
+        if not confirm:
+            return [TextContent(type="text", text="Error: Deletion requires confirmation. Set confirm=true to proceed.")]
+
+        with Session(engine) as session:
+            category = session.get(Category, category_id)
+            if not category:
+                return [TextContent(type="text", text=f"Error: Category with ID {category_id} not found")]
+
+            # Check for feed assignments
+            assignments = session.exec(select(FeedCategory).where(FeedCategory.category_id == category_id)).all()
+
+            # Remove assignments first
+            for assignment in assignments:
+                session.delete(assignment)
+
+            # Delete category
+            category_name = category.name
+            session.delete(category)
+            session.commit()
+
+            result = {
+                "success": True,
+                "message": f"Category '{category_name}' deleted successfully",
+                "removed_assignments": len(assignments)
+            }
+
+        return [TextContent(type="text", text=safe_json_dumps(result, indent=2))]
+
+    async def _categories_assign(self, category_id: int, feed_id: int) -> List[TextContent]:
+        """Assign category to feed"""
+        with Session(engine) as session:
+            # Verify category exists
+            category = session.get(Category, category_id)
+            if not category:
+                return [TextContent(type="text", text=f"Error: Category with ID {category_id} not found")]
+
+            # Verify feed exists
+            feed = session.get(Feed, feed_id)
+            if not feed:
+                return [TextContent(type="text", text=f"Error: Feed with ID {feed_id} not found")]
+
+            # Check if assignment already exists
+            existing = session.exec(select(FeedCategory).where(
+                FeedCategory.category_id == category_id,
+                FeedCategory.feed_id == feed_id
+            )).first()
+
+            if existing:
+                return [TextContent(type="text", text=f"Assignment already exists: {category.name} -> {feed.title}")]
+
+            # Create assignment
+            assignment = FeedCategory(category_id=category_id, feed_id=feed_id)
+            session.add(assignment)
+            session.commit()
+
+            result = {
+                "success": True,
+                "message": f"Assigned category '{category.name}' to feed '{feed.title}'",
+                "assignment": {
+                    "category_id": category_id,
+                    "category_name": category.name,
+                    "feed_id": feed_id,
+                    "feed_title": feed.title
+                }
+            }
+
+        return [TextContent(type="text", text=safe_json_dumps(result, indent=2))]
+
+    # Sources Management Methods
+    async def _sources_list(self, include_stats: bool = True, include_feeds: bool = True) -> List[TextContent]:
+        """List all sources with statistics and feeds"""
+        with Session(engine) as session:
+            sources = session.exec(select(Source)).all()
+
+            result = []
+            for source in sources:
+                source_data = {
+                    "id": source.id,
+                    "name": source.name,
+                    "type": source.type.value if hasattr(source.type, 'value') else str(source.type),
+                    "description": source.description,
+                    "created_at": source.created_at.isoformat() if hasattr(source, 'created_at') and source.created_at else None
+                }
+
+                if include_feeds:
+                    # Get associated feeds
+                    feeds = session.exec(select(Feed).where(Feed.source_id == source.id)).all()
+                    source_data["feeds"] = [
+                        {"id": feed.id, "title": feed.title, "url": feed.url, "status": feed.status}
+                        for feed in feeds
+                    ]
+
+                if include_stats:
+                    # Get feed and item counts
+                    feed_count = session.exec(select(func.count(Feed.id)).where(Feed.source_id == source.id)).first() or 0
+                    feed_ids = [f for f in session.exec(select(Feed.id).where(Feed.source_id == source.id)).all()]
+
+                    if feed_ids:
+                        item_count = session.exec(select(func.count(Item.id)).where(Item.feed_id.in_(feed_ids))).first() or 0
+                    else:
+                        item_count = 0
+
+                    source_data["stats"] = {
+                        "total_feeds": feed_count,
+                        "total_items": item_count
+                    }
+
+                result.append(source_data)
+
+        return [TextContent(type="text", text=safe_json_dumps(result, indent=2))]
+
+    async def _sources_add(self, name: str, url: str, description: str = None, trust_level: int = 3) -> List[TextContent]:
+        """Add a new source"""
+        with Session(engine) as session:
+            # Check if source already exists
+            existing = session.exec(select(Source).where(Source.name == name)).first()
+            if existing:
+                return [TextContent(type="text", text=f"Error: Source '{name}' already exists")]
+
+            # Create new source
+            source_data = {
+                "name": name,
+                "url": url,
+                "trust_level": trust_level
+            }
+            if description:
+                source_data["description"] = description
+
+            source = Source(**source_data)
+            session.add(source)
+            session.commit()
+            session.refresh(source)
+
+            result = {
+                "success": True,
+                "message": f"Source '{name}' created successfully",
+                "source": {
+                    "id": source.id,
+                    "name": source.name,
+                    "url": source.url,
+                    "description": source.description,
+                    "trust_level": getattr(source, 'trust_level', None)
+                }
+            }
+
+        return [TextContent(type="text", text=safe_json_dumps(result, indent=2))]
+
+    async def _sources_update(self, source_id: int, name: str = None, url: str = None,
+                             description: str = None, trust_level: int = None) -> List[TextContent]:
+        """Update source information"""
+        with Session(engine) as session:
+            source = session.get(Source, source_id)
+            if not source:
+                return [TextContent(type="text", text=f"Error: Source with ID {source_id} not found")]
+
+            # Update fields
+            updated_fields = []
+            if name and name != source.name:
+                source.name = name
+                updated_fields.append("name")
+
+            if url and url != source.url:
+                source.url = url
+                updated_fields.append("url")
+
+            if description is not None:
+                source.description = description
+                updated_fields.append("description")
+
+            if trust_level is not None:
+                if hasattr(source, 'trust_level'):
+                    source.trust_level = trust_level
+                updated_fields.append("trust_level")
+
+            if updated_fields:
+                session.commit()
+                session.refresh(source)
+
+                result = {
+                    "success": True,
+                    "message": f"Source updated: {', '.join(updated_fields)}",
+                    "source": {
+                        "id": source.id,
+                        "name": source.name,
+                        "url": source.url,
+                        "description": source.description,
+                        "trust_level": getattr(source, 'trust_level', None)
+                    }
+                }
+            else:
+                result = {
+                    "success": False,
+                    "message": "No fields to update"
+                }
+
+        return [TextContent(type="text", text=safe_json_dumps(result, indent=2))]
+
+    async def _sources_delete(self, source_id: int, confirm: bool = False) -> List[TextContent]:
+        """Delete a source"""
+        if not confirm:
+            return [TextContent(type="text", text="Error: Deletion requires confirmation. Set confirm=true to proceed.")]
+
+        with Session(engine) as session:
+            source = session.get(Source, source_id)
+            if not source:
+                return [TextContent(type="text", text=f"Error: Source with ID {source_id} not found")]
+
+            # Check for associated feeds
+            feeds = session.exec(select(Feed).where(Feed.source_id == source_id)).all()
+
+            if feeds:
+                return [TextContent(type="text", text=f"Error: Cannot delete source '{source.name}' - it has {len(feeds)} associated feeds. Remove feeds first.")]
+
+            # Delete source
+            source_name = source.name
+            session.delete(source)
+            session.commit()
+
+            result = {
+                "success": True,
+                "message": f"Source '{source_name}' deleted successfully"
+            }
+
+        return [TextContent(type="text", text=safe_json_dumps(result, indent=2))]
+
+    async def _sources_stats(self, source_id: int = None, days: int = 30) -> List[TextContent]:
+        """Get detailed source statistics"""
+        with Session(engine) as session:
+            if source_id:
+                # Stats for specific source
+                source = session.get(Source, source_id)
+                if not source:
+                    return [TextContent(type="text", text=f"Error: Source with ID {source_id} not found")]
+
+                sources = [source]
+            else:
+                # Stats for all sources
+                sources = session.exec(select(Source)).all()
+
+            result = []
+            cutoff_date = datetime.now() - timedelta(days=days)
+
+            for source in sources:
+                # Get feeds for this source
+                feeds = session.exec(select(Feed).where(Feed.source_id == source.id)).all()
+                feed_ids = [f.id for f in feeds]
+
+                if feed_ids:
+                    # Get item counts
+                    total_items = session.exec(select(func.count(Item.id)).where(Item.feed_id.in_(feed_ids))).first() or 0
+                    recent_items = session.exec(
+                        select(func.count(Item.id)).where(
+                            Item.feed_id.in_(feed_ids),
+                            Item.published >= cutoff_date
+                        )
+                    ).first() or 0
+                else:
+                    total_items = 0
+                    recent_items = 0
+
+                source_stats = {
+                    "id": source.id,
+                    "name": source.name,
+                    "url": source.url,
+                    "trust_level": getattr(source, 'trust_level', None),
+                    "stats": {
+                        "total_feeds": len(feeds),
+                        "total_items": total_items,
+                        f"recent_items_{days}d": recent_items,
+                        "avg_items_per_feed": round(total_items / len(feeds), 2) if feeds else 0
+                    },
+                    "feeds": [
+                        {
+                            "id": feed.id,
+                            "title": feed.title,
+                            "status": feed.status,
+                            "url": feed.url
+                        }
+                        for feed in feeds
+                    ]
+                }
+
+                result.append(source_stats)
+
         return [TextContent(type="text", text=safe_json_dumps(result, indent=2))]
 
     async def run(self, host: str = "0.0.0.0", port: int = 8001):

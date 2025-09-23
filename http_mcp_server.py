@@ -380,6 +380,26 @@ alias_map = {
     "/articles/search": "articles.search",
     "/templates/assign": "templates.assign",
     "/data/export": "data.export",
+    # Categories and Sources endpoints
+    "/categories/list": "categories_list",
+    "/categories/add": "categories_add",
+    "/categories/update": "categories_update",
+    "/categories/delete": "categories_delete",
+    "/categories/assign": "categories_assign",
+    "/sources/list": "sources_list",
+    "/sources/add": "sources_add",
+    "/sources/update": "sources_update",
+    "/sources/delete": "sources_delete",
+    # Extended Templates endpoints
+    "/templates/list": "list_templates",
+    "/templates/performance": "template_performance",
+    "/templates/create": "templates_create",
+    "/templates/test": "templates_test",
+    "/templates/assign": "templates_assign",
+    # AI Analysis Control endpoints
+    "/analysis/preview": "analysis_preview",
+    "/analysis/run": "analysis_run",
+    "/analysis/history": "analysis_history",
     # Open WebUI prefix routes
     "/mcp/tools/system.ping": "system.ping",
     "/mcp/tools/system.health": "system.health",
@@ -394,7 +414,30 @@ alias_map = {
     "/mcp/tools/articles.latest": "articles.latest",
     "/mcp/tools/articles.search": "articles.search",
     "/mcp/tools/templates.assign": "templates.assign",
-    "/mcp/tools/data.export": "data.export"
+    "/mcp/tools/data.export": "data.export",
+    # Open WebUI prefix routes for Categories and Sources
+    "/mcp/tools/categories_list": "categories_list",
+    "/mcp/tools/categories_add": "categories_add",
+    "/mcp/tools/categories_update": "categories_update",
+    "/mcp/tools/categories_delete": "categories_delete",
+    "/mcp/tools/categories_assign": "categories_assign",
+    "/mcp/tools/sources_list": "sources_list",
+    "/mcp/tools/sources_add": "sources_add",
+    "/mcp/tools/sources_update": "sources_update",
+    "/mcp/tools/sources_delete": "sources_delete",
+    # Open WebUI prefix routes for Extended Templates
+    "/mcp/tools/list_templates": "list_templates",
+    "/mcp/tools/template_performance": "template_performance",
+    "/mcp/tools/templates_create": "templates_create",
+    "/mcp/tools/templates_test": "templates_test",
+    "/mcp/tools/templates_assign": "templates_assign",
+    # Open WebUI prefix routes for AI Analysis Control
+    "/mcp/tools/analysis_preview": "analysis_preview",
+    "/mcp/tools/analysis_run": "analysis_run",
+    "/mcp/tools/analysis_history": "analysis_history",
+    # Tools listing endpoints
+    "/tools/list": "tools.list",
+    "/mcp/tools/tools.list": "tools.list"
 }
 
 def register_compatibility_routes():
@@ -476,6 +519,28 @@ def get_mcp_tools_registry() -> Dict[str, Dict[str, Any]]:
         "articles.search": {"method": mcp_server_instance._search_articles, "params": ["query", "limit", "feed_id", "date_filter"]},
         "templates.assign": {"method": mcp_server_instance._assign_template, "params": ["feed_id", "template_id", "auto_assign"]},
         "data.export": {"method": mcp_server_instance._export_data, "params": ["format", "table", "limit"]},
+        # Categories Management
+        "categories_list": {"method": mcp_server_instance._categories_list, "params": ["include_feeds", "include_stats"]},
+        "categories_add": {"method": mcp_server_instance._categories_add, "params": ["name", "description", "color"]},
+        "categories_update": {"method": mcp_server_instance._categories_update, "params": ["category_id", "name", "description", "color"]},
+        "categories_delete": {"method": mcp_server_instance._categories_delete, "params": ["category_id", "confirm"]},
+        "categories_assign": {"method": mcp_server_instance._categories_assign, "params": ["feed_id", "category_ids", "replace"]},
+        # Sources Management
+        "sources_list": {"method": mcp_server_instance._sources_list, "params": ["include_feeds", "include_stats"]},
+        "sources_add": {"method": mcp_server_instance._sources_add, "params": ["name", "description", "url", "contact_email"]},
+        "sources_update": {"method": mcp_server_instance._sources_update, "params": ["source_id", "name", "description", "url", "contact_email"]},
+        "sources_delete": {"method": mcp_server_instance._sources_delete, "params": ["source_id", "confirm"]},
+        # Extended Templates Management
+        "list_templates": {"method": mcp_server_instance._list_templates, "params": ["include_performance", "include_assignments", "status_filter"]},
+        "template_performance": {"method": mcp_server_instance._template_performance, "params": ["days", "template_id"]},
+        "templates_create": {"method": mcp_server_instance.v2_handlers.templates_create, "params": ["name", "description", "patterns", "processing_rules", "category_assignments"]},
+        "templates_test": {"method": mcp_server_instance.v2_handlers.templates_test, "params": ["template_id", "test_feeds", "sample_size"]},
+        "templates_assign": {"method": mcp_server_instance.v2_handlers.templates_assign, "params": ["template_id", "feed_id", "auto_assign"]},
+        # AI Analysis Control
+        "analysis_preview": {"method": mcp_server_instance.v2_handlers.analysis_preview, "params": ["selector", "model", "cost_estimate"]},
+        "analysis_run": {"method": mcp_server_instance.v2_handlers.analysis_run, "params": ["selector", "model", "auto_save"]},
+        "analysis_history": {"method": mcp_server_instance.v2_handlers.analysis_history, "params": ["limit", "filters"]},
+        "tools.list": {"method": None, "params": []}  # Special handler for listing tools
     }
 
     return tool_methods
@@ -623,6 +688,24 @@ async def health_check():
         "mcp_server": "initialized",
         "timestamp": asyncio.get_event_loop().time()
     }
+
+
+@app.get("/mcp")
+async def mcp_openapi():
+    """
+    OpenAPI specification endpoint for Open WebUI integration
+    Returns the OpenAPI specification that Open WebUI expects
+    """
+    return app.openapi()
+
+
+@app.get("/openapi")
+async def openapi_endpoint():
+    """
+    Alternative OpenAPI specification endpoint
+    Provides the same OpenAPI spec at /openapi path for better compatibility
+    """
+    return app.openapi()
 
 
 @app.post("/mcp")
