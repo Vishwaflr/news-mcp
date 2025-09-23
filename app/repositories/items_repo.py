@@ -1,6 +1,6 @@
 """Items repository implementation."""
 
-import logging
+from app.core.logging_config import get_logger
 from typing import Optional, List, Dict, Any
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -9,7 +9,7 @@ from app.repositories.base import BaseRepository, NotFoundError, PaginatedRespon
 from app.schemas.items import ItemResponse, ItemCreate, ItemUpdate, ItemQuery, ItemStatistics
 from app.db.session import DatabaseSession
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ItemsRepository(BaseRepository[ItemResponse, ItemCreate, ItemUpdate, ItemQuery]):

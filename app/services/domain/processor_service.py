@@ -3,7 +3,7 @@
 from typing import List, Optional, Dict, Any, Tuple
 from sqlmodel import Session, select, func
 from datetime import datetime, timedelta
-import logging
+from app.core.logging_config import get_logger
 
 from .base import BaseService, ServiceResult, NotFoundError, ValidationError, BusinessLogicError
 from app.models import (
@@ -11,7 +11,7 @@ from app.models import (
     ProcessorType, ProcessingStatus
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ProcessorService:

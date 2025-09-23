@@ -1,0 +1,40 @@
+<!-- Preview & Start Component -->
+<div class="preview-panel p-3 bg-dark rounded">
+    <div class="row text-center">
+        <div class="col-4">
+            <div class="preview-stat">
+                <div class="stat-value text-primary" x-text="preview.item_count || 0"></div>
+                <div class="stat-label">Articles to Analyze</div>
+            </div>
+        </div>
+        <div class="col-4">
+            <div class="preview-stat">
+                <div class="stat-value text-success">$<span x-text="(preview.estimated_cost_usd || 0).toFixed(3)"></span></div>
+                <div class="stat-label">Estimated Cost</div>
+            </div>
+        </div>
+        <div class="col-4">
+            <div class="preview-stat">
+                <div class="stat-value text-warning" x-text="preview.estimated_duration_minutes || 0"></div>
+                <div class="stat-label">Est. Minutes</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="mt-3 d-flex gap-2">
+        <button class="btn btn-success flex-fill" 
+                @click="startRun()"
+                :disabled="!activeSelection.mode || loading">
+            <span x-show="!loading">🚀 Start Analysis</span>
+            <span x-show="loading">
+                <span class="spinner-border spinner-border-sm" role="status"></span>
+                Starting...
+            </span>
+        </button>
+        <button class="btn btn-secondary" 
+                @click="updatePreview()"
+                :disabled="!activeSelection.mode">
+            🔄 Refresh Preview
+        </button>
+    </div>
+</div>

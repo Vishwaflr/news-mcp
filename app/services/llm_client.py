@@ -3,9 +3,9 @@ import time
 import os
 from typing import Dict, Optional
 from openai import OpenAI
-import logging
+from app.core.logging_config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class LLMClient:
     def __init__(self, model: str = "gpt-4.1-nano", rate_per_sec: float = 1.0, timeout: int = 8):

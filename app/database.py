@@ -1,8 +1,8 @@
 from sqlmodel import SQLModel, create_engine, Session
 from app.config import settings
-import logging
+from app.core.logging_config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 engine = create_engine(
     settings.database_url,

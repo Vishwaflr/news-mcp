@@ -2,7 +2,7 @@
 
 import json
 import time
-import logging
+from app.core.logging_config import get_logger
 import hashlib
 from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime, timedelta
@@ -11,7 +11,7 @@ from threading import Lock
 
 from app.db.session import db_session
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class AnalysisShadowComparer:

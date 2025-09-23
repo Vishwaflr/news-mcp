@@ -2,12 +2,12 @@
 
 import os
 import json
-import logging
+from app.core.logging_config import get_logger
 from typing import Dict, Any, Optional
 from enum import Enum
 from datetime import datetime, timedelta
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class FeatureFlagStatus(Enum):

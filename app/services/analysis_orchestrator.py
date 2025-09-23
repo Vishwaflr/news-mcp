@@ -1,5 +1,5 @@
 import time
-import logging
+from app.core.logging_config import get_logger
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
 
@@ -9,7 +9,7 @@ from app.services.llm_client import LLMClient
 from app.domain.analysis.schema import AnalysisResult, Overall, Market, SentimentPayload, ImpactPayload
 from app.domain.analysis.control import MODEL_PRICING, AVG_TOKENS_PER_ITEM
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class AnalysisOrchestrator:
     """Orchestrates analysis runs and manages item processing"""

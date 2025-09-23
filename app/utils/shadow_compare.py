@@ -1,14 +1,14 @@
 """Shadow comparison utilities for safe repo migration."""
 
 import time
-import logging
+from app.core.logging_config import get_logger
 import json
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, asdict
 from datetime import datetime
 from enum import Enum
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ComparisonResult(Enum):

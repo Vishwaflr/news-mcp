@@ -1,14 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlmodel import Session, select, text
 from typing import Optional, Dict, Any
-import logging
+from app.core.logging_config import get_logger
 from datetime import datetime, timedelta
 
 from app.database import get_session
 from app.models import Feed, FetchLog
 
 router = APIRouter(prefix="/scheduler", tags=["scheduler"])
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Standard response format for MCP v2
 def create_response(data: Any = None, error: str = None, meta: Dict[str, Any] = None) -> Dict[str, Any]:

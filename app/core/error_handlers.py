@@ -207,7 +207,21 @@ async def database_exception_handler(request: Request, exc: SQLAlchemyError) -> 
             user_message="The operation conflicts with existing data. Please check your input."
         )
 
-    # Generic database error
+    # In development, show more detailed error information
+    import os
+    debug_mode = os.getenv("DEBUG", "false").lower() == "true"
+
+    if debug_mode:
+        # Show detailed error in development
+        return ErrorHandler.create_error_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            error_code="DATABASE_ERROR",
+            message=f"Database operation failed: {str(exc)}",
+            user_message=f"Debug: {type(exc).__name__}: {str(exc)}",
+            details={"exception_type": type(exc).__name__, "original_error": str(exc)}
+        )
+
+    # Generic database error for production
     return ErrorHandler.create_error_response(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         error_code="DATABASE_ERROR",
@@ -219,6 +233,24 @@ async def database_exception_handler(request: Request, exc: SQLAlchemyError) -> 
 async def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handle unexpected exceptions."""
     ErrorHandler.log_error(exc, request, ErrorSeverity.CRITICAL)
+
+    # Check debug mode from settings
+    from app.config import settings
+
+    if settings.debug:
+        import traceback
+        # In debug mode, show detailed error
+        return ErrorHandler.create_error_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            error_code="UNEXPECTED_ERROR",
+            message=f"Unexpected error: {type(exc).__name__}: {str(exc)}",
+            user_message=f"Debug: {type(exc).__name__}: {str(exc)}",
+            details={
+                "exception_type": type(exc).__name__,
+                "error": str(exc),
+                "traceback": traceback.format_exc().split('\n')
+            }
+        )
 
     return ErrorHandler.create_error_response(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

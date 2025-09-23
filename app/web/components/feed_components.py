@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import HTMLResponse
 from sqlmodel import Session, select
 from typing import Optional
-import logging
+from app.core.logging_config import get_logger
 
 from app.database import get_session
 from app.models import Feed, Source, Category, Item, FeedHealth, FeedCategory, FeedType
@@ -13,14 +13,14 @@ from .base_component import BaseComponent
 import feedparser
 
 router = APIRouter(tags=["htmx-feeds"])
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class FeedComponent(BaseComponent):
     """Component for feed-related HTMX endpoints."""
 
     @staticmethod
-    def build_feed_card(feed: Feed, source: Source, categories: list, article_count: int) -> str:
+    def build_feed_card(feed: Feed, source: Source, categories: list, article_count: int, analysis_stats: dict = None) -> str:
         """Build HTML for a single feed card."""
         has_articles = article_count > 0
         status_badge = FeedComponent.status_badge(feed.status.value)
@@ -32,6 +32,21 @@ class FeedComponent(BaseComponent):
             if has_articles else
             '<span class="badge bg-warning ms-1">No Articles</span>'
         )
+
+        # Analysis statistics badge
+        analysis_badge = ""
+        if analysis_stats and analysis_stats.get('analyzed_count', 0) > 0:
+            analyzed_count = analysis_stats['analyzed_count']
+            total_count = article_count
+            percentage = int((analyzed_count / total_count) * 100) if total_count > 0 else 0
+            analysis_badge = f'<span class="badge bg-success ms-1">{analyzed_count} Analyzed ({percentage}%)</span>'
+        elif has_articles:
+            analysis_badge = '<span class="badge bg-secondary ms-1">Not Analyzed</span>'
+
+        # Auto-analysis badge
+        auto_analysis_badge = ""
+        if hasattr(feed, 'auto_analyze_enabled') and feed.auto_analyze_enabled:
+            auto_analysis_badge = '<span class="badge bg-info ms-1" title="Auto-analysis enabled for new articles"><i class="bi bi-robot"></i> Auto</span>'
 
         # Load button for feeds without articles
         load_button = ""
@@ -65,9 +80,16 @@ class FeedComponent(BaseComponent):
         toggle_status = 'inactive' if feed.status.value == 'active' else 'active'
         toggle_icon = 'pause' if feed.status.value == 'active' else 'play'
 
-        # Add toggle and delete buttons
+        # Add fetch now, toggle and delete buttons
         action_buttons = f'''
         {load_button}
+        <button class="btn btn-sm btn-outline-info"
+                hx-post="/api/feeds/{feed.id}/fetch"
+                hx-target="closest .card"
+                hx-swap="outerHTML"
+                title="Fetch new articles now">
+            <i class="bi bi-download"></i>
+        </button>
         <button class="btn btn-sm btn-outline-warning"
                 hx-put="/api/feeds/{feed.id}"
                 hx-vals='{{"status": "{toggle_status}"}}'
@@ -98,6 +120,8 @@ class FeedComponent(BaseComponent):
                             {feed.title or 'Untitled Feed'}
                             {status_badge}
                             {article_badge}
+                            {analysis_badge}
+                            {auto_analysis_badge}
                             {category_badges}
                         </h6>
                         <p class="card-text small text-muted mb-1">
@@ -107,6 +131,7 @@ class FeedComponent(BaseComponent):
                             <strong>Source:</strong> {source.name} |
                             <strong>Interval:</strong> {feed.fetch_interval_minutes} min
                         </p>
+                        {FeedComponent.analysis_summary(analysis_stats)}
                         {last_fetch_info}
                         <div id="fetch-status-{feed.id}"></div>
                     </div>
@@ -117,6 +142,35 @@ class FeedComponent(BaseComponent):
                 </div>
             </div>
         </div>
+        '''
+
+    @staticmethod
+    def analysis_summary(analysis_stats: dict) -> str:
+        """Build HTML for analysis statistics summary."""
+        # Always show analysis section, even when no data available
+        stats = analysis_stats or {}
+        sentiment_counts = stats.get('sentiment_counts', {})
+        avg_impact = stats.get('avg_impact_score', 0)
+        analyzed_count = stats.get('analyzed_count', 0)
+
+        # Total articles badge
+        articles_badge = f'<span class="badge bg-info me-1">Articles: {analyzed_count}</span>'
+
+        # Sentiment distribution - show all sentiment types even if 0
+        sentiment_badges = ""
+        all_sentiments = {'positive': 'success', 'negative': 'danger', 'neutral': 'secondary'}
+        for sentiment, color in all_sentiments.items():
+            count = sentiment_counts.get(sentiment, 0)
+            sentiment_badges += f'<span class="badge bg-{color} me-1">{sentiment.title()}: {count}</span>'
+
+        # Impact score badge
+        impact_color = 'success' if avg_impact >= 7 else 'warning' if avg_impact >= 4 else 'secondary'
+        impact_badge = f'<span class="badge bg-{impact_color} me-1">Impact: {avg_impact:.1f}/10</span>'
+
+        return f'''
+        <p class="card-text small text-muted mb-1">
+            <strong>Analysis:</strong> {articles_badge} {sentiment_badges} {impact_badge}
+        </p>
         '''
 
 
@@ -237,7 +291,7 @@ def get_feeds_list(
         SELECT
             f.id, f.url, f.title, f.description, f.status, f.fetch_interval_minutes,
             f.last_fetched, f.next_fetch_scheduled, f.last_modified, f.etag,
-            f.configuration_hash, f.source_id, f.feed_type_id, f.created_at, f.updated_at,
+            f.configuration_hash, f.source_id, f.feed_type_id, f.auto_analyze_enabled, f.created_at, f.updated_at,
             s.id as source_id, s.name as source_name, s.type as source_type, s.description as source_description
         FROM feeds f
         JOIN sources s ON s.id = f.source_id
@@ -265,6 +319,7 @@ def get_feeds_list(
                     self.configuration_hash = row[10]
                     self.source_id = row[11]
                     self.feed_type_id = row[12]
+                    self.auto_analyze_enabled = row[13]
 
             class MockStatus:
                 def __init__(self, value):
@@ -272,10 +327,10 @@ def get_feeds_list(
 
             class MockSource:
                 def __init__(self, row):
-                    self.id = row[15]
-                    self.name = row[16]
-                    self.type = row[17]
-                    self.description = row[18]
+                    self.id = row[16]
+                    self.name = row[17]
+                    self.type = row[18]
+                    self.description = row[19]
 
             feed = MockFeed(row)
             source = MockSource(row)
@@ -302,7 +357,34 @@ def get_feeds_list(
             count_sql = "SELECT COUNT(*) FROM items WHERE feed_id = :feed_id"
             article_count = session.execute(text(count_sql), {"feed_id": feed.id}).scalar()
 
-            html += FeedComponent.build_feed_card(feed, source, feed_categories, article_count)
+            # Get analysis statistics
+            analysis_stats = None
+            if article_count > 0:
+                analysis_sql = """
+                SELECT
+                    COUNT(*) as analyzed_count,
+                    AVG(COALESCE((ia.impact_json ->> 'overall')::numeric, 0)) as avg_impact_score,
+                    SUM(CASE WHEN (ia.sentiment_json -> 'overall' ->> 'label') = 'positive' THEN 1 ELSE 0 END) as positive_count,
+                    SUM(CASE WHEN (ia.sentiment_json -> 'overall' ->> 'label') = 'negative' THEN 1 ELSE 0 END) as negative_count,
+                    SUM(CASE WHEN (ia.sentiment_json -> 'overall' ->> 'label') = 'neutral' THEN 1 ELSE 0 END) as neutral_count
+                FROM item_analysis ia
+                JOIN items i ON i.id = ia.item_id
+                WHERE i.feed_id = :feed_id
+                """
+                analysis_result = session.execute(text(analysis_sql), {"feed_id": feed.id}).fetchone()
+
+                if analysis_result and analysis_result[0] > 0:
+                    analysis_stats = {
+                        'analyzed_count': analysis_result[0],
+                        'avg_impact_score': float(analysis_result[1] or 0),
+                        'sentiment_counts': {
+                            'positive': analysis_result[2] or 0,
+                            'negative': analysis_result[3] or 0,
+                            'neutral': analysis_result[4] or 0
+                        }
+                    }
+
+            html += FeedComponent.build_feed_card(feed, source, feed_categories, article_count, analysis_stats)
 
         if not html:
             html = BaseComponent.alert_box('No feeds found.', 'info')
@@ -459,19 +541,25 @@ def test_feed_url(url: str, session: Session = Depends(get_session)):
 @router.get("/feed-edit-form/{feed_id}", response_class=HTMLResponse)
 def get_feed_edit_form(feed_id: int, session: Session = Depends(get_session)):
     """Get feed edit form for modal display."""
-    feed = session.get(Feed, feed_id)
-    if not feed:
-        return BaseComponent.alert_box('Feed not found', 'danger')
+    try:
+        feed = session.get(Feed, feed_id)
+        if not feed:
+            return BaseComponent.alert_box('Feed not found', 'danger')
 
-    # Get sources and categories for dropdowns
-    sources = session.exec(select(Source)).all()
-    categories = session.exec(select(Category)).all()
+        # Get sources and categories for dropdowns
+        sources = session.exec(select(Source)).all()
+        categories = session.exec(select(Category)).all()
 
-    # Get current feed categories
-    current_categories = session.exec(
-        select(FeedCategory.category_id).where(FeedCategory.feed_id == feed_id)
-    ).all()
-    current_category_ids = [cat[0] for cat in current_categories]
+        # Get current feed categories
+        current_categories = session.exec(
+            select(FeedCategory.category_id).where(FeedCategory.feed_id == feed_id)
+        ).all()
+        current_category_ids = [cat[0] for cat in current_categories]
+    except Exception as e:
+        logger.error(f"Error in feed edit form for feed {feed_id}: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return BaseComponent.alert_box(f'Error: {str(e)}', 'danger')
 
     sources_options = ""
     for source in sources:
@@ -496,7 +584,7 @@ def get_feed_edit_form(feed_id: int, session: Session = Depends(get_session)):
         <h5 class="modal-title">Edit Feed: {feed.title}</h5>
     </div>
     <div class="modal-body">
-        <form id="edit-feed-form" hx-put="/api/feeds/{feed_id}" hx-target="#feeds-list">
+        <form id="edit-feed-form" hx-put="/api/feeds/{feed_id}/form" hx-target="#feeds-list">
             <div class="mb-3">
                 <label for="edit-title" class="form-label">Title</label>
                 <input type="text" class="form-control" id="edit-title" name="title"
@@ -520,6 +608,17 @@ def get_feed_edit_form(feed_id: int, session: Session = Depends(get_session)):
                 <label for="edit-interval" class="form-label">Fetch Interval (minutes)</label>
                 <input type="number" class="form-control" id="edit-interval" name="fetch_interval_minutes"
                        value="{feed.fetch_interval_minutes}" min="1" required>
+            </div>
+
+            <div class="mb-3">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="auto-analyze-enabled"
+                           name="auto_analyze_enabled" value="true" {'checked' if feed.auto_analyze_enabled else ''}>
+                    <label class="form-check-label" for="auto-analyze-enabled">
+                        <strong>Auto-Analyze New Articles</strong>
+                        <br><small class="text-muted">Automatically analyze new articles for sentiment and impact when fetched</small>
+                    </label>
+                </div>
             </div>
 
             <div class="mb-3">

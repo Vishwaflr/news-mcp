@@ -2,11 +2,12 @@ from pydantic_settings import BaseSettings
 from typing import Optional
 
 class Settings(BaseSettings):
-    database_url: str = "postgresql://news_user:news_password@localhost:5432/news_db"
-    api_host: str = "192.168.178.72"
+    database_url: str = "postgresql://user:password@localhost:5432/db_name"
+    api_host: str = "0.0.0.0"
     api_port: int = 8000
     mcp_port: int = 8001
     log_level: str = "INFO"
+    debug: bool = False
     fetch_interval_minutes: int = 15
     max_concurrent_fetches: int = 10
 

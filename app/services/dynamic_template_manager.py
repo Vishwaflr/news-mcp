@@ -4,7 +4,7 @@ Dynamic Template Manager Service
 Manages database-stored feed templates and their assignments to feeds.
 Replaces the static YAML-based template system with dynamic database configuration.
 """
-import logging
+from app.core.logging_config import get_logger
 import hashlib
 import re
 from typing import Dict, List, Any, Optional
@@ -18,7 +18,7 @@ from ..models import (
 from ..database import engine
 from .feed_change_tracker import FeedChangeTracker, track_template_changes
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class DynamicTemplateManager:
     """Manages database-stored feed templates and assignments"""

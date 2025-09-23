@@ -36,6 +36,7 @@ class AnalysisRun(SQLModel, table=True):
     completed_at: Optional[datetime] = None
     status: str = Field(index=True)
     scope_hash: Optional[str] = Field(index=True)
+    triggered_by: str = Field(default="manual")  # manual, auto, scheduled
     filters: Optional[dict] = Field(sa_column=Column(JSON))
     total_items: Optional[int] = None
     processed_items: Optional[int] = None

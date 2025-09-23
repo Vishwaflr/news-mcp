@@ -2,7 +2,7 @@
 
 from typing import List, Optional, Dict, Any, Tuple
 from sqlmodel import Session, select
-import logging
+from app.core.logging_config import get_logger
 from datetime import datetime, timedelta
 
 from .base import BaseService, ServiceResult, NotFoundError, ValidationError, BusinessLogicError
@@ -14,7 +14,7 @@ FeedUpdate = Any
 FeedResponse = Any
 from app.services.feed_change_tracker import track_feed_changes
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class FeedService(BaseService[Feed, FeedCreate, FeedUpdate]):

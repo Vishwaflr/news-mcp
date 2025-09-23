@@ -7,7 +7,8 @@ import os
 import sys
 import time
 import signal
-import logging
+import asyncio
+from app.core.logging_config import get_logger, setup_logging
 import argparse
 import requests
 from typing import Optional
@@ -17,19 +18,13 @@ from datetime import datetime
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 from app.services.analysis_orchestrator import AnalysisOrchestrator
+from app.services.queue_processor import get_queue_processor
 from app.domain.analysis.control import MODEL_PRICING
 from app.utils.feature_flags import feature_flags
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler('/var/log/news-analysis-worker.log', 'a') if os.access('/var/log', os.W_OK) else logging.NullHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
+# Configure structured logging
+setup_logging(log_level="INFO")
+logger = get_logger(__name__)
 
 class AnalysisWorker:
     """Main analysis worker class"""
@@ -37,6 +32,7 @@ class AnalysisWorker:
     def __init__(self):
         self.running = True
         self.orchestrator = None
+        self.queue_processor = None
         self.use_repository = False
         self.last_feature_flag_check = 0
         self._setup_signal_handlers()
@@ -77,6 +73,9 @@ class AnalysisWorker:
                 chunk_size=self.config['chunk_size'],
                 min_request_interval=self.config['min_request_interval']
             )
+
+            # Initialize queue processor
+            self.queue_processor = get_queue_processor()
 
             # Reset stale items on startup if configured
             if self.config['reset_stale_on_start']:
@@ -130,12 +129,23 @@ class AnalysisWorker:
         work_done = False
 
         try:
-            # Get available runs
+            # First, try to process queued runs (start new runs from queue)
+            if self.queue_processor:
+                try:
+                    # Use asyncio.run for cleaner async execution in sync context
+                    queue_result = asyncio.run(self.queue_processor.process_queue())
+                    if queue_result:
+                        logger.info(f"Started new run from queue: analysis_run_id={queue_result.get('analysis_run_id')}")
+                        work_done = True
+                except Exception as e:
+                    logger.error(f"Error processing queue: {e}")
+
+            # Then, get available runs (existing running runs that need item processing)
             runs = self.orchestrator.get_available_runs()
 
             if not runs:
                 logger.debug("No runs available for processing")
-                return False
+                return work_done
 
             # Limit number of runs processed per cycle
             runs = runs[:self.config['max_runs_per_cycle']]
@@ -236,6 +246,25 @@ class AnalysisWorker:
 
             # Check feature flags for repository usage
             self._check_feature_flags()
+
+            # Check emergency stop status and pause/resume queue processing
+            if self.queue_processor:
+                try:
+                    from app.services.analysis_run_manager import get_run_manager
+                    run_manager = get_run_manager()
+                    status = run_manager.get_status()
+
+                    emergency_stop = status.get("emergency_stop", False)
+
+                    if emergency_stop and self.queue_processor.is_processing_active():
+                        logger.warning("Emergency stop detected, pausing queue processing")
+                        self.queue_processor.pause_processing()
+                    elif not emergency_stop and not self.queue_processor.is_processing_active():
+                        logger.info("Emergency stop cleared, resuming queue processing")
+                        self.queue_processor.resume_processing()
+
+                except Exception as e:
+                    logger.error(f"Error checking emergency stop status: {e}")
 
             # Additional maintenance tasks can be added here
 

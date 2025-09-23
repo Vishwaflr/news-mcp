@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analysis Control Center - News MCP</title>
+    <script src="//unpkg.com/alpinejs" defer></script>
+    <script src="//unpkg.com/htmx.org@1.9.8"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/news-mcp.css">
+    <link rel="stylesheet" href="/static/css/analysis.css">
+    <style>
+        body {
+            background-color: #0d1117 !important;
+            color: #c9d1d9 !important;
+        }
+        .container-fluid {
+            background-color: #0d1117 !important;
+        }
+        h2, h5 {
+            color: #c9d1d9 !important;
+        }
+    </style>
+</head>
+<body class="bg-dark">
+    <!-- Header -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/admin">News MCP</a>
+            <span class="navbar-text">
+                Analysis Control Center
+            </span>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <div class="col-12">
+                <h2 class="mb-lg">🧠 Analysis Control Center</h2>
+            </div>
+        </div>
+
+        <!-- 3-Tab Navigation -->
+        <div class="nmc-tabs mb-lg">
+            <button class="nmc-tab active" onclick="switchTab('start-analysis')">
+                ▶️ Start Analysis
+            </button>
+            <button class="nmc-tab" onclick="switchTab('active-runs')">
+                🔄 Active Runs
+            </button>
+            <button class="nmc-tab" onclick="switchTab('settings')">
+                ⚙️ Settings
+            </button>
+        </div>
+
+        <!-- Tab Content -->
+        <div x-data="analysisControl()">
+            <!-- Start Analysis Tab -->
+            <div id="start-analysis-tab" class="tab-content">
+                <div class="row">
+                    <!-- Quick Start Column -->
+                    <div class="col-lg-7">
+                        <div class="nmc-card">
+                            <h5 class="mb-md">🎯 Target Selection</h5>
+
+                            <!-- Target Selection Component -->
+                            <div hx-get="/htmx/analysis/target-selection"
+                                 hx-trigger="load"
+                                 hx-swap="innerHTML"
+                                 hx-include="#analysis-form">
+                                {% include 'partials/analysis_target_selection.html' %}
+                            </div>
+                        </div>
+
+                        <!-- Model & Parameters -->
+                        <div class="nmc-card">
+                            <h5 class="mb-md">⚙️ Model & Parameters</h5>
+                            <div hx-get="/htmx/analysis/model-params"
+                                 hx-trigger="load"
+                                 hx-swap="innerHTML"
+                                 hx-include="#analysis-form">
+                                {% include 'partials/analysis_model_params.html' %}
+                            </div>
+                        </div>
+
+                        <!-- Preview & Start -->
+                        <div class="nmc-card">
+                            <h5 class="mb-md">📊 Preview & Start</h5>
+                            <div hx-get="/htmx/analysis/preview-start"
+                                 hx-trigger="load"
+                                 hx-swap="innerHTML"
+                                 hx-include="#analysis-form">
+                                {% include 'partials/analysis_preview_start.html' %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Stats Column -->
+                    <div class="col-lg-5">
+                        <h5 class="mb-lg">System Statistics</h5>
+                        <div class="stats-panel" id="overview-stats"
+                             hx-get="/htmx/analysis/stats"
+                             hx-trigger="load, every 30s"
+                             hx-swap="innerHTML">
+                            <div class="nmc-skeleton skeleton-text"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Active Runs Tab -->
+            <div id="active-runs-tab" class="tab-content" style="display:none;">
+                <div class="row">
+                    <div class="col-12">
+                        <div id="active-runs-container">
+                            {% include 'partials/analysis_active_runs.html' %}
+                        </div>
+
+                        <h5 class="mt-lg mb-md">📜 History</h5>
+                        <div id="history-container">
+                            {% include 'partials/analysis_history.html' %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Tab -->
+            <div id="settings-tab" class="tab-content" style="display:none;">
+                <div class="row">
+                    <div class="col-lg-8">
+                        {% include 'partials/analysis_settings.html' %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load JavaScript -->
+    <script src="/static/js/analysis-controller.js"></script>
+    <script>
+        // Simple tab switching
+        function switchTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.style.display = 'none';
+            });
+
+            // Remove active class from all tab buttons
+            document.querySelectorAll('.nmc-tab').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // Show selected tab
+            document.getElementById(tabName + '-tab').style.display = 'block';
+
+            // Add active class to clicked button
+            event.target.classList.add('active');
+        }
+    </script>
+</body>
+</html>

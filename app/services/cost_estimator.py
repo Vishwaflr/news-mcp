@@ -2,12 +2,12 @@
 Cost Estimation Service for AI Analysis
 Provides cost calculations for different AI models and token usage
 """
-import logging
+from app.core.logging_config import get_logger
 from typing import Dict, Any, Optional
 import os
 import math
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class CostEstimatorService:
     """Service for estimating AI analysis costs"""

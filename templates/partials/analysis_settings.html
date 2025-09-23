@@ -1,0 +1,20 @@
+<!-- Settings Component -->
+<div class="settings-panel">
+    <div class="nmc-card">
+        <h5 class="mb-md">🔧 Analysis Settings</h5>
+        <div hx-get="/htmx/analysis/settings/form"
+             hx-trigger="load"
+             hx-swap="innerHTML">
+            <div class="nmc-skeleton skeleton-text"></div>
+        </div>
+    </div>
+    
+    <div class="nmc-card">
+        <h5 class="mb-md">📊 Performance Targets</h5>
+        <div hx-get="/htmx/analysis/settings/slo"
+             hx-trigger="load"
+             hx-swap="innerHTML">
+            <div class="nmc-skeleton skeleton-text"></div>
+        </div>
+    </div>
+</div>

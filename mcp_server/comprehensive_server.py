@@ -833,9 +833,39 @@ class ComprehensiveNewsServer:
                             and_(Item.feed_id == feed.id, Item.created_at > datetime.utcnow() - timedelta(hours=24))
                         )
                     ).one()
+
+                    # Get analysis statistics
+                    analysis_stats = None
+                    if item_count > 0:
+                        analysis_sql = """
+                        SELECT
+                            COUNT(*) as analyzed_count,
+                            AVG(COALESCE((ia.impact_json ->> 'overall')::numeric, 0)) as avg_impact_score,
+                            SUM(CASE WHEN (ia.sentiment_json -> 'overall' ->> 'label') = 'positive' THEN 1 ELSE 0 END) as positive_count,
+                            SUM(CASE WHEN (ia.sentiment_json -> 'overall' ->> 'label') = 'negative' THEN 1 ELSE 0 END) as negative_count,
+                            SUM(CASE WHEN (ia.sentiment_json -> 'overall' ->> 'label') = 'neutral' THEN 1 ELSE 0 END) as neutral_count
+                        FROM item_analysis ia
+                        JOIN items i ON i.id = ia.item_id
+                        WHERE i.feed_id = :feed_id
+                        """
+                        analysis_result = session.execute(text(analysis_sql), {"feed_id": feed.id}).fetchone()
+
+                        if analysis_result and analysis_result[0] > 0:
+                            analysis_stats = {
+                                'analyzed_count': analysis_result[0],
+                                'analyzed_percentage': round((analysis_result[0] / item_count) * 100, 1) if item_count > 0 else 0,
+                                'avg_impact_score': float(analysis_result[1] or 0),
+                                'sentiment_counts': {
+                                    'positive': analysis_result[2] or 0,
+                                    'negative': analysis_result[3] or 0,
+                                    'neutral': analysis_result[4] or 0
+                                }
+                            }
+
                     feed_info.update({
                         "total_items": item_count,
-                        "items_24h": recent_count
+                        "items_24h": recent_count,
+                        "analysis_stats": analysis_stats
                     })
 
                 if include_health:

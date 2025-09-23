@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import HTMLResponse
 from typing import Optional
 from datetime import datetime, timedelta
-import logging
+from app.core.logging_config import get_logger
 
 from app.db.session import get_db_session, DatabaseSession
 from app.repositories.items_repo import ItemsRepository
@@ -12,7 +12,7 @@ from app.schemas.items import ItemQuery
 from .base_component import BaseComponent
 
 router = APIRouter(tags=["htmx-items-new"])
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ItemComponentNew(BaseComponent):

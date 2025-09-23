@@ -2,14 +2,14 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import HTMLResponse
 from sqlmodel import Session, select
 from typing import Optional
-import logging
+from app.core.logging_config import get_logger
 
 from app.database import get_session
 from app.models import Item, Feed, FeedCategory
 from app.repositories.analysis import AnalysisRepo
 
 router = APIRouter(tags=["htmx-items"])
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 @router.get("/items-list", response_class=HTMLResponse)
 def get_items_list(

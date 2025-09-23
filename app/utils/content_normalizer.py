@@ -10,9 +10,9 @@ import urllib.parse
 from typing import Optional, Dict, Any
 from urllib.parse import urljoin, urlparse
 import unicodedata
-import logging
+from app.core.logging_config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class ContentNormalizer:
     """Comprehensive content normalization for RSS feeds."""

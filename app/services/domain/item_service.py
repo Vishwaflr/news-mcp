@@ -3,7 +3,7 @@
 from typing import List, Optional, Dict, Any, Tuple
 from sqlmodel import Session, select, or_
 from datetime import datetime, timedelta
-import logging
+from app.core.logging_config import get_logger
 
 from .base import BaseService, ServiceResult, NotFoundError, ValidationError
 from app.models import Item, Feed, FeedCategory
@@ -14,7 +14,7 @@ try:
 except ImportError:
     ItemAnalysis = None
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ItemService:

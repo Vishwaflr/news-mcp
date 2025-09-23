@@ -5,7 +5,7 @@ Automatically tracks changes to feeds and templates by hooking into
 database operations. This ensures all configuration changes are logged
 for the scheduler's change detection system.
 """
-import logging
+from app.core.logging_config import get_logger
 import json
 import hashlib
 from typing import Dict, Any, Optional
@@ -15,7 +15,7 @@ from sqlmodel import Session
 from ..models import Feed, DynamicFeedTemplate, FeedConfigurationChange
 from ..database import engine
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class FeedChangeTracker:
     """Tracks and logs changes to feed configurations for scheduler notification"""

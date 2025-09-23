@@ -1,4 +1,4 @@
-import logging
+from app.core.logging_config import get_logger
 import time
 from typing import Optional, Dict, Any
 from datetime import datetime
@@ -12,7 +12,7 @@ from .factory import ProcessorFactory
 from .base import ContentItem, ProcessedContent
 from .validator import ContentValidator, ProcessorConfigValidator
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class ContentProcessingManager:
     """Manager for content processing pipeline"""

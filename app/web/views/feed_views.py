@@ -2,14 +2,14 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import HTMLResponse
 from sqlmodel import Session, select
 from typing import Optional
-import logging
+from app.core.logging_config import get_logger
 
 from app.database import get_session
 from app.models import Feed, Source, Category, Item, FeedHealth, FeedCategory, FeedProcessorConfig, ProcessorTemplate, ProcessorType, FeedType
 from app.utils.feed_detector import FeedTypeDetector
 
 router = APIRouter(tags=["htmx-feeds"])
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 @router.get("/feeds-options", response_class=HTMLResponse)
 def get_feeds_options(session: Session = Depends(get_session)):

@@ -10,12 +10,26 @@ Modern Repository Pattern architecture with feature flag-controlled rollout. [Ar
 
 | Metric | Value |
 |--------|-------|
-| **System Status** | 🟢 Production Ready (95%+) |
-| **Feed Success Rate** | 100% (45/45 feeds active) |
+| **System Status** | 🟢 Production Ready (98%+) |
+| **Feed Success Rate** | 100% (37/37 feeds active) |
 | **Analysis Throughput** | ~30 items/minute |
 | **Database Response** | <100ms |
 | **Worker Error Rate** | 0% |
-| **Repository Migration** | 🟡 25% complete |
+| **Repository Migration** | 🟢 95% complete |
+| **Code Quality** | 🟢 Refactored (Sep 2025) |
+| **Documentation** | 🟢 Updated (Sep 2025) |
+| **Security Status** | 🟢 Hardened |
+
+## 📚 Documentation
+
+- [API Documentation](./docs/API_DOCUMENTATION.md) - Complete REST API reference
+- [Database Schema](./docs/DATABASE_SCHEMA.md) - Full database structure
+- [Architecture Guide](./DATA_ARCHITECTURE.md) - System architecture details
+- [ERD Diagram](./ERD_DIAGRAM.md) - Entity relationship diagram
+- [Deployment Guide](./DEPLOYMENT.md) - Production deployment instructions
+- [Developer Setup](./DEVELOPER_SETUP.md) - Development environment setup
+- [Testing Guide](./TESTING.md) - Testing strategies and procedures
+- [Monitoring Guide](./MONITORING.md) - Performance monitoring and metrics
 
 ## Quick Start
 
@@ -36,16 +50,22 @@ alembic upgrade head
 
 ### Running
 ```bash
-# Development Mode
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload    # Web UI
-python jobs/scheduler_manager.py start --debug              # Scheduler
+# Development Mode (Process-Safe Scripts - Prevents Multiple Instances)
+./scripts/start-web-server.sh                               # Web UI with auto-reload
+./scripts/start-worker.sh                                   # Analysis Worker
+./scripts/start-scheduler.sh                                # Feed Scheduler
 
 # MCP Server (choose one)
 ./scripts/start_mcp_server.sh                               # Stdio MCP Server (default)
 ./scripts/start_mcp_server.sh http                          # HTTP MCP Server for Open WebUI
-# OR direct commands:
-python start_mcp_server.py                                  # Stdio MCP Server
-uvicorn http_mcp_server:app --host 0.0.0.0 --port 8001     # HTTP MCP Server
+
+# Legacy Direct Commands (Not Recommended - Use Scripts Above)
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload   # Direct web server
+python start_mcp_server.py                                  # Direct stdio MCP
+uvicorn http_mcp_server:app --host 0.0.0.0 --port 8001     # Direct HTTP MCP
+
+# Stop All Services
+./scripts/stop-all.sh                                       # Gracefully stop all services
 
 # Production Mode
 sudo systemctl start news-mcp-web news-mcp-scheduler        # System services
@@ -87,6 +107,14 @@ sudo systemctl start news-mcp-web news-mcp-scheduler        # System services
 - **14 Comprehensive Tools**: Complete News MCP toolset with unified API
 - **Real-time Testing**: Built-in endpoint testing and health monitoring
 
+### Process Management & Development Tools
+- **Process-Safe Start Scripts**: All scripts prevent multiple instances with intelligent detection
+- **PID File Management**: Automatic cleanup and stale file detection
+- **Port Conflict Prevention**: Port-based duplicate detection for web and MCP servers
+- **User-Friendly Error Messages**: Clear instructions for stopping existing processes
+- **Graceful Shutdown**: Centralized stop script for all services
+- **Background Process Control**: No more runaway instances or resource conflicts
+
 ## Configuration
 
 ### Environment Variables (.env)
@@ -123,11 +151,14 @@ FEATURE_FLAGS_JSON={"items_repo":{"status":"canary","rollout_percentage":5}}
 
 #### HTTP Mode (Open WebUI Integration)
 ```bash
-# Start HTTP MCP Server (recommended)
+# Start HTTP MCP Server (recommended - process-safe)
 ./scripts/start_mcp_server.sh http
 
-# OR direct command
+# OR direct command (legacy - may create duplicates)
 uvicorn http_mcp_server:app --host 0.0.0.0 --port 8001
+
+# Stop all services (including MCP servers)
+./scripts/stop-all.sh
 
 # Test endpoints
 curl http://localhost:8001/health                           # Health check

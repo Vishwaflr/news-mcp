@@ -41,6 +41,7 @@ class FeedUpdate(BaseModel):
     status: Optional[FeedStatus] = None
     fetch_interval_minutes: Optional[int] = None
     category_ids: Optional[List[int]] = None
+    auto_analyze_enabled: Optional[bool] = None
 
 class FeedResponse(BaseModel):
     id: int

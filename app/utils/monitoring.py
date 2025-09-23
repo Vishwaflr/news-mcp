@@ -1,14 +1,14 @@
 """Performance monitoring and metrics collection for repository migration."""
 
 import time
-import logging
+from app.core.logging_config import get_logger
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from collections import defaultdict, deque
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass

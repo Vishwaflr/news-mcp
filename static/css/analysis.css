@@ -1,0 +1,304 @@
+/**
+ * Analysis Page Dark Mode Styles
+ * News MCP Analysis Control Center
+ */
+
+:root {
+    --bg-primary: #0d1117;
+    --bg-secondary: #161b22;
+    --bg-tertiary: #21262d;
+    --border-color: #30363d;
+    --text-primary: #c9d1d9;
+    --text-secondary: #8b949e;
+    --accent-blue: #58a6ff;
+    --accent-green: #3fb950;
+    --accent-yellow: #d29922;
+    --accent-red: #f85149;
+}
+
+/* Tab Navigation */
+.nmc-tabs {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    border-bottom: 2px solid var(--border-color);
+    background: var(--bg-secondary);
+    padding: 0.5rem;
+    border-radius: 8px;
+}
+
+.nmc-tab {
+    padding: 0.75rem 1.5rem;
+    background: transparent;
+    color: var(--text-secondary);
+    border: none;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    border-radius: 6px;
+}
+
+.nmc-tab:hover {
+    color: var(--text-primary);
+    background: var(--bg-tertiary);
+}
+
+.nmc-tab.active {
+    color: var(--accent-blue);
+    background: var(--bg-tertiary);
+    box-shadow: 0 0 0 1px var(--accent-blue);
+}
+
+/* Cards and Panels */
+.nmc-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    color: var(--text-primary);
+}
+
+/* Selection Options */
+.nmc-option-card {
+    padding: 1rem;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.nmc-option-card:hover {
+    background: #2d333b;
+    border-color: var(--accent-blue);
+}
+
+.nmc-option-card.selected {
+    border-color: var(--accent-blue);
+    background: rgba(88, 166, 255, 0.1);
+    box-shadow: 0 0 12px rgba(88, 166, 255, 0.2);
+}
+
+/* Status Indicators */
+.nmc-pulse {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+/* Stats Container */
+.stats-container {
+    padding: 15px;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.stat-card {
+    padding: 20px;
+    border-radius: 8px;
+    text-align: center;
+    margin-bottom: 10px;
+    background: var(--bg-tertiary) !important;
+    border: 1px solid var(--border-color);
+}
+
+.stat-card-sm {
+    padding: 15px;
+    border-radius: 6px;
+    text-align: center;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+}
+
+.stat-value {
+    font-size: 2.2rem;
+    font-weight: bold;
+    margin-bottom: 5px;
+    color: var(--accent-blue) !important;
+}
+
+.stat-value-sm {
+    font-size: 1.8rem;
+    font-weight: bold;
+    margin-bottom: 3px;
+}
+
+.stat-label {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    opacity: 0.8;
+    color: var(--text-secondary) !important;
+}
+
+.stat-label-sm {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    opacity: 0.7;
+    color: var(--text-secondary);
+}
+
+/* Color Overrides for Statistics */
+.bg-warning .stat-value {
+    color: var(--accent-yellow) !important;
+}
+
+.bg-success .stat-value {
+    color: var(--accent-green) !important;
+}
+
+.bg-info .stat-value {
+    color: var(--accent-blue) !important;
+}
+
+.text-success .stat-value-sm {
+    color: var(--accent-green) !important;
+}
+
+.text-secondary .stat-value-sm {
+    color: var(--text-secondary) !important;
+}
+
+.text-danger .stat-value-sm {
+    color: var(--accent-red) !important;
+}
+
+/* Additional Dark Mode Styles */
+.preview-panel {
+    background: var(--bg-tertiary) !important;
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+}
+
+.preview-stat .stat-value {
+    font-size: 1.8rem;
+    font-weight: bold;
+}
+
+.preview-stat .stat-label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+/* Form Controls Dark Mode */
+.form-control, .form-select {
+    background-color: var(--bg-tertiary) !important;
+    border: 1px solid var(--border-color) !important;
+    color: var(--text-primary) !important;
+}
+
+.form-control:focus, .form-select:focus {
+    background-color: var(--bg-tertiary) !important;
+    border-color: var(--accent-blue) !important;
+    box-shadow: 0 0 0 0.2rem rgba(88, 166, 255, 0.25) !important;
+    color: var(--text-primary) !important;
+}
+
+.form-label {
+    color: var(--text-primary) !important;
+}
+
+.form-check-input {
+    background-color: var(--bg-tertiary) !important;
+    border-color: var(--border-color) !important;
+}
+
+.form-check-input:checked {
+    background-color: var(--accent-blue) !important;
+    border-color: var(--accent-blue) !important;
+}
+
+.form-check-label {
+    color: var(--text-primary) !important;
+}
+
+/* Buttons Dark Mode */
+.btn-primary {
+    background-color: var(--accent-blue) !important;
+    border-color: var(--accent-blue) !important;
+}
+
+.btn-primary:hover {
+    background-color: #4599ff !important;
+    border-color: #4599ff !important;
+}
+
+.btn-success {
+    background-color: var(--accent-green) !important;
+    border-color: var(--accent-green) !important;
+}
+
+.btn-success:hover {
+    background-color: #46c55f !important;
+    border-color: #46c55f !important;
+}
+
+.btn-secondary {
+    background-color: var(--bg-tertiary) !important;
+    border-color: var(--border-color) !important;
+    color: var(--text-primary) !important;
+}
+
+.btn-secondary:hover {
+    background-color: #30363d !important;
+    border-color: var(--accent-blue) !important;
+}
+
+/* Alerts Dark Mode */
+.alert-info {
+    background-color: rgba(88, 166, 255, 0.1) !important;
+    border-color: var(--accent-blue) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Skeleton Loading Dark Mode */
+.nmc-skeleton {
+    background: linear-gradient(90deg,
+        var(--bg-tertiary) 25%,
+        #30363d 50%,
+        var(--bg-tertiary) 75%);
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+/* Active Runs Dark Mode */
+.active-runs-panel, .history-panel, .settings-panel {
+    color: var(--text-primary);
+}
+
+/* Spinner Dark Mode */
+.spinner-border {
+    color: var(--accent-blue) !important;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .nmc-tabs {
+        flex-direction: column;
+    }
+
+    .nmc-tab {
+        width: 100%;
+        text-align: center;
+    }
+}

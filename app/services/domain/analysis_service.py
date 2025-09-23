@@ -2,7 +2,7 @@
 
 from typing import List, Optional, Dict, Any, Tuple
 from datetime import datetime, timedelta
-import logging
+from app.core.logging_config import get_logger
 
 from .base import ServiceResult, NotFoundError, ValidationError, BusinessLogicError
 from app.domain.analysis.control import (
@@ -10,8 +10,9 @@ from app.domain.analysis.control import (
     SLO_TARGETS
 )
 from app.repositories.analysis_control import AnalysisControlRepo
+from app.services.analysis_run_manager import get_run_manager
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class AnalysisService:
@@ -41,13 +42,19 @@ class AnalysisService:
             logger.error(f"Preview failed: {e}")
             return ServiceResult.error(f"Preview failed: {str(e)}")
 
-    def start_analysis_run(self, scope: RunScope, params: RunParams) -> ServiceResult[AnalysisRun]:
+    async def start_analysis_run(self, scope: RunScope, params: RunParams, triggered_by: str = "manual") -> ServiceResult[AnalysisRun]:
         """Start a new analysis run with validation and orchestration."""
         try:
             # Validate parameters
             validation_result = self._validate_run_parameters(scope, params)
             if not validation_result.success:
                 return validation_result
+
+            # Check with RunManager first
+            run_manager = get_run_manager()
+            can_start = await run_manager.can_start_run(scope, params, triggered_by)
+            if not can_start["success"]:
+                return ServiceResult.error(can_start["reason"])
 
             # Get preview for cost validation
             preview = AnalysisControlRepo.preview_run(scope, params)
@@ -58,17 +65,11 @@ class AnalysisService:
                     f"Estimated cost ${preview.estimated_cost_usd:.2f} exceeds limit ${SLO_TARGETS['max_cost_per_run']:.2f}"
                 )
 
-            # Check for concurrent runs
-            active_runs = AnalysisControlRepo.get_active_runs()
-            if len(active_runs) >= SLO_TARGETS.get("max_concurrent_runs", 3):
-                return ServiceResult.error(
-                    f"Maximum concurrent runs ({SLO_TARGETS.get('max_concurrent_runs', 3)}) already active"
-                )
+            # Create the run (RunManager already checked limits)
+            run = AnalysisControlRepo.create_run(scope, params, triggered_by)
 
-            # Create the run
-            run = AnalysisControlRepo.create_run(scope, params)
-
-            logger.info(f"Started analysis run {run.id} with {run.metrics.total_count} items, estimated cost ${preview.estimated_cost_usd:.2f}")
+            total_items = run.metrics.queued_count if run and run.metrics else preview.item_count
+            logger.info(f"Started analysis run {run.id if run else 'unknown'} with {total_items} items, estimated cost ${preview.estimated_cost_usd:.2f}, triggered by: {triggered_by}")
 
             # Trigger background processing (in a real implementation)
             self._trigger_background_processing(run.id)
@@ -154,16 +155,22 @@ class AnalysisService:
             cutoff_date = datetime.utcnow() - timedelta(days=days_back)
             runs = AnalysisControlRepo.list_runs(limit=1000, since=cutoff_date)
 
-            total_runs = len(runs)
-            completed_runs = len([r for r in runs if r.status == "completed"])
-            failed_runs = len([r for r in runs if r.status == "failed"])
-            cancelled_runs = len([r for r in runs if r.status == "cancelled"])
+            # Helper function to normalize status values (handle both enum and string)
+            def normalize_status(status):
+                if hasattr(status, 'value'):
+                    return status.value.lower()
+                return str(status).lower()
 
-            total_items_analyzed = sum(r.metrics.completed_count for r in runs if r.metrics)
-            total_cost = sum(float(r.cost_estimate or 0) for r in runs)
+            total_runs = len(runs)
+            completed_runs = len([r for r in runs if normalize_status(r.status) == "completed"])
+            failed_runs = len([r for r in runs if normalize_status(r.status) == "failed"])
+            cancelled_runs = len([r for r in runs if normalize_status(r.status) == "cancelled"])
+
+            total_items_analyzed = sum(r.metrics.processed_count for r in runs if r.metrics)
+            total_cost = sum(float(r.metrics.estimated_cost_usd or 0) for r in runs if r.metrics)
 
             # Calculate average processing time for completed runs
-            completed_with_times = [r for r in runs if r.status == "completed" and r.started_at and r.completed_at]
+            completed_with_times = [r for r in runs if normalize_status(r.status) == "completed" and r.started_at and r.completed_at]
             avg_processing_time = None
             if completed_with_times:
                 total_time = sum((r.completed_at - r.started_at).total_seconds() for r in completed_with_times)

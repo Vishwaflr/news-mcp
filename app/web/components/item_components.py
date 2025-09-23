@@ -5,14 +5,14 @@ from fastapi.responses import HTMLResponse
 from sqlmodel import Session, text
 from typing import Optional
 from datetime import datetime, timedelta
-import logging
+from app.core.logging_config import get_logger
 
 from app.database import get_session
 from app.repositories.analysis import AnalysisRepo
 from .base_component import BaseComponent
 
 router = APIRouter(tags=["htmx-items"])
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ItemComponent(BaseComponent):

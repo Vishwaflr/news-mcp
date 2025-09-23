@@ -1,5 +1,5 @@
 import argparse
-import logging
+from app.core.logging_config import get_logger
 import os
 from datetime import datetime
 from typing import List
@@ -15,7 +15,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 BATCH_LIMIT_DEFAULT = 200
 MODEL_TAG = os.getenv('ANALYSIS_MODEL', 'gpt-4o-mini')

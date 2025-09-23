@@ -30,6 +30,7 @@ class Feed(SQLModel, table=True):
     configuration_hash: Optional[str] = None  # For change detection
     source_id: int = Field(foreign_key="sources.id")
     feed_type_id: Optional[int] = Field(default=None, foreign_key="feed_types.id")
+    auto_analyze_enabled: bool = Field(default=False)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

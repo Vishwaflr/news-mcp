@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import HTMLResponse
 from sqlmodel import Session, select
 from typing import Optional
-import logging
+from app.core.logging_config import get_logger
 
 from app.database import get_session
 from app.models import (
@@ -11,7 +11,7 @@ from app.models import (
 )
 
 router = APIRouter(tags=["htmx-system"])
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 @router.get("/sources-options", response_class=HTMLResponse)
 def get_sources_options(session: Session = Depends(get_session)):

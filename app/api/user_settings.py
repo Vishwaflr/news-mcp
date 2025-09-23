@@ -1,14 +1,14 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlmodel import Session, select
 from typing import Dict, Any
-import logging
+from app.core.logging_config import get_logger
 
 from app.database import get_session
 from app.models import UserSettings
 from app.domain.analysis.control import RunParams
 
 router = APIRouter(prefix="/user-settings", tags=["user-settings"])
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 @router.get("/default-params")
 async def get_default_params(session: Session = Depends(get_session)) -> Dict[str, Any]:

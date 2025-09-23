@@ -4,7 +4,7 @@ Configuration Change Detection System
 Detects changes to feed configurations and templates,
 notifies the scheduler for hot-reloading of feed configurations.
 """
-import logging
+from app.core.logging_config import get_logger
 import hashlib
 import json
 from typing import Dict, List, Any, Optional, Set
@@ -17,7 +17,7 @@ from ..models import (
 )
 from ..database import engine
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class ConfigurationChange:
     """Represents a configuration change event"""

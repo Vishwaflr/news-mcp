@@ -70,6 +70,9 @@ class RunParams(BaseModel):
     retry_failed: bool = True
     override_existing: bool = False
 
+    # Tracking
+    triggered_by: str = "manual"  # manual, auto, scheduled
+
 class RunPreview(BaseModel):
     """Preview of what a run would process"""
     item_count: int
@@ -81,6 +84,10 @@ class RunPreview(BaseModel):
     already_analyzed_count: int = 0
     new_items_count: int = 0
     has_conflicts: bool = False
+
+    # Additional stats for UI
+    total_items: int = 0
+    already_analyzed: int = 0
 
     @classmethod
     def calculate(cls, item_count: int, rate_per_second: float = 1.0, model_tag: str = "gpt-4.1-nano") -> "RunPreview":
@@ -148,6 +155,7 @@ class AnalysisRun(BaseModel):
     # Status
     status: RunStatus = "pending"
     started_at: Optional[datetime] = None
+    triggered_by: str = "manual"  # manual, auto, scheduled
     completed_at: Optional[datetime] = None
     last_error: Optional[str] = None
 

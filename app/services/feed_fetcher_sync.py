@@ -5,14 +5,14 @@ This runs in the same process/thread to ensure it actually executes.
 import feedparser
 import httpx
 import hashlib
-import logging
+from app.core.logging_config import get_logger
 from datetime import datetime
 from sqlmodel import Session, select
 from app.models import Feed, Item, FetchLog, FeedHealth, FeedStatus
 from app.processors.manager import ContentProcessingManager
 from app.services.dynamic_template_manager import get_dynamic_template_manager
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class SyncFeedFetcher:
     """Synchronous version of FeedFetcher for immediate fetch operations"""
@@ -91,6 +91,9 @@ class SyncFeedFetcher:
                 with get_dynamic_template_manager(session) as template_manager:
                     template = template_manager.get_template_for_feed(feed_db.id)
 
+                # Track new item IDs for auto-analysis
+                new_item_ids = []
+
                 # Process each entry
                 for entry in parsed.entries[:50]:  # Limit to first 50 items for initial fetch
                     try:
@@ -131,9 +134,32 @@ class SyncFeedFetcher:
                         logger.warning(f"Error processing entry: {e}")
                         continue
 
-                # Commit all changes
+                # Commit all changes to get item IDs
                 session.commit()
+
+                # Get IDs of newly created items for auto-analysis
+                if items_new > 0:
+                    # Query for items created in this session
+                    recent_items = session.exec(
+                        select(Item).where(
+                            Item.feed_id == feed_db.id,
+                            Item.created_at >= datetime.utcnow().replace(microsecond=0)  # Items from this second
+                        ).order_by(Item.id.desc()).limit(items_new)
+                    ).all()
+                    new_item_ids = [item.id for item in recent_items]
+
                 logger.info(f"Feed {feed_id} processed: {items_new}/{items_found} new items")
+
+            # Trigger auto-analysis if enabled and new items exist
+            if new_item_ids and items_new > 0:
+                try:
+                    from app.services.auto_analysis_service import AutoAnalysisService
+                    auto_analysis = AutoAnalysisService()
+                    result = auto_analysis.trigger_feed_auto_analysis(feed_id, new_item_ids)
+                    if result:
+                        logger.info(f"Triggered auto-analysis run {result['run_id']} for feed {feed_id} with {result['items_count']} items")
+                except Exception as e:
+                    logger.error(f"Failed to trigger auto-analysis for feed {feed_id}: {e}")
 
             # Update log
             with Session(engine) as log_session:

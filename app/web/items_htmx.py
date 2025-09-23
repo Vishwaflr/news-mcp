@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse
 from sqlmodel import Session, select
 from typing import Optional
-import logging
+from app.core.logging_config import get_logger
 import time
 
 from app.database import get_session
@@ -15,7 +15,7 @@ from app.repositories.items_repo import ItemsRepository
 from app.schemas.items import ItemQuery
 
 router = APIRouter(tags=["htmx-items"])
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # feeds-options and categories-options are already defined in htmx.router
 # Only define the missing items-list route here
@@ -204,18 +204,20 @@ async def _get_items_list_repo(
             elif item.description:
                 content_preview = item.description[:200] + "..." if len(item.description) > 200 else item.description
 
-            # Sentiment display
+            # Sentiment display (temporarily disabled until repository provides analysis data)
             sentiment_html = ""
-            if item.sentiment_label:
+            if hasattr(item, 'sentiment_label') and item.sentiment_label:
                 color = "success" if item.sentiment_label == "positive" else "danger" if item.sentiment_label == "negative" else "secondary"
                 icon = "🟢" if item.sentiment_label == "positive" else "🔴" if item.sentiment_label == "negative" else "⚪"
-                score = item.sentiment_score or 0
+                score = getattr(item, 'sentiment_score', 0) or 0
+                impact_score = getattr(item, 'impact_score', None)
+                urgency_score = getattr(item, 'urgency_score', None)
                 sentiment_html = f'''
                 <div class="mb-2">
                     <span class="sentiment-icon">{icon}</span>
                     <span class="badge bg-{color} me-1">{score:.1f}</span>
-                    {f'<span class="badge bg-info">📊 {item.impact_score:.1f}</span>' if item.impact_score else ''}
-                    {f'<span class="badge bg-warning">⚡ {item.urgency_score}</span>' if item.urgency_score else ''}
+                    {f'<span class="badge bg-info">📊 {impact_score:.1f}</span>' if impact_score else ''}
+                    {f'<span class="badge bg-warning">⚡ {urgency_score}</span>' if urgency_score else ''}
                 </div>
                 '''
 

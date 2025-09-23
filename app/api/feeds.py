@@ -2,20 +2,15 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Form
 from fastapi.responses import HTMLResponse
 from sqlmodel import Session
 from typing import List, Optional, Dict, Any
-import logging
+from app.core.logging_config import get_logger
 from app.database import get_session
 from app.models.feeds import Source, FeedCategory
-# from app.schemas import FeedCreate, FeedUpdate, FeedResponse
-# TODO: Fix schema imports
-from typing import Any
-FeedCreate = Any
-FeedUpdate = Any
-FeedResponse = Any
+from app.schemas import FeedCreate, FeedUpdate, FeedResponse
 from app.services.domain.feed_service import FeedService
 from app.dependencies import get_feed_service
 
 router = APIRouter(prefix="/feeds", tags=["feeds"])
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @router.get("/", response_model=List[FeedResponse])
@@ -143,6 +138,7 @@ def update_feed_form(
     fetch_interval_minutes: Optional[int] = Form(None),
     status: Optional[str] = Form(None),
     category_id: Optional[int] = Form(None),
+    auto_analyze_enabled: Optional[str] = Form(None),
     session: Session = Depends(get_session)
 ):
     # Build update data
@@ -156,6 +152,9 @@ def update_feed_form(
     if status is not None:
         from app.models import FeedStatus
         update_data['status'] = FeedStatus(status)
+    if auto_analyze_enabled is not None:
+        # Convert checkbox value to boolean
+        update_data['auto_analyze_enabled'] = auto_analyze_enabled == "true"
 
     # Handle category assignment
     if category_id is not None:

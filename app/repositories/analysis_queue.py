@@ -4,9 +4,9 @@ from app.domain.analysis.control import AnalysisRun, RunItem, RunStatus, ItemSta
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 import json
-import logging
+from app.core.logging_config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class AnalysisQueueRepo:
     """Repository for Analysis Queue operations with SKIP LOCKED support"""

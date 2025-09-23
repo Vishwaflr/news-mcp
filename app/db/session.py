@@ -1,6 +1,6 @@
 """Centralized database session management."""
 
-import logging
+from app.core.logging_config import get_logger
 from contextlib import contextmanager
 from typing import Generator, Optional
 from sqlalchemy import create_engine, text
@@ -8,7 +8,7 @@ from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.exc import SQLAlchemyError, TimeoutError as SQLTimeoutError
 from app.config import settings
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class DatabaseSession:
     """Centralized database session factory with retry logic."""

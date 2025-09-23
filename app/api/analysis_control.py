@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Query, Body, Depends
 from fastapi.responses import HTMLResponse
 from typing import List, Optional
-import logging
+from app.core.logging_config import get_logger
 
 from app.domain.analysis.control import (
     RunScope, RunParams, RunPreview, AnalysisRun, AnalysisPreset,
@@ -13,7 +13,7 @@ from app.repositories.analysis_control import AnalysisControlRepo
 from app.services.cost_estimator import get_cost_estimator
 
 router = APIRouter(prefix="/analysis", tags=["analysis-control"])
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Updated limit to 1000 articles - forced reload
 
@@ -50,7 +50,7 @@ async def start_run(
     analysis_service: AnalysisService = Depends(get_analysis_service)
 ) -> AnalysisRun:
     """Start a new analysis run"""
-    result = analysis_service.start_analysis_run(scope, params)
+    result = await analysis_service.start_analysis_run(scope, params)
 
     if not result.success:
         if "exceeds limit" in result.error or "concurrent runs" in result.error:
@@ -58,6 +58,35 @@ async def start_run(
         raise HTTPException(status_code=500, detail=result.error)
 
     return result.data
+
+@router.post("/runs")
+async def create_run(
+    scope: RunScope = Body(...),
+    params: RunParams = Body(...),
+    analysis_service: AnalysisService = Depends(get_analysis_service)
+) -> AnalysisRun:
+    """Create a new analysis run (alias for /start for frontend compatibility)"""
+    try:
+        return await start_run(scope, params, analysis_service)
+    except Exception as e:
+        import traceback
+        logger.error(f"Error in create_run endpoint: {e}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise
+
+@router.get("/runs")
+async def list_runs(
+    active_only: bool = Query(False),
+    analysis_service: AnalysisService = Depends(get_analysis_service)
+) -> List[AnalysisRun]:
+    """List analysis runs (active by default, or all recent runs)"""
+    if active_only:
+        return await get_active_runs(analysis_service)
+    else:
+        result = analysis_service.list_analysis_runs(limit=50, days_back=7)
+        if not result.success:
+            raise HTTPException(status_code=500, detail=result.error)
+        return result.data
 
 @router.post("/pause/{run_id}")
 async def pause_run(run_id: int) -> dict:

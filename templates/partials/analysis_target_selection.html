@@ -1,0 +1,111 @@
+<!-- Target Selection Component -->
+<div class="mb-3">
+    <label class="form-label">📋 Selection Mode</label>
+    <div class="row g-2">
+        <!-- Latest Articles -->
+        <div class="col-md-4">
+            <div class="nmc-option-card" :class="{'selected': selectionMode === 'latest'}">
+                <h6>📰 Latest Articles</h6>
+                <p class="small mb-2">Select most recent articles</p>
+                <input type="number" 
+                       class="form-control form-control-sm mb-2" 
+                       x-model="latestCount"
+                       :disabled="selectionMode !== 'latest'"
+                       min="1" max="1000" 
+                       placeholder="Number of articles">
+                <button class="btn btn-sm btn-primary w-100"
+                        @click="selectionMode = 'latest'; setLatestSelection()"
+                        :disabled="selectionMode === 'latest' && activeSelection.mode === 'latest'">
+                    SET
+                </button>
+            </div>
+        </div>
+
+        <!-- Time Range -->
+        <div class="col-md-4">
+            <div class="nmc-option-card" :class="{'selected': selectionMode === 'timeRange'}">
+                <h6>🕐 Time Range</h6>
+                <p class="small mb-2">Articles from past period</p>
+                <div class="d-flex gap-1 mb-2">
+                    <input type="number" 
+                           class="form-control form-control-sm" 
+                           x-model="timeRangeDays"
+                           :disabled="selectionMode !== 'timeRange'"
+                           min="0" max="365" 
+                           placeholder="Days">
+                    <input type="number" 
+                           class="form-control form-control-sm" 
+                           x-model="timeRangeHours"
+                           :disabled="selectionMode !== 'timeRange'"
+                           min="0" max="23" 
+                           placeholder="Hours">
+                </div>
+                <button class="btn btn-sm btn-primary w-100"
+                        @click="selectionMode = 'timeRange'; setTimeRangeSelection()"
+                        :disabled="selectionMode === 'timeRange' && activeSelection.mode === 'timeRange'">
+                    SET
+                </button>
+            </div>
+        </div>
+
+        <!-- Unanalyzed Only -->
+        <div class="col-md-4">
+            <div class="nmc-option-card" :class="{'selected': selectionMode === 'unanalyzed'}">
+                <h6>🔍 Unanalyzed</h6>
+                <p class="small mb-2">All pending articles</p>
+                <div style="height: 38px;"></div>
+                <button class="btn btn-sm btn-primary w-100"
+                        @click="selectionMode = 'unanalyzed'; setUnanalyzedSelection()"
+                        :disabled="selectionMode === 'unanalyzed' && activeSelection.mode === 'unanalyzed'">
+                    SET
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Selection Display -->
+    <div class="mt-3" x-show="activeSelection.mode">
+        <div class="alert alert-info d-flex justify-content-between align-items-center">
+            <div>
+                <strong>Active Selection:</strong> 
+                <span x-text="activeSelection.description"></span>
+            </div>
+            <button class="btn btn-sm btn-secondary" @click="clearSelection()">Clear</button>
+        </div>
+    </div>
+</div>
+
+<!-- Additive Filters -->
+<div class="mb-3">
+    <label class="form-label">🔧 Additive Filters</label>
+    <div class="row g-2">
+        <div class="col-md-6">
+            <div class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" 
+                       id="useFeedFilter" x-model="filters.useFeedFilter">
+                <label class="form-check-label" for="useFeedFilter">
+                    Filter by Feed
+                </label>
+            </div>
+            <select class="form-select form-select-sm" 
+                    x-model="filters.feed_id"
+                    :disabled="!filters.useFeedFilter"
+                    @change="updatePreview()">
+                <option value="">All Feeds</option>
+                <option value="1">BBC News</option>
+                <option value="2">CNN</option>
+                <option value="3">Reuters</option>
+            </select>
+        </div>
+        <div class="col-md-6">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" 
+                       id="overrideExisting" x-model="filters.override_existing"
+                       @change="updatePreview()">
+                <label class="form-check-label" for="overrideExisting">
+                    Override existing analysis
+                </label>
+            </div>
+        </div>
+    </div>
+</div>

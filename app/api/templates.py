@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlmodel import Session, select
 from typing import List, Optional, Dict, Any
-import logging
+from app.core.logging_config import get_logger
 import requests
 from urllib.parse import urlparse
 
@@ -11,7 +11,7 @@ from app.services.dynamic_template_manager import get_dynamic_template_manager
 from app.services.feed_change_tracker import track_template_changes
 
 router = APIRouter(prefix="/templates", tags=["templates"])
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Standard response format for MCP v2
 def create_response(data: Any = None, error: str = None, meta: Dict[str, Any] = None) -> Dict[str, Any]:

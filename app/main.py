@@ -2,23 +2,22 @@ from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
-import logging
+from app.core.logging_config import get_logger
 
 from app.config import settings
 from app.database import create_db_and_tables
-from app.api import feeds, items, health, categories, sources, htmx, processors, statistics, database, analysis_control, user_settings, feature_flags_admin, templates as api_templates, scheduler
+from app.api import feeds, items, health, categories, sources, htmx, processors, statistics, database, analysis_control, user_settings, feature_flags_admin, templates as api_templates, scheduler, analysis_management, metrics, feed_limits
 from app.routes import templates as template_routes
 from app.web.views import analysis_control as analysis_htmx
 
-# Import monitoring and error handling components (simplified)
+# Import monitoring and error handling components
 from app.core.logging_config import setup_logging, get_logger
 from app.core.error_handlers import register_exception_handlers
 from app.core.health import register_default_health_checks
 
-# Setup basic logging (structured logging temporarily disabled)
-import logging
-logging.basicConfig(level=settings.log_level)
-logger = logging.getLogger(__name__)
+# Setup structured logging
+setup_logging(log_level=settings.log_level)
+logger = get_logger(__name__)
 
 app = FastAPI(
     title="News MCP - Enterprise RSS Management System",
@@ -116,6 +115,9 @@ app.include_router(analysis_htmx.router)
 # MCP v2 API endpoints
 app.include_router(api_templates.router, prefix="/api")
 app.include_router(scheduler.router, prefix="/api")
+app.include_router(analysis_management.router)
+app.include_router(metrics.router)
+app.include_router(feed_limits.router)
 
 # Include monitoring routers (schrittweise aktiviert)
 from app.core.health import create_health_router
@@ -136,6 +138,10 @@ def on_startup():
 
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
+
+@app.get("/admin", response_class=HTMLResponse)
+async def admin_dashboard(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 @app.get("/admin/feeds", response_class=HTMLResponse)
@@ -164,7 +170,12 @@ async def admin_database(request: Request):
 
 @app.get("/admin/analysis", response_class=HTMLResponse)
 async def admin_analysis(request: Request):
-    return templates.TemplateResponse("analysis_control.html", {"request": request})
+    # Use the refactored template with modular components
+    return templates.TemplateResponse("analysis_control_refactored.html", {"request": request})
+
+@app.get("/admin/metrics", response_class=HTMLResponse)
+async def admin_metrics(request: Request):
+    return templates.TemplateResponse("admin/metrics.html", {"request": request})
 
 if __name__ == "__main__":
     import uvicorn

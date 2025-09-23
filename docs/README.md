@@ -43,10 +43,11 @@ curl "http://localhost:8000/api/admin/feature-flags/metrics/dashboard"
 
 The following files are automatically maintained:
 
-- **[API Documentation](./API.md)** - Auto-generated from OpenAPI spec
-- **[Dependencies](./DEPENDENCIES.md)** - Auto-generated from pyproject.toml
-- **[Feature Flags Reference](./FEATURE_FLAGS.md)** - Feature flag usage guide
-- **[Schema Documentation](./SCHEMA.md)** - Database schema changes
+- **[API Documentation](./API_DOCUMENTATION.md)** - Complete REST API reference (Sep 2025)
+- **[Database Schema](./DATABASE_SCHEMA.md)** - Full database structure with 28 tables (Sep 2025)
+- **[API Examples](./API_EXAMPLES.md)** - Practical examples for all endpoints (Sep 2025)
+- **[Feature Flags Reference](./FEATURE_FLAGS.md)** - Feature flag system documentation (Sep 2025)
+- **[ERD Diagram](./ERD_MERMAID.md)** - Entity Relationship Diagram in Mermaid format (Sep 2025)
 
 ## 📁 Specialized Documentation
 
