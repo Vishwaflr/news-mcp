@@ -1,8 +1,47 @@
 <!-- Active Runs Component -->
 <div class="active-runs-panel">
+    <!-- Job-based Status Display -->
+    <div x-show="currentJobStatus.status !== 'idle'" class="mb-3 p-3 bg-dark rounded">
+        <h6 class="text-white mb-2">Current Job Status</h6>
+        <div class="d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center">
+                <div x-show="currentJobStatus.status === 'queued'" class="badge bg-primary me-2">
+                    ⏳ Queued
+                </div>
+                <div x-show="currentJobStatus.status === 'running'" class="badge bg-warning me-2">
+                    <div class="spinner-border spinner-border-sm me-1" role="status"></div>
+                    Running
+                </div>
+                <div x-show="currentJobStatus.status === 'done'" class="badge bg-success me-2">
+                    ✅ Completed
+                </div>
+                <div x-show="currentJobStatus.status === 'error'" class="badge bg-danger me-2">
+                    ❌ Error
+                </div>
+                <small class="text-white" x-text="currentJobStatus.message"></small>
+            </div>
+            <div x-show="currentJobStatus.id">
+                <small class="text-white-50">ID: <span x-text="currentJobStatus.id"></span></small>
+            </div>
+        </div>
+        <!-- Progress Details -->
+        <div x-show="currentJobStatus.progress && currentJobStatus.status === 'running'" class="mt-2">
+            <div class="progress" style="height: 4px;">
+                <div class="progress-bar bg-warning" role="progressbar"
+                     :style="`width: ${(currentJobStatus.progress && currentJobStatus.progress.percentage) || 0}%`">
+                </div>
+            </div>
+            <small class="text-white-50"
+                   x-text="`Progress: ${(currentJobStatus.progress && currentJobStatus.progress.completed) || 0}/${(currentJobStatus.progress && currentJobStatus.progress.total) || 0} items`">
+            </small>
+        </div>
+    </div>
+
+    <!-- Legacy HTMX Active Runs -->
     <div hx-get="/htmx/analysis/runs/active"
-         hx-trigger="load, every 10s"
-         hx-swap="innerHTML">
+         hx-trigger="load, every 10s, refresh-runs from:window"
+         hx-swap="innerHTML"
+         id="active-runs-container">
         <div class="text-center py-3">
             <div class="spinner-border text-primary" role="status">
                 <span class="visually-hidden">Loading...</span>

@@ -1,111 +1,188 @@
 <!-- Target Selection Component -->
-<div class="mb-3">
-    <label class="form-label">📋 Selection Mode</label>
-    <div class="row g-2">
-        <!-- Latest Articles -->
-        <div class="col-md-4">
-            <div class="nmc-option-card" :class="{'selected': selectionMode === 'latest'}">
-                <h6>📰 Latest Articles</h6>
-                <p class="small mb-2">Select most recent articles</p>
-                <input type="number" 
-                       class="form-control form-control-sm mb-2" 
-                       x-model="latestCount"
-                       :disabled="selectionMode !== 'latest'"
-                       min="1" max="1000" 
-                       placeholder="Number of articles">
-                <button class="btn btn-sm btn-primary w-100"
-                        @click="selectionMode = 'latest'; setLatestSelection()"
-                        :disabled="selectionMode === 'latest' && activeSelection.mode === 'latest'">
-                    SET
-                </button>
-            </div>
-        </div>
+<div class="target-selection-panel">
+    <!-- Selection Mode Tabs -->
+    <div class="btn-group w-100 mb-3" role="group">
+        <button type="button"
+                class="btn"
+                :class="selectionMode === 'latest' ? 'btn-primary' : 'btn-outline-primary'"
+                @click="selectionMode = 'latest'">
+            📰 Latest Articles
+        </button>
+        <button type="button"
+                class="btn"
+                :class="selectionMode === 'timeRange' ? 'btn-primary' : 'btn-outline-primary'"
+                @click="selectionMode = 'timeRange'">
+            🕐 Time Range
+        </button>
+        <button type="button"
+                class="btn"
+                :class="selectionMode === 'unanalyzed' ? 'btn-primary' : 'btn-outline-primary'"
+                @click="selectionMode = 'unanalyzed'">
+            🔍 Unanalyzed
+        </button>
+    </div>
 
-        <!-- Time Range -->
-        <div class="col-md-4">
-            <div class="nmc-option-card" :class="{'selected': selectionMode === 'timeRange'}">
-                <h6>🕐 Time Range</h6>
-                <p class="small mb-2">Articles from past period</p>
-                <div class="d-flex gap-1 mb-2">
-                    <input type="number" 
-                           class="form-control form-control-sm" 
-                           x-model="timeRangeDays"
-                           :disabled="selectionMode !== 'timeRange'"
-                           min="0" max="365" 
-                           placeholder="Days">
-                    <input type="number" 
-                           class="form-control form-control-sm" 
-                           x-model="timeRangeHours"
-                           :disabled="selectionMode !== 'timeRange'"
-                           min="0" max="23" 
-                           placeholder="Hours">
+    <!-- Selection Options -->
+    <div class="selection-options bg-dark p-3 rounded mb-3">
+        <!-- Latest Articles Options -->
+        <div x-show="selectionMode === 'latest'" class="selection-panel" x-cloak>
+            <h6 class="text-white mb-3">📰 Select Latest Articles</h6>
+            <div class="row align-items-end">
+                <div class="col-md-8">
+                    <label class="form-label text-white-50 small">Number of articles (1-1000)</label>
+                    <input type="number"
+                           class="form-control bg-secondary text-white border-secondary"
+                           x-model.number="latestCount"
+                           min="1"
+                           max="1000"
+                           placeholder="50"
+                           @keyup.enter="setLatestSelection()">
                 </div>
-                <button class="btn btn-sm btn-primary w-100"
-                        @click="selectionMode = 'timeRange'; setTimeRangeSelection()"
-                        :disabled="selectionMode === 'timeRange' && activeSelection.mode === 'timeRange'">
-                    SET
-                </button>
+                <div class="col-md-4">
+                    <button type="button"
+                            class="btn btn-success w-100"
+                            @click.prevent="setLatestSelection()">
+                        ✅ Apply Selection
+                    </button>
+                </div>
             </div>
+            <small class="text-muted mt-2 d-block">Will select the N most recent articles</small>
         </div>
 
-        <!-- Unanalyzed Only -->
-        <div class="col-md-4">
-            <div class="nmc-option-card" :class="{'selected': selectionMode === 'unanalyzed'}">
-                <h6>🔍 Unanalyzed</h6>
-                <p class="small mb-2">All pending articles</p>
-                <div style="height: 38px;"></div>
-                <button class="btn btn-sm btn-primary w-100"
-                        @click="selectionMode = 'unanalyzed'; setUnanalyzedSelection()"
-                        :disabled="selectionMode === 'unanalyzed' && activeSelection.mode === 'unanalyzed'">
-                    SET
-                </button>
+        <!-- Time Range Options -->
+        <div x-show="selectionMode === 'timeRange'" class="selection-panel" x-cloak>
+            <h6 class="text-white mb-3">🕐 Select by Time Range</h6>
+            <div class="row align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label text-white-50 small">Days</label>
+                    <input type="number"
+                           class="form-control bg-secondary text-white border-secondary"
+                           x-model.number="timeRangeDays"
+                           min="0"
+                           max="365"
+                           placeholder="7">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label text-white-50 small">Hours</label>
+                    <input type="number"
+                           class="form-control bg-secondary text-white border-secondary"
+                           x-model.number="timeRangeHours"
+                           min="0"
+                           max="23"
+                           placeholder="0">
+                </div>
+                <div class="col-md-4">
+                    <button type="button"
+                            class="btn btn-success w-100"
+                            @click.prevent="setTimeRangeSelection()">
+                        ✅ Apply Selection
+                    </button>
+                </div>
             </div>
+            <small class="text-muted mt-2 d-block">Will select articles from the specified time period</small>
+        </div>
+
+        <!-- Unanalyzed Options -->
+        <div x-show="selectionMode === 'unanalyzed'" class="selection-panel" x-cloak>
+            <h6 class="text-white mb-3">🔍 Select All Unanalyzed</h6>
+            <div class="alert alert-warning mb-3">
+                <small>This will select ALL articles that haven't been analyzed yet. Use with caution for large datasets!</small>
+            </div>
+            <button type="button"
+                    class="btn btn-success w-100"
+                    @click.prevent="setUnanalyzedSelection()">
+                ✅ Apply Selection
+            </button>
         </div>
     </div>
 
     <!-- Active Selection Display -->
-    <div class="mt-3" x-show="activeSelection.mode">
-        <div class="alert alert-info d-flex justify-content-between align-items-center">
+    <div x-show="activeSelection.mode" class="active-selection-display">
+        <div class="alert alert-success d-flex justify-content-between align-items-center">
             <div>
-                <strong>Active Selection:</strong> 
-                <span x-text="activeSelection.description"></span>
+                <strong>✅ Active Selection:</strong>
+                <span x-text="activeSelection.description" class="ms-2"></span>
             </div>
-            <button class="btn btn-sm btn-secondary" @click="clearSelection()">Clear</button>
+            <button class="btn btn-sm btn-outline-danger" @click="clearSelection()">
+                ❌ Clear
+            </button>
+        </div>
+    </div>
+
+    <!-- Additional Filters -->
+    <div class="additional-filters bg-dark p-3 rounded">
+        <h6 class="text-white mb-3">⚙️ Additional Filters</h6>
+
+        <div class="row">
+            <!-- Feed Filter -->
+            <div class="col-md-6 mb-3">
+                <div class="form-check mb-2">
+                    <input class="form-check-input"
+                           type="checkbox"
+                           id="useFeedFilter"
+                           x-model="filters.useFeedFilter"
+                           @change="updatePreview()">
+                    <label class="form-check-label text-white" for="useFeedFilter">
+                        Filter by specific feed
+                    </label>
+                </div>
+                <select class="form-select bg-secondary text-white border-secondary"
+                        x-model="filters.feed_id"
+                        :disabled="!filters.useFeedFilter"
+                        @change="updatePreview()">
+                    <option value="">Select a feed...</option>
+                    <option value="1">BBC News</option>
+                    <option value="2">CNN</option>
+                    <option value="3">Reuters</option>
+                    <option value="4">The Guardian</option>
+                    <option value="5">Associated Press</option>
+                </select>
+            </div>
+
+            <!-- Override Existing -->
+            <div class="col-md-6 mb-3">
+                <div class="form-check">
+                    <input class="form-check-input"
+                           type="checkbox"
+                           id="overrideExisting"
+                           x-model="filters.override_existing"
+                           @change="updatePreview()">
+                    <label class="form-check-label text-white" for="overrideExisting">
+                        Re-analyze already processed articles
+                    </label>
+                </div>
+                <small class="text-muted d-block mt-2">
+                    ⚠️ This will override existing analysis results
+                </small>
+            </div>
         </div>
     </div>
 </div>
 
-<!-- Additive Filters -->
-<div class="mb-3">
-    <label class="form-label">🔧 Additive Filters</label>
-    <div class="row g-2">
-        <div class="col-md-6">
-            <div class="form-check mb-2">
-                <input class="form-check-input" type="checkbox" 
-                       id="useFeedFilter" x-model="filters.useFeedFilter">
-                <label class="form-check-label" for="useFeedFilter">
-                    Filter by Feed
-                </label>
-            </div>
-            <select class="form-select form-select-sm" 
-                    x-model="filters.feed_id"
-                    :disabled="!filters.useFeedFilter"
-                    @change="updatePreview()">
-                <option value="">All Feeds</option>
-                <option value="1">BBC News</option>
-                <option value="2">CNN</option>
-                <option value="3">Reuters</option>
-            </select>
-        </div>
-        <div class="col-md-6">
-            <div class="form-check">
-                <input class="form-check-input" type="checkbox" 
-                       id="overrideExisting" x-model="filters.override_existing"
-                       @change="updatePreview()">
-                <label class="form-check-label" for="overrideExisting">
-                    Override existing analysis
-                </label>
-            </div>
-        </div>
-    </div>
-</div>
+<style>
+[x-cloak] { display: none !important; }
+
+.target-selection-panel .selection-panel {
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.active-selection-display .alert {
+    background-color: rgba(25, 135, 84, 0.1);
+    border-color: rgba(25, 135, 84, 0.3);
+    color: #198754;
+}
+
+.selection-options {
+    min-height: 150px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.additional-filters {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+</style>

@@ -1,0 +1,387 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  validate-tag:
+    name: Validate Release Tag
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.extract.outputs.version }}
+      is_prerelease: ${{ steps.extract.outputs.is_prerelease }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Extract version from tag
+      id: extract
+      run: |
+        TAG=${GITHUB_REF#refs/tags/}
+        VERSION=${TAG#v}
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+        # Check if this is a pre-release (contains alpha, beta, rc)
+        if [[ $VERSION =~ (alpha|beta|rc) ]]; then
+          echo "is_prerelease=true" >> $GITHUB_OUTPUT
+        else
+          echo "is_prerelease=false" >> $GITHUB_OUTPUT
+        fi
+
+        echo "📦 Releasing version: $VERSION"
+        echo "🚀 Pre-release: $([ "${{ steps.extract.outputs.is_prerelease }}" == "true" ] && echo "Yes" || echo "No")"
+
+  test:
+    name: Full Test Suite
+    runs-on: ubuntu-latest
+    needs: validate-tag
+
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_USER: test_user
+          POSTGRES_DB: news_mcp_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+
+    - name: Set up environment
+      run: |
+        cp .env.example .env
+        echo "DATABASE_URL=postgresql://test_user:test_password@localhost:5432/news_mcp_test" >> .env
+
+    - name: Run database migrations
+      run: alembic upgrade head
+
+    - name: Run comprehensive tests
+      run: |
+        python -m pytest tests/ -v \
+          --cov=app \
+          --cov-report=xml \
+          --cov-report=term-missing \
+          --junitxml=test-results.xml
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: release-test-results
+        path: |
+          test-results.xml
+          coverage.xml
+
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    needs: validate-tag
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install security tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install safety bandit pip-audit
+
+    - name: Run dependency security check
+      run: |
+        safety check
+        pip-audit
+
+    - name: Run code security scan
+      run: bandit -r app/ -ll
+
+  build-release:
+    name: Build Release Artifacts
+    runs-on: ubuntu-latest
+    needs: [validate-tag, test, security-audit]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install build tools
+      run: |
+        python -m pip install --upgrade pip build twine
+
+    - name: Update version in code
+      run: |
+        VERSION=${{ needs.validate-tag.outputs.version }}
+        echo "Updating version to $VERSION"
+
+        # Update version in setup.py or pyproject.toml if they exist
+        if [ -f "setup.py" ]; then
+          sed -i "s/version=.*/version=\"$VERSION\",/" setup.py
+        fi
+
+        # Update version in main app
+        if [ -f "app/main.py" ]; then
+          sed -i "s/version=\".*\"/version=\"$VERSION\"/" app/main.py
+        fi
+
+    - name: Build source and binary distributions
+      run: python -m build
+
+    - name: Verify build
+      run: python -m twine check dist/*
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: release-dist
+        path: dist/
+
+  build-docker:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    needs: [validate-tag, test, security-audit]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ghcr.io/${{ github.repository }}
+        tags: |
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=semver,pattern={{major}}
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        build-args: |
+          VERSION=${{ needs.validate-tag.outputs.version }}
+
+  generate-changelog:
+    name: Generate Changelog
+    runs-on: ubuntu-latest
+    needs: validate-tag
+    outputs:
+      changelog: ${{ steps.changelog.outputs.changelog }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch full history for changelog
+
+    - name: Generate changelog
+      id: changelog
+      run: |
+        # Get the previous tag
+        PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
+        CURRENT_TAG=${GITHUB_REF#refs/tags/}
+
+        echo "📝 Generating changelog from $PREVIOUS_TAG to $CURRENT_TAG"
+
+        if [ -n "$PREVIOUS_TAG" ]; then
+          # Generate changelog from git log
+          CHANGELOG=$(git log $PREVIOUS_TAG..$CURRENT_TAG \
+            --pretty=format:"- %s (%h)" \
+            --grep="^feat" --grep="^fix" --grep="^docs" --grep="^chore" \
+            --grep="^refactor" --grep="^test" --grep="^style" \
+            --grep="^perf" --grep="^build" --grep="^ci" \
+            | head -20)
+        else
+          CHANGELOG="- Initial release"
+        fi
+
+        # Format changelog for GitHub Release
+        cat << 'EOF' > changelog.md
+        ## 🚀 What's New
+
+        $CHANGELOG
+
+        ## 📦 Installation
+
+        ### Docker
+        ```bash
+        docker pull ghcr.io/${{ github.repository }}:${{ needs.validate-tag.outputs.version }}
+        ```
+
+        ### Python Package
+        ```bash
+        pip install news-mcp==${{ needs.validate-tag.outputs.version }}
+        ```
+
+        ### From Source
+        ```bash
+        git clone https://github.com/${{ github.repository }}.git
+        cd news-mcp
+        git checkout $CURRENT_TAG
+        pip install -r requirements.txt
+        ```
+
+        ## 🔧 Migration Notes
+
+        Please check the [Database Schema Documentation](./docs/DATABASE_SCHEMA.md) for any required migrations.
+
+        ## 🐛 Bug Reports
+
+        If you encounter any issues, please [report them here](https://github.com/${{ github.repository }}/issues).
+        EOF
+
+        # Set output (escape newlines)
+        echo "changelog<<EOF" >> $GITHUB_OUTPUT
+        cat changelog.md >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [validate-tag, test, security-audit, build-release, build-docker, generate-changelog]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download build artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: release-dist
+        path: dist/
+
+    - name: Create GitHub Release
+      uses: actions/create-release@v1
+      id: create_release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: News MCP ${{ needs.validate-tag.outputs.version }}
+        body: ${{ needs.generate-changelog.outputs.changelog }}
+        draft: false
+        prerelease: ${{ needs.validate-tag.outputs.is_prerelease == 'true' }}
+
+    - name: Upload Release Assets
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./dist/
+        asset_name: news-mcp-${{ needs.validate-tag.outputs.version }}
+        asset_content_type: application/zip
+
+  notify-release:
+    name: Post-Release Notifications
+    runs-on: ubuntu-latest
+    needs: [validate-tag, create-release]
+    if: always()
+
+    steps:
+    - name: Notify on success
+      if: needs.create-release.result == 'success'
+      run: |
+        echo "🎉 Release ${{ needs.validate-tag.outputs.version }} created successfully!"
+        echo "🚀 Docker image: ghcr.io/${{ github.repository }}:${{ needs.validate-tag.outputs.version }}"
+        echo "📦 GitHub Release: https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}"
+        echo "📚 Documentation: Updated in this release"
+
+    - name: Notify on failure
+      if: needs.create-release.result == 'failure'
+      run: |
+        echo "❌ Release ${{ needs.validate-tag.outputs.version }} failed!"
+        echo "Please check the logs and fix any issues."
+        echo "🔍 Common issues:"
+        echo "  - Test failures"
+        echo "  - Security vulnerabilities"
+        echo "  - Build errors"
+        echo "  - Docker build issues"
+        exit 1
+
+  update-documentation:
+    name: Update Documentation
+    runs-on: ubuntu-latest
+    needs: [create-release]
+    if: needs.create-release.result == 'success'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Update version in documentation
+      run: |
+        VERSION=${{ needs.validate-tag.outputs.version }}
+
+        # Update README.md version badge if it exists
+        if grep -q "version-.*-blue" README.md; then
+          sed -i "s/version-.*-blue/version-$VERSION-blue/" README.md
+        fi
+
+        # Update documentation version strings
+        find docs/ -name "*.md" -type f -exec sed -i "s/Version: v.*/Version: v$VERSION/" {} \;
+        find docs/ -name "*.md" -type f -exec sed -i "s/version=\"v.*\"/version=\"v$VERSION\"/" {} \;
+
+    - name: Commit documentation updates
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+
+        if git diff --quiet; then
+          echo "No documentation changes to commit"
+        else
+          git add -A
+          git commit -m "docs: update version to ${{ needs.validate-tag.outputs.version }}"
+          git push origin main
+        fi

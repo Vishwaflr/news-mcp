@@ -100,10 +100,13 @@ class RunPreview(BaseModel):
         estimated_cost = (item_count * AVG_TOKENS_PER_ITEM * cost_per_1m_tokens) / 1_000_000
         estimated_duration = (item_count / rate_per_second) / 60  # minutes
 
+        # Round up to at least 1 minute if there are items to process
+        duration_minutes = max(1, int(estimated_duration + 0.5)) if item_count > 0 else 0
+
         return cls(
             item_count=item_count,
             estimated_cost_usd=round(estimated_cost, 4),
-            estimated_duration_minutes=int(estimated_duration),
+            estimated_duration_minutes=duration_minutes,
             already_analyzed_count=0,
             new_items_count=0,
             has_conflicts=False

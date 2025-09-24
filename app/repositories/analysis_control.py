@@ -23,15 +23,19 @@ class AnalysisControlRepo:
 
         with Session(engine) as session:
             try:
-                # Build query based on scope - use the EXACT same scope as the actual run
-                query = AnalysisControlRepo._build_scope_query(scope)
+                # Build query based on scope WITHOUT the analysis join for counting
+                # We'll manually check analyzed status after getting the items
+                query = AnalysisControlRepo._build_scope_query(scope, include_analysis_join=False)
 
                 # For global scope with a limit, we need to consider only the top N items
                 if scope.type == "global" and params.limit:
                     limited_query = f"{query} LIMIT {params.limit}"
+                    logger.error(f"DEBUG - Limited query: {limited_query}")
+
                     # Count total items in the limited scope
                     count_result = session.execute(text(f"SELECT COUNT(*) FROM ({limited_query}) as preview_query")).first()
                     total_items = count_result[0] if count_result else 0
+                    logger.error(f"DEBUG - Total items in limited scope: {total_items}")
 
                     # Count already analyzed items in the limited scope
                     already_analyzed_count = 0
@@ -40,12 +44,17 @@ class AnalysisControlRepo:
                             f"SELECT COUNT(*) FROM ({limited_query}) as scope_items " +
                             "WHERE scope_items.id IN (SELECT DISTINCT item_id FROM item_analysis)"
                         )
+                        logger.error(f"DEBUG - Analyzed query: {analyzed_query}")
                         analyzed_result = session.execute(text(analyzed_query)).first()
                         already_analyzed_count = analyzed_result[0] if analyzed_result else 0
+                        logger.error(f"DEBUG - Already analyzed count: {already_analyzed_count}")
                 else:
+                    logger.error(f"DEBUG - Non-limited scope, query: {query[:200]}...")
+
                     # Execute count query for total items in scope
                     count_result = session.execute(text("SELECT COUNT(*) FROM (" + query + ") as preview_query")).first()
                     total_items = count_result[0] if count_result else 0
+                    logger.error(f"DEBUG - Total items in scope: {total_items}")
 
                     # Count already analyzed items (unless override_existing is True)
                     already_analyzed_count = 0
@@ -54,12 +63,32 @@ class AnalysisControlRepo:
                             "SELECT COUNT(*) FROM (" + query + ") as scope_items " +
                             "WHERE scope_items.id IN (SELECT DISTINCT item_id FROM item_analysis)"
                         )
+                        logger.error(f"DEBUG - Analyzed query: {analyzed_query[:200]}...")
                         analyzed_result = session.execute(text(analyzed_query)).first()
                         already_analyzed_count = analyzed_result[0] if analyzed_result else 0
+                        logger.error(f"DEBUG - Already analyzed count: {already_analyzed_count}")
 
                 # Calculate new items that would be processed
-                new_items_count = total_items - already_analyzed_count if not params.override_existing else total_items
-                final_item_count = min(new_items_count, params.limit)
+                if params.override_existing:
+                    # When overriding, we'll re-analyze everything up to the limit
+                    new_items_count = total_items
+                    final_item_count = min(total_items, params.limit)
+                else:
+                    # When not overriding, we only analyze items not yet analyzed
+                    new_items_count = total_items - already_analyzed_count
+
+                    # Different logic for different scope types
+                    if scope.type == "global" and params.limit:
+                        # For global scope with explicit limit, use the limited count
+                        final_item_count = new_items_count
+                    elif scope.type == "timerange":
+                        # For time range, ALWAYS use all items in the selected period
+                        # Users selecting a time range expect all items to be analyzed
+                        # The default limit should NOT apply to time ranges
+                        final_item_count = new_items_count
+                    else:
+                        # For other scopes, apply the limit
+                        final_item_count = min(new_items_count, params.limit) if params.limit else new_items_count
 
                 # Get sample item IDs (first 10)
                 if params.override_existing:
@@ -103,13 +132,24 @@ class AnalysisControlRepo:
                                 already_analyzed_count=0, new_items_count=0, has_conflicts=False)
 
     @staticmethod
-    def _build_scope_query(scope: RunScope) -> str:
+    def _build_scope_query(scope: RunScope, include_analysis_join: bool = True) -> str:
         """Build SQL query based on scope definition"""
-        base_query = """
-            SELECT DISTINCT i.id, i.created_at, i.published, COALESCE(i.published, i.created_at) as sort_date
-            FROM items i
-            LEFT JOIN item_analysis a ON a.item_id = i.id
-        """
+        # Only include the LEFT JOIN if we need it for filtering
+        needs_analysis_join = (scope.unanalyzed_only or scope.model_tag_not_current
+                              or scope.min_impact_threshold is not None
+                              or scope.max_impact_threshold is not None)
+
+        if include_analysis_join and needs_analysis_join:
+            base_query = """
+                SELECT DISTINCT i.id, i.created_at, i.published, COALESCE(i.published, i.created_at) as sort_date
+                FROM items i
+                LEFT JOIN item_analysis a ON a.item_id = i.id
+            """
+        else:
+            base_query = """
+                SELECT DISTINCT i.id, i.created_at, i.published, COALESCE(i.published, i.created_at) as sort_date
+                FROM items i
+            """
 
         conditions = []
 
@@ -128,25 +168,26 @@ class AnalysisControlRepo:
             article_ids_str = ",".join(map(str, scope.article_ids))
             conditions.append(f"i.id IN ({article_ids_str})")
 
-        # Time-based scope
+        # Time-based scope (use published date if available, fallback to created_at)
         if scope.type == "timerange":
             if scope.start_time:
-                conditions.append(f"i.created_at >= '{scope.start_time.isoformat()}'")
+                conditions.append(f"COALESCE(i.published, i.created_at) >= '{scope.start_time.isoformat()}'")
             if scope.end_time:
-                conditions.append(f"i.created_at <= '{scope.end_time.isoformat()}'")
+                conditions.append(f"COALESCE(i.published, i.created_at) <= '{scope.end_time.isoformat()}'")
 
-        # Filters
-        if scope.unanalyzed_only:
-            conditions.append("a.item_id IS NULL")
+        # Filters (only add if we have the analysis join)
+        if include_analysis_join and needs_analysis_join:
+            if scope.unanalyzed_only:
+                conditions.append("a.item_id IS NULL")
 
-        if scope.model_tag_not_current:
-            conditions.append("(a.model_tag IS NULL OR a.model_tag != 'gpt-4.1-nano')")
+            if scope.model_tag_not_current:
+                conditions.append("(a.model_tag IS NULL OR a.model_tag != 'gpt-4.1-nano')")
 
-        if scope.min_impact_threshold is not None:
-            conditions.append(f"(a.impact_json->>'overall')::numeric >= {scope.min_impact_threshold}")
+            if scope.min_impact_threshold is not None:
+                conditions.append(f"(a.impact_json->>'overall')::numeric >= {scope.min_impact_threshold}")
 
-        if scope.max_impact_threshold is not None:
-            conditions.append(f"(a.impact_json->>'overall')::numeric <= {scope.max_impact_threshold}")
+            if scope.max_impact_threshold is not None:
+                conditions.append(f"(a.impact_json->>'overall')::numeric <= {scope.max_impact_threshold}")
 
         # Add WHERE clause if conditions exist
         if conditions:
@@ -553,17 +594,20 @@ class AnalysisControlRepo:
                         failed = metrics_dict.get('failed', 0)
                         progress_percent = round((processed / total * 100), 1) if total > 0 else 0.0
 
+                        # Parse scope and params from JSON
+                        scope_data = json.loads(row[5]) if row[5] else {}
+                        params_data = json.loads(row[8]) if row[8] else {}
+
                         runs.append(AnalysisRun(
                             id=row[0],
                             status=row[1],
                             created_at=row[2],
                             started_at=row[3],
                             completed_at=row[4],
-                            scope=row[5] if row[5] else {},
-                            cost_estimate=row[6],
+                            scope=RunScope(**scope_data) if scope_data else RunScope(),
                             updated_at=row[7],
-                            params=row[8] if row[8] else {},
-                            scope_hash=row[9],
+                            params=RunParams(**params_data) if params_data else RunParams(),
+                            scope_hash=row[9] or "",
                             metrics=RunMetrics(
                                 total_count=total,
                                 processed_count=processed,

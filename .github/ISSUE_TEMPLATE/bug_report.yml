@@ -1,0 +1,143 @@
+name: 🐛 Bug Report
+description: Report a bug or issue with News MCP
+title: "[BUG] "
+labels: ["bug", "triage"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a bug! Please fill out this template to help us understand and fix the issue.
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Pre-submission Checklist
+      description: Please confirm the following before submitting
+      options:
+        - label: I have searched existing issues to ensure this is not a duplicate
+          required: true
+        - label: I have included all relevant information below
+          required: true
+        - label: I have tested this with the latest version
+          required: false
+
+  - type: textarea
+    id: bug-description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is
+      placeholder: Describe what went wrong...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction-steps
+    attributes:
+      label: Steps to Reproduce
+      description: How can we reproduce this issue?
+      placeholder: |
+        1. Go to '...'
+        2. Click on '...'
+        3. Scroll down to '...'
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected Behavior
+      description: What should have happened instead?
+      placeholder: Describe the expected behavior...
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: Actual Behavior
+      description: What actually happened?
+      placeholder: Describe what actually happened...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which component is affected?
+      options:
+        - RSS Feed Processing
+        - AI Analysis
+        - Web Interface
+        - Database
+        - API
+        - Authentication
+        - HTMX/Frontend
+        - Docker/Deployment
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: How severe is this issue?
+      options:
+        - Low - Minor issue, workaround available
+        - Medium - Affects functionality but not critical
+        - High - Major functionality broken
+        - Critical - System unusable or security issue
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Information about your environment
+      value: |
+        - OS: [e.g. Ubuntu 20.04, macOS 13.0, Windows 11]
+        - Python Version: [e.g. 3.11.5]
+        - Database: [e.g. PostgreSQL 14.9]
+        - News MCP Version: [e.g. v3.0.0]
+        - Browser (if applicable): [e.g. Chrome 118, Firefox 119]
+        - Docker Version (if applicable): [e.g. 24.0.6]
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error Logs
+      description: Include relevant log output, error messages, or stack traces
+      render: shell
+      placeholder: Paste log output here...
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: If applicable, add screenshots to help explain the problem
+      placeholder: Drag and drop screenshots here or paste image URLs
+
+  - type: textarea
+    id: configuration
+    attributes:
+      label: Configuration
+      description: Relevant configuration settings (remove sensitive information)
+      render: yaml
+      placeholder: |
+        # .env or configuration file contents (sanitized)
+        WEB_PORT=8000
+        WORKER_CONCURRENCY=4
+        # etc.
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any other context, workarounds, or related information
+      placeholder: Add any other context about the problem here...

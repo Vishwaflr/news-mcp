@@ -13,7 +13,7 @@ from .analysis_stats import router as stats_router
 from .analysis_runs import router as runs_router
 from .analysis_presets import router as presets_router
 from .analysis_monitoring import router as monitoring_router
-from .analysis_htmx_missing import router as missing_router
+# from .analysis_htmx_missing import router as missing_router  # Now using analysis_htmx_clean
 
 router = APIRouter(prefix="/htmx/analysis", tags=["htmx-analysis-control"])
 
@@ -23,7 +23,7 @@ router.include_router(stats_router)
 router.include_router(runs_router)
 router.include_router(presets_router)
 router.include_router(monitoring_router)
-router.include_router(missing_router)
+# router.include_router(missing_router)  # Disabled - using analysis_htmx_clean instead
 
 
 @router.get("/quick-actions", response_class=HTMLResponse)

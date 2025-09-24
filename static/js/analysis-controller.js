@@ -35,6 +35,10 @@ function analysisControl() {
             limit: 200
         },
         preview: {
+            total_items: 0,
+            already_analyzed_count: 0,
+            already_analyzed: 0,
+            new_items_count: 0,
             item_count: 0,
             estimated_cost_usd: 0,
             estimated_duration_minutes: 0
@@ -43,23 +47,93 @@ function analysisControl() {
         // UI State
         loading: false,
 
+        // Job Management State
+        jobManager: null,
+        currentJobStatus: {
+            id: null,
+            status: 'idle', // 'idle', 'queued', 'running', 'done', 'error'
+            message: '',
+            progress: null
+        },
+
         init() {
+            this.initJobManager();
             this.loadDefaultParams();
-            this.updatePreview();
+            // Don't call updatePreview() on init - wait for user selection
+        },
+
+        initJobManager() {
+            if (typeof JobManager !== 'undefined') {
+                this.jobManager = new JobManager({
+                    onQueued: (jobId, estimates) => {
+                        this.currentJobStatus = {
+                            id: jobId,
+                            status: 'queued',
+                            message: `Job queued: ${estimates.item_count} items, $${estimates.estimated_cost_usd.toFixed(3)}`,
+                            progress: estimates
+                        };
+                        console.log('Job queued:', jobId, estimates);
+                    },
+                    onRunning: (jobId, status) => {
+                        this.currentJobStatus = {
+                            id: jobId,
+                            status: 'running',
+                            message: 'Analysis running...',
+                            progress: status
+                        };
+                        console.log('Job running:', jobId, status);
+                    },
+                    onDone: (jobId, result) => {
+                        this.currentJobStatus = {
+                            id: jobId,
+                            status: 'done',
+                            message: 'Analysis completed successfully',
+                            progress: result
+                        };
+                        console.log('Job completed:', jobId, result);
+                        // Refresh active runs display
+                        this.refreshActiveRuns();
+                        // Reset after delay
+                        setTimeout(() => {
+                            this.currentJobStatus.status = 'idle';
+                        }, 5000);
+                    },
+                    onError: (error) => {
+                        this.currentJobStatus = {
+                            id: this.currentJobStatus.id,
+                            status: 'error',
+                            message: `Error: ${error}`,
+                            progress: null
+                        };
+                        console.error('Job error:', error);
+                        // Reset after delay
+                        setTimeout(() => {
+                            this.currentJobStatus.status = 'idle';
+                        }, 10000);
+                    }
+                });
+            }
         },
 
         // Selection Mode Functions
         setLatestSelection() {
+            console.log('🎯 setLatestSelection called! latestCount:', this.latestCount);
+            // Keep selection mode as 'latest'
+            this.selectionMode = 'latest';
             this.activeSelection = {
                 mode: 'latest',
                 params: { count: this.latestCount },
                 description: `Latest ${this.latestCount} articles`
             };
-            console.log('Set Latest Selection:', this.activeSelection);
+            console.log('🎯 Set Latest Selection:', this.activeSelection);
+            console.log('🎯 Calling updatePreview()...');
             this.updatePreview();
+            console.log('🎯 updatePreview() call completed');
         },
 
         setTimeRangeSelection() {
+            // Keep selection mode as 'timeRange'
+            this.selectionMode = 'timeRange';
             const totalHours = (this.timeRangeDays * 24) + parseInt(this.timeRangeHours);
             let description = '';
 
@@ -87,6 +161,8 @@ function analysisControl() {
         },
 
         setUnanalyzedSelection() {
+            // Keep selection mode as 'unanalyzed'
+            this.selectionMode = 'unanalyzed';
             this.activeSelection = {
                 mode: 'unanalyzed',
                 params: {},
@@ -118,7 +194,9 @@ function analysisControl() {
                 if (!this.activeSelection.mode) {
                     this.preview = {
                         total_items: 0,
-                        analyzed_items: 0,
+                        already_analyzed_count: 0,
+                        already_analyzed: 0,
+                        new_items_count: 0,
                         item_count: 0,
                         estimated_cost_usd: 0,
                         estimated_duration_minutes: 0
@@ -165,6 +243,8 @@ function analysisControl() {
                     newest_first: true
                 };
 
+                console.log('Making API call with:', { scope, params });
+
                 // Call the preview API
                 const response = await fetch('/api/analysis/preview', {
                     method: 'POST',
@@ -174,8 +254,11 @@ function analysisControl() {
                     body: JSON.stringify({ scope, params })
                 });
 
+                console.log('API Response status:', response.status, response.statusText);
+
                 if (!response.ok) {
                     console.error('Preview API failed:', response.statusText);
+                    console.error('Falling back to estimatePreview()');
                     // Fallback to estimate
                     this.estimatePreview();
                     return;
@@ -184,23 +267,33 @@ function analysisControl() {
                 const previewData = await response.json();
 
                 // Update preview with actual data from API
+                console.log('🔍 BEFORE update - this.preview:', this.preview);
+                console.log('🔍 API previewData:', previewData);
+
                 this.preview = {
-                    total_items: previewData.total_items || 0,
-                    analyzed_items: previewData.already_analyzed || 0,
+                    total_items: previewData.total_items || previewData.item_count || 0,
+                    already_analyzed_count: previewData.already_analyzed_count || previewData.already_analyzed || 0,
+                    already_analyzed: previewData.already_analyzed_count || previewData.already_analyzed || 0,
+                    new_items_count: previewData.new_items_count || previewData.item_count || 0,
                     item_count: previewData.item_count || 0,
                     estimated_cost_usd: previewData.estimated_cost_usd || 0,
                     estimated_duration_minutes: previewData.estimated_duration_minutes || 0
                 };
 
-                console.log('Preview updated from API:', this.preview);
+                console.log('✅ AFTER update - this.preview:', this.preview);
+                console.log('✅ Check values - item_count:', this.preview.item_count);
+                console.log('✅ Raw API response:', previewData);
+
             } catch (error) {
-                console.error('Preview update failed:', error);
+                console.error('❌ Preview update failed:', error);
+                console.error('❌ Falling back to estimatePreview()');
                 // Fallback to estimate
                 this.estimatePreview();
             }
         },
 
         estimatePreview() {
+            console.log('🔄 Using estimatePreview() fallback');
             // Fallback estimation logic (old code)
             let totalItems = 0;
             let analyzedItems = 0;
@@ -232,6 +325,7 @@ function analysisControl() {
                 estimated_cost_usd: itemsToAnalyze * 0.0003,
                 estimated_duration_minutes: Math.ceil(itemsToAnalyze / (this.params.rate_per_second * 60))
             };
+
         },
 
         buildQuery() {
@@ -260,7 +354,18 @@ function analysisControl() {
             return query;
         },
 
+
         async startRun() {
+            // Try job-based approach if JobManager is available
+            if (this.jobManager && this.jobManager.constructor === JobManager) {
+                return this.startJobBasedRun();
+            }
+
+            // Fallback to legacy approach
+            return this.startLegacyRun();
+        },
+
+        async startJobBasedRun() {
             try {
                 const query = this.buildQuery();
                 if (!query) {
@@ -268,7 +373,58 @@ function analysisControl() {
                     return;
                 }
 
-                console.log('Starting analysis run with query:', query);
+                console.log('Starting job-based analysis run with query:', query);
+
+                // Convert query to job format
+                const selection = {
+                    mode: this.activeSelection.mode,
+                    count: this.activeSelection.params.count || this.params.limit,
+                    ...this.activeSelection.params
+                };
+
+                const parameters = {
+                    model_tag: this.params.model_tag,
+                    rate_per_second: this.params.rate_per_second,
+                    limit: this.params.limit
+                };
+
+                const filters = {
+                    unanalyzed_only: !this.filters.override_existing,
+                    feed_id: this.filters.useFeedFilter ? this.filters.feed_id : null,
+                    override_existing: this.filters.override_existing
+                };
+
+                // Show loading state
+                this.loading = true;
+
+                // Start job via JobManager
+                await this.jobManager.start(selection, parameters, filters);
+
+                // Auto-confirm job (for now, later we can add confirmation dialog)
+                await this.jobManager.confirm();
+
+                // Clear the selection
+                this.clearSelection();
+
+            } catch (error) {
+                console.error('Failed to start job-based run:', error);
+                alert('Failed to start run: ' + error.message);
+                this.currentJobStatus.status = 'error';
+                this.currentJobStatus.message = error.message;
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async startLegacyRun() {
+            try {
+                const query = this.buildQuery();
+                if (!query) {
+                    alert('Please select a target article selection first by clicking a SET button.');
+                    return;
+                }
+
+                console.log('Starting legacy analysis run with query:', query);
 
                 // Build RunScope - map frontend modes to backend scope types
                 const scope = {
@@ -326,11 +482,11 @@ function analysisControl() {
                 };
 
                 const payload = { scope, params };
-                console.log('API payload:', payload);
+                console.log('Legacy API payload:', payload);
 
                 // Show loading state
                 this.loading = true;
-                const response = await fetch('/api/analysis/runs', {
+                const response = await fetch('/api/analysis/start', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -344,7 +500,7 @@ function analysisControl() {
                 }
 
                 const result = await response.json();
-                console.log('Analysis run started:', result);
+                console.log('Legacy analysis run started:', result);
 
                 // Success feedback
                 alert(`Analysis run started successfully!\nRun ID: ${result.id}\nSelection: ${this.activeSelection.description}\nEstimated items: ${this.preview.item_count}`);
@@ -356,7 +512,7 @@ function analysisControl() {
                 this.refreshActiveRuns();
 
             } catch (error) {
-                console.error('Failed to start run:', error);
+                console.error('Failed to start legacy run:', error);
                 alert('Failed to start run: ' + error.message);
             } finally {
                 this.loading = false;

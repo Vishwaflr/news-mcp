@@ -8,7 +8,7 @@ from app.config import settings
 from app.database import create_db_and_tables
 from app.api import feeds, items, health, categories, sources, htmx, processors, statistics, database, analysis_control, user_settings, feature_flags_admin, templates as api_templates, scheduler, analysis_management, metrics, feed_limits
 from app.routes import templates as template_routes
-from app.web.views import analysis_control as analysis_htmx
+from app.web.views import analysis_htmx_clean as analysis_htmx
 
 # Import monitoring and error handling components
 from app.core.logging_config import setup_logging, get_logger
@@ -112,6 +112,10 @@ app.include_router(analysis_control.router, prefix="/api")
 app.include_router(user_settings.router, prefix="/api")
 app.include_router(feature_flags_admin.router)
 app.include_router(analysis_htmx.router)
+
+# Job-based analysis system
+from app.api import analysis_jobs
+app.include_router(analysis_jobs.router, prefix="/api")
 # MCP v2 API endpoints
 app.include_router(api_templates.router, prefix="/api")
 app.include_router(scheduler.router, prefix="/api")

@@ -153,9 +153,11 @@ class SyncFeedFetcher:
             # Trigger auto-analysis if enabled and new items exist
             if new_item_ids and items_new > 0:
                 try:
+                    import asyncio
                     from app.services.auto_analysis_service import AutoAnalysisService
                     auto_analysis = AutoAnalysisService()
-                    result = auto_analysis.trigger_feed_auto_analysis(feed_id, new_item_ids)
+                    # Run async function in sync context
+                    result = asyncio.run(auto_analysis.trigger_feed_auto_analysis(feed_id, new_item_ids))
                     if result:
                         logger.info(f"Triggered auto-analysis run {result['run_id']} for feed {feed_id} with {result['items_count']} items")
                 except Exception as e:

@@ -1,892 +1,574 @@
-# News MCP Database Schema
+# News MCP Database Schema Documentation
 
-Generated: 2025-09-23 21:12:49
+**Enterprise RSS Management & AI Analysis Platform**
 
-## Database Overview
+Generated: 2025-09-24
+Version: v3.0.0-repository-migration
 
-Total Tables: 28
+## 📊 Database Overview
 
-Total Rows: 44,648
+| Metric | Value | Description |
+|--------|-------|-------------|
+| **Database Engine** | PostgreSQL 14+ | Enterprise-grade ACID compliance |
+| **Total Tables** | 28 | Normalized schema with foreign key constraints |
+| **Total Records** | ~44,650 | Production data volume |
+| **Schema Migration** | Alembic | Version-controlled schema changes |
+| **Indexes** | 95+ | Optimized for query performance |
 
-## Tables
+## 🏗️ Architecture Overview
 
-- [alembic_version](#alembic-version) (1 rows)
-- [analysis_presets](#analysis-presets) (0 rows)
-- [analysis_run_items](#analysis-run-items) (2,761 rows)
-- [analysis_runs](#analysis-runs) (32 rows)
-- [basetablemodel](#basetablemodel) (0 rows)
-- [categories](#categories) (8 rows)
-- [content_processing_logs](#content-processing-logs) (3,152 rows)
-- [dynamic_feed_templates](#dynamic-feed-templates) (3 rows)
-- [feed_categories](#feed-categories) (31 rows)
-- [feed_configuration_changes](#feed-configuration-changes) (4 rows)
-- [feed_health](#feed-health) (37 rows)
-- [feed_limits](#feed-limits) (2 rows)
-- [feed_metrics](#feed-metrics) (3 rows)
-- [feed_processor_configs](#feed-processor-configs) (0 rows)
-- [feed_scheduler_state](#feed-scheduler-state) (2 rows)
-- [feed_template_assignments](#feed-template-assignments) (0 rows)
-- [feed_types](#feed-types) (0 rows)
-- [feed_violations](#feed-violations) (0 rows)
-- [feeds](#feeds) (37 rows)
-- [fetch_log](#fetch-log) (28,684 rows)
-- [item_analysis](#item-analysis) (2,674 rows)
-- [item_tags](#item-tags) (0 rows)
-- [items](#items) (7,177 rows)
-- [processor_templates](#processor-templates) (0 rows)
-- [queue_metrics](#queue-metrics) (0 rows)
-- [queued_runs](#queued-runs) (1 rows)
-- [sources](#sources) (38 rows)
-- [user_settings](#user-settings) (1 rows)
+```mermaid
+erDiagram
+    FEEDS ||--o{ ITEMS : contains
+    FEEDS ||--o{ FETCH_LOG : logs
+    FEEDS ||--o{ FEED_HEALTH : monitors
+    FEEDS ||--o{ FEED_LIMITS : constrains
 
-## Table Details
+    ITEMS ||--o{ ITEM_ANALYSIS : analyzes
+    ITEMS ||--o{ ANALYSIS_RUN_ITEMS : processes
 
-### alembic_version
+    ANALYSIS_RUNS ||--o{ ANALYSIS_RUN_ITEMS : contains
+    ANALYSIS_RUNS ||--o{ QUEUED_RUNS : manages
 
-**Rows:** 1
+    SOURCES ||--o{ FEEDS : categorizes
+    CATEGORIES ||--o{ FEED_CATEGORIES : links
+    FEEDS ||--o{ FEED_CATEGORIES : belongs
 
-**Columns:**
-
-| Column | Type | Nullable | Default |
-|--------|------|----------|---------|
-| version_num | character varying | NO | None |
-
-**Indexes:**
-
-- `alembic_version_pkc`
+    DYNAMIC_FEED_TEMPLATES ||--o{ FEED_TEMPLATE_ASSIGNMENTS : assigns
+    FEEDS ||--o{ FEED_TEMPLATE_ASSIGNMENTS : uses
+```
 
 ---
 
-### analysis_presets
+## 📋 Core Data Models
 
-**Rows:** 0
+### 🔄 RSS Feed Management
 
-**Columns:**
+#### `feeds` - RSS Feed Configuration
+**Primary Purpose:** Central feed registry with configuration and status tracking
 
-| Column | Type | Nullable | Default |
-|--------|------|----------|---------|
-| id | bigint | NO | nextval('analysis_presets_id_seq'::regclass) |
-| name | text | NO | None |
-| description | text | YES | None |
-| scope_json | jsonb | NO | '{}'::jsonb |
-| params_json | jsonb | NO | '{}'::jsonb |
-| created_at | timestamp with time zone | NO | now() |
-| updated_at | timestamp with time zone | NO | now() |
+| Column | Type | Description | Example |
+|--------|------|-------------|---------|
+| `id` | integer | Unique feed identifier | 1 |
+| `url` | varchar | RSS/Atom feed URL | `https://techcrunch.com/feed/` |
+| `title` | varchar | Human-readable feed name | "TechCrunch RSS" |
+| `status` | enum | Current feed status | `active`, `inactive`, `error` |
+| `fetch_interval_minutes` | integer | Fetch frequency | 30 |
+| `last_fetched` | timestamp | Last successful fetch time | `2025-09-24 10:30:00` |
+| `auto_analyze_enabled` | boolean | Enable automatic AI analysis | `true` |
+
+**Key Relationships:**
+- One feed → Many items (`items.feed_id`)
+- One feed → Many fetch logs (`fetch_log.feed_id`)
+- One feed → One health status (`feed_health.feed_id`)
 
 **Indexes:**
-
-- `analysis_presets_pkey`
-- `analysis_presets_name_key`
+- Primary key on `id`
+- Unique index on `url`
+- Performance index on `status` + `next_fetch_scheduled`
 
 ---
 
-### analysis_run_items
+#### `items` - News Articles & Content
+**Primary Purpose:** Individual news articles fetched from RSS feeds
 
-**Rows:** 2,761
+| Column | Type | Description | Example |
+|--------|------|-------------|---------|
+| `id` | integer | Unique article identifier | 12345 |
+| `title` | varchar | Article headline | "AI Breakthrough in NLP" |
+| `link` | varchar | Original article URL | `https://example.com/article/123` |
+| `description` | text | Article summary/excerpt | "Researchers announce..." |
+| `content` | text | Full article content | "Full text content..." |
+| `author` | varchar | Article author | "Jane Doe" |
+| `published` | timestamp | Publication timestamp | `2025-09-24 08:30:00` |
+| `guid` | varchar | RSS GUID for deduplication | `https://example.com/guid/123` |
+| `content_hash` | varchar | Content fingerprint | `sha256:abc123...` |
 
-**Columns:**
+**Key Features:**
+- **Deduplication:** Uses `content_hash` to prevent duplicate articles
+- **Content Extraction:** Supports both RSS description and full content
+- **Timeline Indexing:** Optimized for chronological queries
 
-| Column | Type | Nullable | Default |
-|--------|------|----------|---------|
-| id | bigint | NO | nextval('analysis_run_items_id_seq'::regclass) |
-| run_id | bigint | NO | None |
-| item_id | bigint | NO | None |
-| state | text | NO | 'queued'::text |
-| created_at | timestamp with time zone | NO | now() |
-| started_at | timestamp with time zone | YES | None |
-| completed_at | timestamp with time zone | YES | None |
-| error_message | text | YES | None |
-| tokens_used | integer | YES | None |
-| cost_usd | numeric | YES | NULL::numeric |
-
-**Foreign Keys:**
-
-- `run_id` → `analysis_runs.id`
-- `item_id` → `items.id`
-
-**Indexes:**
-
-- `analysis_run_items_pkey`
-- `analysis_run_items_run_id_item_id_key`
-- `idx_run_items_run_id`
-- `idx_run_items_state`
-- `idx_run_items_item_id`
+**Performance Indexes:**
+- `items_published_idx` - Fast timeline queries
+- `items_content_hash_idx` - Duplicate prevention
+- `items_feed_timeline_idx` - Feed-specific chronological access
 
 ---
 
-### analysis_runs
+### 🧠 AI Analysis System
 
-**Rows:** 32
+#### `analysis_runs` - Analysis Job Management
+**Primary Purpose:** Track AI analysis jobs from creation to completion
 
-**Columns:**
+| Column | Type | Description | Example |
+|--------|------|-------------|---------|
+| `id` | bigint | Unique run identifier | 42 |
+| `status` | enum | Current run status | `pending`, `running`, `completed` |
+| `scope_json` | jsonb | Analysis scope definition | `{"type": "feed", "params": {"feed_ids": [1,2,3]}}` |
+| `params_json` | jsonb | Analysis parameters | `{"model": "gpt-4.1-nano", "type": "comprehensive"}` |
+| `queued_count` | integer | Total items queued | 89 |
+| `processed_count` | integer | Successfully processed | 85 |
+| `failed_count` | integer | Failed to process | 4 |
+| `cost_estimate` | decimal | Estimated cost (USD) | 2.45 |
+| `actual_cost` | decimal | Final cost (USD) | 2.38 |
+| `started_at` | timestamp | Processing start time | `2025-09-24 10:32:15` |
+| `completed_at` | timestamp | Processing end time | `2025-09-24 10:35:30` |
 
-| Column | Type | Nullable | Default |
-|--------|------|----------|---------|
-| id | bigint | NO | nextval('analysis_runs_id_seq'::regclass) |
-| created_at | timestamp with time zone | NO | now() |
-| updated_at | timestamp with time zone | NO | now() |
-| scope_json | jsonb | NO | '{}'::jsonb |
-| params_json | jsonb | NO | '{}'::jsonb |
-| scope_hash | text | NO | None |
-| status | text | NO | 'pending'::text |
-| queued_count | integer | NO | 0 |
-| processed_count | integer | NO | 0 |
-| failed_count | integer | NO | 0 |
-| cost_estimate | numeric | YES | 0.0 |
-| actual_cost | numeric | YES | 0.0 |
-| error_rate | numeric | YES | 0.0 |
-| items_per_min | numeric | YES | 0.0 |
-| eta_seconds | integer | YES | None |
-| coverage_10m | numeric | YES | 0.0 |
-| coverage_60m | numeric | YES | 0.0 |
-| started_at | timestamp with time zone | YES | None |
-| completed_at | timestamp with time zone | YES | None |
-| last_error | text | YES | None |
-| triggered_by | character varying | NO | 'manual'::character varying |
+**Status Flow:**
+```
+pending → running → completed
+         ↓
+       failed/cancelled
+```
 
-**Indexes:**
-
-- `analysis_runs_pkey`
-- `idx_analysis_runs_status`
-- `idx_analysis_runs_created`
-- `idx_analysis_runs_scope_hash`
+**Key Metrics:**
+- **Processing Rate:** `items_per_min` tracks throughput
+- **Cost Tracking:** Both estimated and actual costs in USD
+- **Quality Metrics:** Error rates and processing efficiency
 
 ---
 
-### basetablemodel
+#### `analysis_run_items` - Individual Processing Tasks
+**Primary Purpose:** Granular tracking of each article's analysis process
 
-**Rows:** 0
+| Column | Type | Description | Example |
+|--------|------|-------------|---------|
+| `run_id` | bigint | Parent run identifier | 42 |
+| `item_id` | bigint | Article being analyzed | 12345 |
+| `state` | enum | Processing state | `queued`, `processing`, `completed`, `failed` |
+| `started_at` | timestamp | Processing start time | `2025-09-24 10:33:15` |
+| `completed_at` | timestamp | Processing end time | `2025-09-24 10:33:45` |
+| `tokens_used` | integer | AI tokens consumed | 850 |
+| `cost_usd` | decimal | Processing cost | 0.0127 |
+| `error_message` | text | Failure details | `null` |
 
-**Columns:**
-
-| Column | Type | Nullable | Default |
-|--------|------|----------|---------|
-| created_at | timestamp without time zone | NO | None |
-| updated_at | timestamp without time zone | YES | None |
-| id | integer | NO | nextval('basetablemodel_id_seq'::regclass) |
-
-**Indexes:**
-
-- `basetablemodel_pkey`
-
----
-
-### categories
-
-**Rows:** 8
-
-**Columns:**
-
-| Column | Type | Nullable | Default |
-|--------|------|----------|---------|
-| id | integer | NO | nextval('categories_id_seq'::regclass) |
-| name | character varying | NO | None |
-| description | character varying | YES | None |
-| color | character varying | YES | None |
-| created_at | timestamp without time zone | NO | None |
-| updated_at | timestamp without time zone | NO | CURRENT_TIMESTAMP |
-
-**Indexes:**
-
-- `categories_pkey`
-- `ix_categories_name`
+**Performance Features:**
+- **Parallel Processing:** Multiple items processed simultaneously
+- **Cost Attribution:** Per-item cost tracking for accurate billing
+- **Error Recovery:** Detailed error tracking for debugging
 
 ---
 
-### content_processing_logs
+#### `item_analysis` - AI Analysis Results
+**Primary Purpose:** Store structured AI analysis results for articles
 
-**Rows:** 3,152
+| Column | Type | Description | Structure |
+|--------|------|-------------|-----------|
+| `item_id` | bigint | Analyzed article | 12345 |
+| `sentiment_json` | jsonb | Sentiment analysis | `{"label": "positive", "score": 0.85, "confidence": 0.92}` |
+| `impact_json` | jsonb | Impact assessment | `{"overall": 0.7, "business": 0.8, "society": 0.6}` |
+| `model_tag` | text | AI model used | "gpt-4.1-nano" |
+| `updated_at` | timestamp | Analysis timestamp | `2025-09-24 10:33:45` |
 
-**Columns:**
-
-| Column | Type | Nullable | Default |
-|--------|------|----------|---------|
-| id | integer | NO | nextval('content_processing_logs_id_seq'::regclass) |
-| item_id | integer | NO | None |
-| feed_id | integer | NO | None |
-| processor_type | USER-DEFINED | NO | None |
-| processing_status | USER-DEFINED | NO | None |
-| original_title | character varying | YES | None |
-| processed_title | character varying | YES | None |
-| original_description | character varying | YES | None |
-| processed_description | character varying | YES | None |
-| transformations_applied | character varying | NO | None |
-| error_message | character varying | YES | None |
-| processing_time_ms | integer | YES | None |
-| processed_at | timestamp without time zone | NO | None |
-| created_at | timestamp without time zone | NO | now() |
-| updated_at | timestamp without time zone | NO | now() |
-
-**Foreign Keys:**
-
-- `feed_id` → `feeds.id`
-- `item_id` → `items.id`
-
-**Indexes:**
-
-- `content_processing_logs_pkey`
-- `ix_content_processing_logs_feed_id`
-- `ix_content_processing_logs_item_id`
+**Analysis Structure Examples:**
+```json
+{
+  "sentiment_json": {
+    "label": "positive",
+    "score": 0.85,
+    "confidence": 0.92,
+    "reasoning": "Article discusses breakthrough technology with positive implications"
+  },
+  "impact_json": {
+    "overall": 0.75,
+    "business": 0.80,
+    "society": 0.70,
+    "technology": 0.85,
+    "urgency": 0.60,
+    "topics": ["AI", "Machine Learning", "Technology"],
+    "summary": "Significant technological advancement with broad business applications"
+  }
+}
+```
 
 ---
 
-### dynamic_feed_templates
+### 🔧 System Management
 
-**Rows:** 3
+#### `feed_health` - Feed Monitoring
+**Primary Purpose:** Track RSS feed reliability and performance
 
-**Columns:**
+| Column | Type | Description | Threshold |
+|--------|------|-------------|-----------|
+| `feed_id` | integer | Monitored feed | 1 |
+| `ok_ratio` | float | Success rate (0-1) | >0.95 = healthy |
+| `consecutive_failures` | integer | Failed attempts in row | >3 = critical |
+| `avg_response_time_ms` | float | Average fetch time | <2000ms = good |
+| `uptime_24h` | float | 24-hour availability | >0.99 = excellent |
+| `uptime_7d` | float | 7-day availability | >0.95 = healthy |
+| `last_success` | timestamp | Last successful fetch | Recent |
+| `last_failure` | timestamp | Last failed fetch | `null` if healthy |
 
-| Column | Type | Nullable | Default |
-|--------|------|----------|---------|
-| id | integer | NO | nextval('dynamic_feed_templates_id_seq'::regclass) |
-| name | character varying | NO | None |
-| description | character varying | YES | None |
-| version | character varying | NO | None |
-| url_patterns | character varying | NO | None |
-| field_mappings | character varying | NO | None |
-| content_processing_rules | character varying | NO | None |
-| quality_filters | character varying | NO | None |
-| categorization_rules | character varying | NO | None |
-| fetch_settings | character varying | NO | None |
-| is_active | boolean | NO | None |
-| is_builtin | boolean | NO | None |
-| created_by | character varying | YES | None |
-| created_at | timestamp without time zone | NO | None |
-| updated_at | timestamp without time zone | NO | None |
-| last_used | timestamp without time zone | YES | None |
-| usage_count | integer | YES | 0 |
-
-**Indexes:**
-
-- `dynamic_feed_templates_pkey`
-- `ix_dynamic_feed_templates_name`
+**Health Status Calculation:**
+```sql
+CASE
+  WHEN consecutive_failures >= 5 THEN 'critical'
+  WHEN ok_ratio < 0.90 THEN 'warning'
+  WHEN avg_response_time_ms > 5000 THEN 'slow'
+  ELSE 'healthy'
+END as health_status
+```
 
 ---
 
-### feed_categories
+#### `fetch_log` - Feed Fetch History
+**Primary Purpose:** Audit trail for all RSS feed fetch operations
 
-**Rows:** 31
+| Column | Type | Description | Example |
+|--------|------|-------------|---------|
+| `feed_id` | integer | Source feed | 1 |
+| `started_at` | timestamp | Fetch start time | `2025-09-24 10:30:00` |
+| `completed_at` | timestamp | Fetch end time | `2025-09-24 10:30:02` |
+| `status` | varchar | Fetch result | `success`, `error`, `empty` |
+| `items_found` | integer | Items in feed | 12 |
+| `items_new` | integer | New items added | 8 |
+| `error_message` | text | Failure details | `null` |
+| `response_time_ms` | integer | Network latency | 1250 |
 
-**Columns:**
-
-| Column | Type | Nullable | Default |
-|--------|------|----------|---------|
-| feed_id | integer | NO | None |
-| category_id | integer | NO | None |
-| id | integer | NO | nextval('feed_categories_id_seq'::regclass) |
-| created_at | timestamp without time zone | NO | now() |
-| updated_at | timestamp without time zone | NO | now() |
-
-**Foreign Keys:**
-
-- `category_id` → `categories.id`
-- `feed_id` → `feeds.id`
-
-**Indexes:**
-
-- `feed_categories_pkey`
+**Data Volume:** ~28,684 records (historical fetch data)
 
 ---
 
-### feed_configuration_changes
+#### `feed_limits` - Analysis Controls
+**Primary Purpose:** Control and limit AI analysis costs per feed
 
-**Rows:** 4
+| Column | Type | Description | Example |
+|--------|------|-------------|---------|
+| `feed_id` | integer | Controlled feed | 1 |
+| `max_analyses_per_day` | integer | Daily analysis limit | 100 |
+| `daily_cost_limit` | float | Daily spend limit (USD) | 5.00 |
+| `monthly_cost_limit` | float | Monthly spend limit (USD) | 150.00 |
+| `cost_alert_threshold` | float | Alert threshold (USD) | 4.00 |
+| `emergency_stop_enabled` | boolean | Auto-stop on breach | `true` |
+| `auto_disable_on_cost_breach` | boolean | Auto-disable feed | `true` |
+| `violations_count` | integer | Limit breach count | 0 |
 
-**Columns:**
-
-| Column | Type | Nullable | Default |
-|--------|------|----------|---------|
-| id | integer | NO | nextval('feed_configuration_changes_id_seq'::regclass) |
-| feed_id | integer | YES | None |
-| template_id | integer | YES | None |
-| change_type | character varying | NO | None |
-| old_config | character varying | YES | None |
-| new_config | character varying | YES | None |
-| applied_at | timestamp without time zone | YES | None |
-| created_by | character varying | YES | None |
-| created_at | timestamp without time zone | NO | None |
-| updated_at | timestamp without time zone | NO | now() |
-
-**Foreign Keys:**
-
-- `feed_id` → `feeds.id`
-- `template_id` → `dynamic_feed_templates.id`
-
-**Indexes:**
-
-- `feed_configuration_changes_pkey`
-- `ix_feed_configuration_changes_change_type`
-- `ix_feed_configuration_changes_feed_id`
-- `ix_feed_configuration_changes_template_id`
+**Safety Features:**
+- **Cost Controls:** Multiple spend limits to prevent overruns
+- **Emergency Stop:** Automatic halting on threshold breach
+- **Violation Tracking:** Audit trail of limit breaches
 
 ---
 
-### feed_health
+### 🎨 Content Processing
 
-**Rows:** 37
+#### `dynamic_feed_templates` - Content Extraction Rules
+**Primary Purpose:** Define how to parse different RSS feed formats
 
-**Columns:**
+| Column | Type | Description | Example |
+|--------|------|-------------|---------|
+| `name` | varchar | Template identifier | "TechCrunch RSS" |
+| `url_patterns` | varchar | Matching URL patterns | `techcrunch.com/feed` |
+| `field_mappings` | text | Content extraction rules | `{"title": "title", "content": "description"}` |
+| `content_processing_rules` | text | Content cleanup rules | `{"remove_ads": true, "clean_html": true}` |
+| `is_active` | boolean | Template enabled | `true` |
+| `is_builtin` | boolean | System template | `true` |
+| `usage_count` | integer | Times used | 1250 |
 
-| Column | Type | Nullable | Default |
-|--------|------|----------|---------|
-| id | integer | NO | nextval('feed_health_id_seq'::regclass) |
-| feed_id | integer | NO | None |
-| ok_ratio | double precision | NO | None |
-| consecutive_failures | integer | NO | None |
-| avg_response_time_ms | double precision | YES | None |
-| last_success | timestamp without time zone | YES | None |
-| last_failure | timestamp without time zone | YES | None |
-| uptime_24h | double precision | NO | None |
-| uptime_7d | double precision | NO | None |
-| updated_at | timestamp without time zone | NO | None |
-| created_at | timestamp without time zone | YES | now() |
-
-**Foreign Keys:**
-
-- `feed_id` → `feeds.id`
-
-**Indexes:**
-
-- `feed_health_feed_id_key`
-- `feed_health_pkey`
-
----
-
-### feed_limits
-
-**Rows:** 2
-
-**Columns:**
-
-| Column | Type | Nullable | Default |
-|--------|------|----------|---------|
-| id | integer | NO | nextval('feed_limits_id_seq'::regclass) |
-| feed_id | integer | NO | None |
-| max_analyses_per_day | integer | YES | None |
-| max_analyses_per_hour | integer | YES | None |
-| min_interval_minutes | integer | YES | 30 |
-| daily_cost_limit | double precision | YES | None |
-| monthly_cost_limit | double precision | YES | None |
-| cost_alert_threshold | double precision | YES | None |
-| max_items_per_analysis | integer | YES | None |
-| max_queue_priority | character varying | YES | 'MEDIUM'::character varying |
-| emergency_stop_enabled | boolean | YES | false |
-| auto_disable_on_error_rate | double precision | YES | None |
-| auto_disable_on_cost_breach | boolean | YES | true |
-| alert_email | character varying | YES | None |
-| alert_on_limit_breach | boolean | YES | true |
-| alert_on_cost_threshold | boolean | YES | true |
-| custom_settings | jsonb | YES | '{}'::jsonb |
-| is_active | boolean | YES | true |
-| violations_count | integer | YES | 0 |
-| last_violation_at | timestamp with time zone | YES | None |
-| created_at | timestamp with time zone | YES | CURRENT_TIMESTAMP |
-| updated_at | timestamp with time zone | YES | CURRENT_TIMESTAMP |
-
-**Foreign Keys:**
-
-- `feed_id` → `feeds.id`
-
-**Indexes:**
-
-- `ix_feed_limits_feed_id`
-- `ix_feed_limits_feed_active`
-- `feed_limits_pkey`
-- `feed_limits_feed_id_key`
+**Template Structure Example:**
+```json
+{
+  "field_mappings": {
+    "title": "title",
+    "content": "description",
+    "author": "dc:creator",
+    "published": "pubDate",
+    "image": "media:content[medium='image']/@url"
+  },
+  "content_processing_rules": {
+    "remove_html": true,
+    "trim_whitespace": true,
+    "extract_images": true,
+    "clean_links": true
+  },
+  "quality_filters": {
+    "min_content_length": 100,
+    "require_title": true,
+    "block_patterns": ["advertisement", "sponsored"]
+  }
+}
+```
 
 ---
 
-### feed_metrics
+## 🔗 Relationship Mapping
 
-**Rows:** 3
+### Core Entity Relationships
 
-**Columns:**
+```sql
+-- Feed to Items (One-to-Many)
+feeds.id → items.feed_id
 
-| Column | Type | Nullable | Default |
-|--------|------|----------|---------|
-| id | integer | NO | nextval('feed_metrics_id_seq'::regclass) |
-| feed_id | integer | NO | None |
-| metric_date | date | NO | None |
-| total_analyses | integer | NO | None |
-| auto_analyses | integer | NO | None |
-| manual_analyses | integer | NO | None |
-| scheduled_analyses | integer | NO | None |
-| total_items_processed | integer | NO | None |
-| successful_items | integer | NO | None |
-| failed_items | integer | NO | None |
-| total_cost_usd | double precision | NO | None |
-| input_cost_usd | double precision | NO | None |
-| output_cost_usd | double precision | NO | None |
-| cached_cost_usd | double precision | NO | None |
-| total_tokens_used | integer | NO | None |
-| input_tokens | integer | NO | None |
-| output_tokens | integer | NO | None |
-| cached_tokens | integer | NO | None |
-| avg_processing_time_seconds | double precision | NO | None |
-| avg_items_per_run | double precision | NO | None |
-| success_rate | double precision | NO | None |
-| total_queue_time_seconds | double precision | NO | None |
-| avg_queue_time_seconds | double precision | NO | None |
-| max_queue_time_seconds | double precision | NO | None |
-| model_usage | json | YES | None |
-| created_at | timestamp with time zone | YES | None |
-| updated_at | timestamp with time zone | YES | None |
+-- Items to Analysis (One-to-One)
+items.id → item_analysis.item_id
 
-**Foreign Keys:**
+-- Analysis Runs to Items (Many-to-Many via junction)
+analysis_runs.id → analysis_run_items.run_id
+items.id → analysis_run_items.item_id
 
-- `feed_id` → `feeds.id`
+-- Feeds to Health Monitoring (One-to-One)
+feeds.id → feed_health.feed_id
 
-**Indexes:**
+-- Feeds to Processing Logs (One-to-Many)
+feeds.id → fetch_log.feed_id
 
-- `ix_feed_metrics_metric_date`
-- `ix_feed_metrics_feed_id`
-- `feed_metrics_pkey`
-- `ix_feed_metrics_feed_date`
+-- Feeds to Categories (Many-to-Many via junction)
+feeds.id → feed_categories.feed_id
+categories.id → feed_categories.category_id
+
+-- Sources to Feeds (One-to-Many)
+sources.id → feeds.source_id
+
+-- Templates to Feed Assignments (One-to-Many)
+dynamic_feed_templates.id → feed_template_assignments.template_id
+feeds.id → feed_template_assignments.feed_id
+```
 
 ---
 
-### feed_processor_configs
+## 📈 Performance Optimization
 
-**Rows:** 0
+### Critical Indexes
 
-**Columns:**
+#### Feed Operations
+```sql
+-- Fast feed listing by status
+CREATE INDEX idx_feeds_status_next_fetch
+ON feeds (status, next_fetch_scheduled);
 
-| Column | Type | Nullable | Default |
-|--------|------|----------|---------|
-| id | integer | NO | nextval('feed_processor_configs_id_seq'::regclass) |
-| feed_id | integer | NO | None |
-| processor_type | USER-DEFINED | NO | None |
-| config_json | character varying | NO | None |
-| is_active | boolean | NO | None |
-| created_at | timestamp without time zone | NO | None |
-| updated_at | timestamp without time zone | NO | None |
+-- Feed URL uniqueness
+CREATE UNIQUE INDEX idx_feeds_url ON feeds (url);
+```
 
-**Foreign Keys:**
+#### Article Queries
+```sql
+-- Timeline queries (most common)
+CREATE INDEX items_published_idx ON items (published DESC);
 
-- `feed_id` → `feeds.id`
+-- Feed-specific timelines
+CREATE INDEX items_feed_timeline_idx
+ON items (feed_id, published DESC);
 
-**Indexes:**
+-- Duplicate detection
+CREATE UNIQUE INDEX items_content_hash_idx
+ON items (content_hash);
+```
 
-- `feed_processor_configs_feed_id_key`
-- `feed_processor_configs_pkey`
+#### Analysis Performance
+```sql
+-- Analysis run status queries
+CREATE INDEX idx_analysis_runs_status ON analysis_runs (status);
 
----
+-- Run item processing queries
+CREATE INDEX idx_run_items_run_id_state
+ON analysis_run_items (run_id, state);
 
-### feed_scheduler_state
+-- Analysis lookup by item
+CREATE INDEX item_analysis_item_id_idx
+ON item_analysis (item_id);
+```
 
-**Rows:** 2
+### Query Optimization Examples
 
-**Columns:**
+#### Most Common Queries
 
-| Column | Type | Nullable | Default |
-|--------|------|----------|---------|
-| id | integer | NO | nextval('feed_scheduler_state_id_seq'::regclass) |
-| scheduler_instance | character varying | NO | None |
-| last_config_check | timestamp without time zone | YES | None |
-| last_feed_config_hash | character varying | YES | None |
-| last_template_config_hash | character varying | YES | None |
-| is_active | boolean | NO | None |
-| started_at | timestamp without time zone | YES | None |
-| last_heartbeat | timestamp without time zone | YES | None |
-| created_at | timestamp without time zone | NO | None |
-| updated_at | timestamp without time zone | NO | None |
+**1. Recent Articles with Analysis:**
+```sql
+SELECT i.*, ia.sentiment_json, ia.impact_json
+FROM items i
+LEFT JOIN item_analysis ia ON i.id = ia.item_id
+WHERE i.published > NOW() - INTERVAL '24 hours'
+ORDER BY i.published DESC
+LIMIT 50;
+```
 
-**Indexes:**
+**2. Feed Health Dashboard:**
+```sql
+SELECT f.title, fh.ok_ratio, fh.consecutive_failures,
+       fh.avg_response_time_ms, fh.uptime_24h
+FROM feeds f
+JOIN feed_health fh ON f.id = fh.feed_id
+WHERE f.status = 'active'
+ORDER BY fh.ok_ratio DESC;
+```
 
-- `feed_scheduler_state_pkey`
-- `ix_feed_scheduler_state_scheduler_instance`
-
----
-
-### feed_template_assignments
-
-**Rows:** 0
-
-**Columns:**
-
-| Column | Type | Nullable | Default |
-|--------|------|----------|---------|
-| id | integer | NO | nextval('feed_template_assignments_id_seq'::regclass) |
-| feed_id | integer | NO | None |
-| template_id | integer | NO | None |
-| custom_overrides | character varying | NO | None |
-| is_active | boolean | NO | None |
-| priority | integer | NO | None |
-| assigned_by | character varying | YES | None |
-| created_at | timestamp without time zone | NO | None |
-| updated_at | timestamp without time zone | NO | None |
-
-**Foreign Keys:**
-
-- `feed_id` → `feeds.id`
-- `template_id` → `dynamic_feed_templates.id`
-
-**Indexes:**
-
-- `feed_template_assignments_pkey`
-- `ix_feed_template_assignments_feed_id`
-- `ix_feed_template_assignments_template_id`
+**3. Analysis Cost Tracking:**
+```sql
+SELECT ar.id, ar.status,
+       ar.queued_count, ar.processed_count, ar.failed_count,
+       ar.cost_estimate, ar.actual_cost,
+       EXTRACT(EPOCH FROM (ar.completed_at - ar.started_at))/60 as duration_minutes
+FROM analysis_runs ar
+WHERE ar.created_at > NOW() - INTERVAL '7 days'
+ORDER BY ar.created_at DESC;
+```
 
 ---
 
-### feed_types
+## 🔄 Data Migration & Versioning
 
-**Rows:** 0
+### Alembic Migration System
 
-**Columns:**
+**Current Schema Version:** Latest applied migration
+**Migration Directory:** `/alembic/versions/`
+**Migration Naming:** `{revision}_{description}.py`
 
-| Column | Type | Nullable | Default |
-|--------|------|----------|---------|
-| id | integer | NO | nextval('feed_types_id_seq'::regclass) |
-| name | character varying | NO | None |
-| default_interval_minutes | integer | NO | None |
-| description | character varying | YES | None |
-| created_at | timestamp without time zone | NO | None |
+### Common Migration Operations
 
-**Indexes:**
+#### Adding New Features
+```python
+# Example: Adding AI model tracking
+def upgrade():
+    op.add_column('item_analysis',
+        sa.Column('model_version', sa.String(50), nullable=True))
+    op.create_index('idx_item_analysis_model',
+        'item_analysis', ['model_version'])
+```
 
-- `feed_types_pkey`
-- `ix_feed_types_name`
+#### Performance Improvements
+```python
+# Example: Adding composite index
+def upgrade():
+    op.create_index('idx_items_feed_published_analyzed',
+        'items', ['feed_id', 'published', 'has_analysis'])
+```
 
----
-
-### feed_violations
-
-**Rows:** 0
-
-**Columns:**
-
-| Column | Type | Nullable | Default |
-|--------|------|----------|---------|
-| id | integer | NO | nextval('feed_violations_id_seq'::regclass) |
-| feed_id | integer | NO | None |
-| violation_type | character varying | NO | None |
-| violation_date | date | NO | None |
-| violation_time | timestamp with time zone | NO | None |
-| limit_value | double precision | YES | None |
-| actual_value | double precision | YES | None |
-| threshold_percentage | double precision | YES | None |
-| action_taken | character varying | YES | 'LOGGED'::character varying |
-| auto_resolved | boolean | YES | false |
-| resolved_at | timestamp with time zone | YES | None |
-| analysis_run_id | integer | YES | None |
-| error_message | text | YES | None |
-| metadata | jsonb | YES | '{}'::jsonb |
-| created_at | timestamp with time zone | YES | CURRENT_TIMESTAMP |
-
-**Foreign Keys:**
-
-- `feed_id` → `feeds.id`
-- `analysis_run_id` → `analysis_runs.id`
-
-**Indexes:**
-
-- `ix_feed_violations_feed_id`
-- `feed_violations_pkey`
-- `ix_feed_violations_violation_type`
-- `ix_feed_violations_violation_date`
-- `ix_feed_violations_feed_date`
-- `ix_feed_violations_type_date`
+#### Schema Evolution
+```python
+# Example: Normalizing JSON data
+def upgrade():
+    # Create new normalized table
+    op.create_table('analysis_topics',
+        sa.Column('id', sa.BigInteger, primary_key=True),
+        sa.Column('item_analysis_id', sa.BigInteger,
+                  sa.ForeignKey('item_analysis.item_id')),
+        sa.Column('topic', sa.String(100), nullable=False),
+        sa.Column('confidence', sa.Float, nullable=False)
+    )
+```
 
 ---
 
-### feeds
+## 📊 Data Volume & Growth Patterns
 
-**Rows:** 37
+### Current Data Volume (Production)
+| Table | Records | Growth Rate | Storage Impact |
+|-------|---------|-------------|----------------|
+| `items` | ~7,177 | +100-200/day | High (content storage) |
+| `fetch_log` | ~28,684 | +1,000/day | Medium (structured data) |
+| `analysis_run_items` | ~2,761 | +50-100/day | Low (metadata only) |
+| `item_analysis` | ~2,674 | +30-80/day | Medium (JSON storage) |
 
-**Columns:**
-
-| Column | Type | Nullable | Default |
-|--------|------|----------|---------|
-| id | integer | NO | nextval('feeds_id_seq'::regclass) |
-| url | character varying | NO | None |
-| title | character varying | YES | None |
-| description | character varying | YES | None |
-| status | USER-DEFINED | NO | None |
-| fetch_interval_minutes | integer | NO | None |
-| last_fetched | timestamp without time zone | YES | None |
-| next_fetch_scheduled | timestamp without time zone | YES | None |
-| last_modified | character varying | YES | None |
-| etag | character varying | YES | None |
-| configuration_hash | character varying | YES | None |
-| source_id | integer | NO | None |
-| feed_type_id | integer | YES | None |
-| created_at | timestamp without time zone | NO | None |
-| updated_at | timestamp without time zone | NO | None |
-| auto_analyze_enabled | boolean | NO | false |
-
-**Foreign Keys:**
-
-- `feed_type_id` → `feed_types.id`
-- `source_id` → `sources.id`
-
-**Indexes:**
-
-- `feeds_pkey`
-- `ix_feeds_url`
+### Projected Growth (6 months)
+- **Items:** ~25,000 articles (+250% growth)
+- **Analysis Data:** ~8,000 analyzed articles (+200% growth)
+- **Storage Requirements:** ~2GB database size
+- **Index Maintenance:** Weekly VACUUM and REINDEX recommended
 
 ---
 
-### fetch_log
+## 🔒 Data Integrity & Constraints
 
-**Rows:** 28,684
+### Foreign Key Constraints
+```sql
+-- Ensure referential integrity
+ALTER TABLE items
+ADD CONSTRAINT fk_items_feed
+FOREIGN KEY (feed_id) REFERENCES feeds(id) ON DELETE CASCADE;
 
-**Columns:**
+ALTER TABLE analysis_run_items
+ADD CONSTRAINT fk_run_items_run
+FOREIGN KEY (run_id) REFERENCES analysis_runs(id) ON DELETE CASCADE;
 
-| Column | Type | Nullable | Default |
-|--------|------|----------|---------|
-| id | integer | NO | nextval('fetch_log_id_seq'::regclass) |
-| feed_id | integer | NO | None |
-| started_at | timestamp without time zone | NO | None |
-| completed_at | timestamp without time zone | YES | None |
-| status | character varying | NO | None |
-| items_found | integer | NO | None |
-| items_new | integer | NO | None |
-| error_message | character varying | YES | None |
-| response_time_ms | integer | YES | None |
+ALTER TABLE item_analysis
+ADD CONSTRAINT fk_analysis_item
+FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE CASCADE;
+```
 
-**Foreign Keys:**
+### Data Validation Rules
+```sql
+-- Ensure positive costs
+ALTER TABLE analysis_runs
+ADD CONSTRAINT chk_positive_cost
+CHECK (actual_cost >= 0);
 
-- `feed_id` → `feeds.id`
+-- Ensure valid timestamps
+ALTER TABLE analysis_runs
+ADD CONSTRAINT chk_valid_timerange
+CHECK (completed_at IS NULL OR completed_at >= started_at);
 
-**Indexes:**
-
-- `fetch_log_pkey`
-
----
-
-### item_analysis
-
-**Rows:** 2,674
-
-**Columns:**
-
-| Column | Type | Nullable | Default |
-|--------|------|----------|---------|
-| item_id | bigint | NO | None |
-| sentiment_json | jsonb | NO | '{}'::jsonb |
-| impact_json | jsonb | NO | '{}'::jsonb |
-| model_tag | text | YES | None |
-| updated_at | timestamp with time zone | NO | now() |
-
-**Foreign Keys:**
-
-- `item_id` → `items.id`
-
-**Indexes:**
-
-- `item_analysis_pkey`
-- `idx_item_analysis_updated`
-- `idx_item_analysis_sentiment_label`
-- `idx_item_analysis_impact_overall`
-- `idx_item_analysis_urgency`
-- `item_analysis_item_id_idx`
+-- Ensure valid success ratios
+ALTER TABLE feed_health
+ADD CONSTRAINT chk_valid_ratio
+CHECK (ok_ratio >= 0 AND ok_ratio <= 1);
+```
 
 ---
 
-### item_tags
+## 🛠️ Database Maintenance
 
-**Rows:** 0
+### Regular Maintenance Tasks
 
-**Columns:**
+#### Daily
+- Monitor slow queries via `pg_stat_statements`
+- Check disk space and growth trends
+- Verify backup completion
 
-| Column | Type | Nullable | Default |
-|--------|------|----------|---------|
-| id | integer | NO | nextval('item_tags_id_seq'::regclass) |
-| item_id | integer | NO | None |
-| tag | character varying | NO | None |
-| created_at | timestamp without time zone | NO | now() |
-| updated_at | timestamp without time zone | NO | now() |
+#### Weekly
+- Run `VACUUM ANALYZE` on high-traffic tables
+- Review and optimize slow queries
+- Check index usage statistics
 
-**Foreign Keys:**
+#### Monthly
+- Full database backup verification
+- Review and purge old logs (>90 days)
+- Update table statistics
+- Schema migration planning
 
-- `item_id` → `items.id`
+### Monitoring Queries
 
-**Indexes:**
+**Check Table Sizes:**
+```sql
+SELECT schemaname, tablename,
+       pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) as size
+FROM pg_tables
+WHERE schemaname = 'public'
+ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
+```
 
-- `item_tags_pkey`
-- `ix_item_tags_tag`
+**Find Unused Indexes:**
+```sql
+SELECT schemaname, tablename, indexname, idx_tup_read, idx_tup_fetch
+FROM pg_stat_user_indexes
+WHERE idx_tup_read = 0 AND idx_tup_fetch = 0
+ORDER BY schemaname, tablename;
+```
 
----
-
-### items
-
-**Rows:** 7,177
-
-**Columns:**
-
-| Column | Type | Nullable | Default |
-|--------|------|----------|---------|
-| id | integer | NO | nextval('items_id_seq'::regclass) |
-| title | character varying | NO | None |
-| link | character varying | NO | None |
-| description | character varying | YES | None |
-| content | character varying | YES | None |
-| author | character varying | YES | None |
-| published | timestamp without time zone | YES | None |
-| guid | character varying | YES | None |
-| content_hash | character varying | NO | None |
-| feed_id | integer | NO | None |
-| created_at | timestamp without time zone | NO | None |
-
-**Foreign Keys:**
-
-- `feed_id` → `feeds.id`
-
-**Indexes:**
-
-- `items_pkey`
-- `ix_items_content_hash`
-- `ix_items_guid`
-- `ix_items_link`
-- `items_feed_timeline_idx`
-- `items_published_idx`
-- `items_content_hash_idx`
+**Monitor Query Performance:**
+```sql
+SELECT query, calls, total_time, mean_time,
+       stddev_time, rows, 100.0 * shared_blks_hit /
+       NULLIF(shared_blks_hit + shared_blks_read, 0) AS hit_percent
+FROM pg_stat_statements
+WHERE calls > 100
+ORDER BY total_time DESC
+LIMIT 10;
+```
 
 ---
 
-### processor_templates
+## 📚 Additional Resources
 
-**Rows:** 0
-
-**Columns:**
-
-| Column | Type | Nullable | Default |
-|--------|------|----------|---------|
-| id | integer | NO | nextval('processor_templates_id_seq'::regclass) |
-| name | character varying | NO | None |
-| processor_type | USER-DEFINED | NO | None |
-| description | character varying | YES | None |
-| config_json | character varying | NO | None |
-| url_patterns | character varying | NO | None |
-| is_builtin | boolean | NO | None |
-| is_active | boolean | NO | None |
-| created_at | timestamp without time zone | NO | None |
-| updated_at | timestamp without time zone | NO | None |
-
-**Indexes:**
-
-- `processor_templates_pkey`
-- `ix_processor_templates_name`
+- **PostgreSQL Documentation**: [PostgreSQL 14 Docs](https://www.postgresql.org/docs/14/)
+- **Alembic Migration Guide**: [Alembic Documentation](https://alembic.sqlalchemy.org/)
+- **Performance Tuning**: [PostgreSQL Performance](https://wiki.postgresql.org/wiki/Performance_Optimization)
+- **SQLAlchemy Models**: `/app/models/` directory
+- **Migration Scripts**: `/alembic/versions/` directory
 
 ---
 
-### queue_metrics
-
-**Rows:** 0
-
-**Columns:**
-
-| Column | Type | Nullable | Default |
-|--------|------|----------|---------|
-| id | integer | NO | nextval('queue_metrics_id_seq'::regclass) |
-| metric_date | date | NO | None |
-| metric_hour | integer | NO | None |
-| items_processed | integer | NO | None |
-| items_failed | integer | NO | None |
-| items_cancelled | integer | NO | None |
-| total_processing_time_seconds | double precision | NO | None |
-| avg_processing_time_seconds | double precision | NO | None |
-| min_processing_time_seconds | double precision | NO | None |
-| max_processing_time_seconds | double precision | NO | None |
-| total_queue_time_seconds | double precision | NO | None |
-| avg_queue_time_seconds | double precision | NO | None |
-| min_queue_time_seconds | double precision | NO | None |
-| max_queue_time_seconds | double precision | NO | None |
-| high_priority_processed | integer | NO | None |
-| medium_priority_processed | integer | NO | None |
-| low_priority_processed | integer | NO | None |
-| max_queue_length | integer | NO | None |
-| avg_queue_length | double precision | NO | None |
-| emergency_stops | integer | NO | None |
-| created_at | timestamp with time zone | YES | None |
-| updated_at | timestamp with time zone | YES | None |
-
-**Indexes:**
-
-- `queue_metrics_pkey`
-- `ix_queue_metrics_date_hour`
-- `ix_queue_metrics_metric_date`
-- `ix_queue_metrics_metric_hour`
-
----
-
-### queued_runs
-
-**Rows:** 1
-
-**Columns:**
-
-| Column | Type | Nullable | Default |
-|--------|------|----------|---------|
-| id | integer | NO | nextval('queued_runs_id_seq'::regclass) |
-| priority | USER-DEFINED | NO | None |
-| status | USER-DEFINED | NO | None |
-| scope_hash | character varying | NO | None |
-| triggered_by | character varying | NO | None |
-| scope_json | json | YES | None |
-| params_json | json | YES | None |
-| created_at | timestamp with time zone | YES | None |
-| started_at | timestamp with time zone | YES | None |
-| completed_at | timestamp with time zone | YES | None |
-| analysis_run_id | integer | YES | None |
-| error_message | character varying | YES | None |
-| queue_position | integer | NO | None |
-
-**Indexes:**
-
-- `queued_runs_pkey`
-- `ix_queued_runs_queue_position`
-- `ix_queued_runs_scope_hash`
-- `ix_queued_runs_status`
-
----
-
-### sources
-
-**Rows:** 38
-
-**Columns:**
-
-| Column | Type | Nullable | Default |
-|--------|------|----------|---------|
-| id | integer | NO | nextval('sources_id_seq'::regclass) |
-| name | character varying | NO | None |
-| type | USER-DEFINED | NO | None |
-| description | character varying | YES | None |
-| created_at | timestamp without time zone | NO | None |
-| updated_at | timestamp with time zone | YES | now() |
-
-**Indexes:**
-
-- `sources_pkey`
-- `ix_sources_name`
-
----
-
-### user_settings
-
-**Rows:** 1
-
-**Columns:**
-
-| Column | Type | Nullable | Default |
-|--------|------|----------|---------|
-| id | integer | NO | nextval('user_settings_id_seq'::regclass) |
-| default_limit | integer | NO | None |
-| default_rate_per_second | double precision | NO | None |
-| default_model_tag | character varying | NO | None |
-| default_dry_run | boolean | NO | None |
-| default_override_existing | boolean | NO | None |
-| extra_settings | json | YES | None |
-| created_at | timestamp without time zone | NO | None |
-| updated_at | timestamp without time zone | NO | None |
-| user_id | character varying | NO | None |
-
-**Indexes:**
-
-- `user_settings_pkey`
-- `ix_user_settings_user_id`
-
----
-
+**Last Updated**: 2025-09-24
+**Database Version**: PostgreSQL 14+
+**Schema Version**: v3.0.0-repository-migration
+**Documentation Version**: 1.0
