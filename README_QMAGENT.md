@@ -7,9 +7,9 @@ QMAgent ist die automatische Dokumentations-Überwachung für News MCP.
 ### 1. **QMAgent (Python)** - Erkennung
 - Überwacht Code-Änderungen
 - Identifiziert was dokumentiert werden muss
-- Erstellt Tasks für Claude Code Agent
+- Erstellt Tasks für Documentation Agent
 
-### 2. **Claude Code Agent** - Ausführung
+### 2. **Documentation Agent** - Ausführung
 - Liest QMAgent Tasks
 - Führt Dokumentations-Updates aus
 - Markiert Tasks als completed
@@ -31,12 +31,12 @@ python scripts/qmagent.py tasks
 python scripts/qmagent.py clear
 ```
 
-### Mit Claude Code
+### Mit Documentation Agent
 ```bash
 # 1. Prüfe QMAgent
 python scripts/qmagent.py check
 
-# 2. Wenn Tasks gefunden, führe sie mit Claude Code aus
+# 2. Wenn Tasks gefunden, führe sie mit Documentation Agent aus
 # (Die Tasks werden in .qmagent_tasks.json gespeichert)
 
 # 3. Nach Completion
@@ -55,9 +55,9 @@ python scripts/qmagent.py clear
 | `alembic/versions/` | MEDIUM | README.md, DEVELOPER_SETUP.md |
 | `pyproject.toml` | LOW | DEVELOPER_SETUP.md |
 
-## 🤖 **CLAUDE.md Integration**
+## 🤖 **Documentation Integration**
 
-QMAgent ist in CLAUDE.md integriert - Claude Code führt automatisch bei jeder Session aus:
+QMAgent kann mit Documentation Agents integriert werden - automatische Ausführung bei Sessions:
 
 1. `python scripts/qmagent.py check` (erkennt Änderungen)
 2. `python scripts/qmagent.py tasks` (zeigt was zu tun ist)
@@ -79,7 +79,7 @@ $ python scripts/qmagent.py tasks
 - **Repository Pattern changes detected** in `app/repositories/items_repo.py`
   📝 Update: README.md, DEVELOPER_SETUP.md, TESTING.md
 
-# Claude Code Agent führt die Updates aus
+# Documentation Agent führt die Updates aus
 # Danach:
 
 $ python scripts/qmagent.py clear
@@ -103,7 +103,7 @@ QMAgent ist speziell für die Repository Pattern Migration optimiert:
 ### Zero-Maintenance
 - Kein Daemon nötig
 - Läuft on-demand
-- Integriert in normale Claude Code Workflows
+- Integriert in normale Documentation Workflows
 
 ## 🚀 **Installation**
 

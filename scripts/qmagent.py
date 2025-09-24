@@ -3,7 +3,7 @@
 QMAgent - Quality Management Agent for News MCP
 
 A simple detection script that analyzes code changes and creates
-tasks for Claude Code Agent to execute documentation updates.
+tasks for Documentation Agent to execute documentation updates.
 """
 
 import os
@@ -18,7 +18,7 @@ from typing import List, Dict, Set
 sys.path.insert(0, '/home/cytrex/news-mcp')
 
 class QMAgent:
-    """Quality Management Agent - Detection and Task Creation for Claude Code."""
+    """Quality Management Agent - Detection and Task Creation for Documentation Agent."""
 
     def __init__(self, project_root: str = "/home/cytrex/news-mcp"):
         self.project_root = Path(project_root)
