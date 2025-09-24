@@ -73,6 +73,7 @@ sudo systemctl start news-mcp-web news-mcp-scheduler        # System services
 
 ### Access Points
 - Dashboard: `http://localhost:8000` or `${WEB_HOST}:${WEB_PORT}`
+- Analysis Control Center: `/admin/analysis` (integrated Articles + AI analysis)
 - Health Check: `/admin/health`
 - API Docs: `/docs`
 - HTTP MCP Server: `http://localhost:8001` (when using HTTP mode)
@@ -92,13 +93,14 @@ sudo systemctl start news-mcp-web news-mcp-scheduler        # System services
 - Automatic deduplication and quality filtering
 
 ### Enterprise Interface
-- **Modern Analysis Control Center** - Complete redesign with Bootstrap cards and Alpine.js
-- **Exclusive Selection System** - Radio button-based target selection with SET confirmation
-- **Real-time Statistics Dashboard** - Individual metric cards with live updates
-- **Dynamic Feed Selection** - HTMX-powered dropdown with item counts
-- **Smart Preview System** - Cost and duration estimation with filter logic
-- **HTMX-based Management** - Server-side rendering with partial updates
-- **Feature Flag System** - Safe deployment controls
+- **Integrated Analysis Control Center** - Complete redesign combining Articles and Analysis interfaces
+- **Live Article Selection System** - Real-time updates when changing analysis targets
+- **Horizontal Statistics Dashboard** - System metrics displayed in compact cards above content
+- **Target Selection with SET Buttons** - Instant preview and article filtering
+- **Dark Mode Optimization** - Full dark theme with proper text contrast throughout
+- **Model Selection with Pricing** - GPT models displayed with cost information
+- **HTMX-powered Live Updates** - Server-side rendering with seamless partial updates
+- **Navigation Integration** - Analysis accessible from main navbar with brain icon
 
 ### MCP Integration
 - **Dual-Mode MCP Server**: Both STDIO and HTTP protocols supported

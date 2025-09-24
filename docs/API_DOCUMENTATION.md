@@ -1,12 +1,25 @@
 # News MCP API Documentation
 
-Generated: 2025-09-23 21:12:49
+Generated: 2025-09-24
 
 ## Overview
 
 Base URL: `http://localhost:8000`
 
 OpenAPI Version: 3.1.0
+
+## New HTMX Analysis Endpoints
+
+### Analysis Control Center Integration
+The following endpoints support the new integrated Analysis Control Center with live article selection:
+
+- **GET /htmx/analysis/model-params** - Configure AI Model parameters with pricing information
+- **GET /htmx/analysis/target-selection** - Target Selection with SET buttons for live updates
+- **GET /htmx/analysis/preview-start** - Preview & Start analysis with cost estimation
+- **GET /htmx/analysis/articles-live** - Live Articles display that updates based on selection
+- **GET /htmx/analysis/stats-horizontal** - Horizontal statistics dashboard cards
+
+These endpoints enable real-time UI updates without page refreshes, supporting the integrated Articles + Analysis interface.
 
 
 ## Other

@@ -1,33 +1,49 @@
 # Analysis Control Interface Documentation
 
-**Version:** 3.2 - Complete Interface Redesign
+**Version:** 3.3 - Articles Integration & Dark Mode
 **Last Updated:** September 2025
-**Status:** ✅ Production Ready
+**Status:** ✅ Production Ready with Live Article Integration
 
 ## Overview
 
 The Analysis Control Interface serves as the central command center for managing AI-powered sentiment and impact analysis across the News MCP application. This interface has undergone a complete redesign implementing modern UI patterns and improved user experience.
 
-## Recent Major Changes (v3.2)
+## Recent Major Changes (v3.3)
 
-### 🎨 User Interface Redesign
+### 🔄 Articles Integration & Live Updates
 
-#### Statistics Display Transformation
-- **Before:** Simple text-based statistics
-- **After:** Individual Bootstrap cards with dedicated metrics
-- **Cards Include:** Items, Analyzed, Pending, Coverage, Positive, Neutral, Negative, Impact, Urgency
-- **Benefits:** Enhanced visual hierarchy and real-time data representation
+#### Complete Interface Integration
+- **Revolutionary Change:** Combined Articles and Analysis interfaces into single integrated experience
+- **Layout:** Horizontal statistics above two-column layout (Target Selection + Live Articles)
+- **Real-time Updates:** Article list updates instantly when analysis targets change
+- **Benefits:** Seamless workflow from target selection to content analysis
 
-#### Exclusive Selection System
-- **New Pattern:** Radio button-based exclusive selection for main selectors
+#### Live Article Selection System
+- **Target Selection:** Radio-based selection with SET buttons for immediate activation
+- **Live Updates:** Articles panel refreshes automatically when targets change
 - **Options Available:**
-  - **Latest Articles:** Configurable count with input field
-  - **Time Range:** Days and hours with precise controls
-  - **Unanalyzed Only:** All articles missing analysis
-- **SET Button Pattern:** Each selection requires explicit activation via SET button
+  - **Latest Articles:** Configurable count (1-500) with instant article display
+  - **All Articles:** Shows complete unanalyzed article set
+  - **Feed Selection:** Dynamic dropdown with live feed counts
+  - **Date Range:** Precise date filtering with article preview
+- **Clear Selection:** Reset button returns to showing all articles
 
-#### Feed Selection Enhancement
-- **Dynamic Loading:** HTMX-powered dropdown with live feed data
+#### Horizontal Statistics Dashboard
+- **Compact Layout:** Six metric cards displayed horizontally above content
+- **Auto-refresh:** Statistics update every 30 seconds automatically
+- **Dark Mode Optimized:** All text now properly visible with `text-light` labels
+- **Metrics:** Total Items, Analyzed, Pending, Active Feeds, 24h New, Coverage percentage
+
+#### Model Selection with Pricing
+- **Complete Model List:** All available GPT models with real-time pricing
+- **Featured Models:** GPT-4.1-nano ($0.20/$0.80), GPT-4o-mini ($0.25/$1.00), GPT-5-mini ($0.45/$3.60)
+- **Default Selection:** GPT-4.1-nano selected for cost optimization
+- **Price Display:** Input/output costs shown directly in dropdown options
+
+#### Navigation Integration
+- **Main Navbar:** Analysis accessible via brain icon in main navigation
+- **Consistent UI:** Analysis page now includes full site navigation
+- **Mobile Support:** Responsive navigation with hamburger menu
 - **Smart Display:** Truncated titles for better UX
 - **Item Counts:** Shows analyzed vs unanalyzed items per feed
 

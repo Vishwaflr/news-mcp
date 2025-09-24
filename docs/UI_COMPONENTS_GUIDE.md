@@ -1,8 +1,8 @@
 # UI Components Guide - News MCP
 
-**Version:** 3.2 - Modern Component Architecture
+**Version:** 3.3 - Dark Mode Integration & Live Updates
 **Last Updated:** September 2025
-**Framework:** Bootstrap 5 + Alpine.js + HTMX
+**Framework:** Bootstrap 5 + Alpine.js + HTMX + Dark Mode Optimization
 
 ## Overview
 
@@ -21,37 +21,86 @@ This guide documents the UI component patterns and design system used throughout
 2. **Progressive Enhancement:** Works without JavaScript
 3. **Accessibility First:** WCAG AA compliance
 4. **Mobile Responsive:** Mobile-first design approach
+5. **Dark Mode First:** Optimized for dark theme with proper contrast
+6. **Live Updates:** HTMX-powered real-time UI refreshes
 
 ## Core Component Patterns
 
 ### 1. Statistics Cards
 
-#### Implementation
+#### Dark Mode Implementation
 ```html
-<div class="card border-0 bg-light">
-    <div class="card-body p-2 text-center">
-        <div style="font-size: 0.9rem; font-weight: bold;" class="text-primary">1,234</div>
-        <div style="font-size: 0.75rem;" class="text-muted">Items</div>
+<div class="card bg-dark border-info text-center">
+    <div class="card-body py-3">
+        <h4 class="text-info mb-1">7,421</h4>
+        <small class="text-light">Total Items</small>
     </div>
 </div>
 ```
 
-#### CSS Classes
-- `border-0`: Removes default Bootstrap border
-- `bg-light`: Light background for subtle elevation
-- `p-2`: Compact padding for dense layouts
+#### CSS Classes (Dark Mode Optimized)
+- `bg-dark`: Dark background for consistent theming
+- `border-info`: Colored borders for visual hierarchy
 - `text-center`: Center-aligned content
-- `text-primary`: Brand color for values
-- `text-muted`: Subdued color for labels
+- `text-info`/`text-success`/`text-warning`: Semantic colors for values
+- `text-light`: High contrast white text for labels (NOT text-muted)
+- `py-3`: Vertical padding for proper spacing
 
-#### Variants
+#### Variants & Dark Mode Best Practices
 ```html
 <!-- Success State -->
-<div class="text-success">2,456</div>
-<div class="text-muted">Analyzed</div>
+<div class="card bg-dark border-success text-center">
+    <div class="card-body py-3">
+        <h4 class="text-success mb-1">2,674</h4>
+        <small class="text-light">Analyzed</small>
+    </div>
+</div>
 
 <!-- Warning State -->
-<div class="text-warning">123</div>
+<div class="card bg-dark border-warning text-center">
+    <div class="card-body py-3">
+        <h4 class="text-warning mb-1">4,747</h4>
+        <small class="text-light">Pending</small>
+    </div>
+</div>
+```
+
+#### Critical Dark Mode Rules
+- **NEVER use `text-muted`** - it's unreadable on dark backgrounds
+- **ALWAYS use `text-light`** for secondary text/labels
+- **Use semantic colors** for values: `text-info`, `text-success`, `text-warning`, `text-primary`
+- **Container must be `bg-dark`** with appropriate border colors
+
+### 2. HTMX Live Update Components
+
+#### Live Articles List
+```html
+<div id="articles-live"
+     hx-get="/htmx/analysis/articles-live"
+     hx-trigger="load"
+     hx-swap="innerHTML">
+    <!-- Loading state -->
+    <div class="spinner-border text-primary" role="status"></div>
+</div>
+```
+
+#### Statistics with Auto-Refresh
+```html
+<div id="stats-horizontal"
+     hx-get="/htmx/analysis/stats-horizontal"
+     hx-trigger="load, every 30s"
+     hx-swap="innerHTML">
+    <!-- Auto-refreshes every 30 seconds -->
+</div>
+```
+
+#### SET Button Integration
+```html
+<button class="btn btn-success btn-sm"
+        onclick="updateLiveArticles('latest', 50)">
+    SET Latest 50
+</button>
+```
 <div class="text-muted">Pending</div>
 
 <!-- Danger State -->
