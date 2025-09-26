@@ -1,11 +1,12 @@
 # Entity Relationship Diagram (Mermaid)
 
-Generated: 2025-09-23 21:12:50
+Generated: 2025-09-26 19:00:20
 
 ```mermaid
 erDiagram
     analysis_run_items ||--o{ items : has
     analysis_run_items ||--o{ analysis_runs : has
+    analysis_runs ||--o{ preview_jobs : has
     content_processing_logs ||--o{ feeds : has
     content_processing_logs ||--o{ items : has
     feed_categories ||--o{ categories : has
@@ -26,6 +27,7 @@ erDiagram
     item_analysis ||--o{ items : has
     item_tags ||--o{ items : has
     items ||--o{ feeds : has
+    preview_jobs ||--o{ analysis_runs : has
 
     alembic_version {
         character version_num
@@ -219,6 +221,15 @@ erDiagram
         character link
         character description
         character content
+        string more_columns
+    }
+
+    preview_jobs {
+        character id
+        character status
+        timestamp created_at
+        timestamp updated_at
+        character selection_mode
         string more_columns
     }
 

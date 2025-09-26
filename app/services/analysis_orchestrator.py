@@ -228,7 +228,8 @@ class AnalysisOrchestrator:
         # Check if all items are processed
         if metrics["queued_count"] == 0 and metrics["processing_count"] == 0:
             if metrics["total_count"] > 0:
-                # Run is completed
+                # Run is completed - update counts before status
+                self._sync_run_counts(run_id)
                 self.queue_repo.update_run_status(run_id, "completed")
                 logger.info(f"Run {run_id} completed: {metrics['completed_count']}/{metrics['total_count']} items processed")
                 return True
@@ -239,6 +240,30 @@ class AnalysisOrchestrator:
                 return True
 
         return False
+
+    def _sync_run_counts(self, run_id: int) -> None:
+        """Synchronize run counts from analysis_run_items to analysis_runs"""
+        from sqlmodel import Session, text
+        from app.database import engine
+
+        with Session(engine) as session:
+            query = text("""
+                UPDATE analysis_runs
+                SET
+                    processed_count = (
+                        SELECT COUNT(*)
+                        FROM analysis_run_items
+                        WHERE run_id = :run_id AND state = 'completed'
+                    ),
+                    failed_count = (
+                        SELECT COUNT(*)
+                        FROM analysis_run_items
+                        WHERE run_id = :run_id AND state = 'failed'
+                    )
+                WHERE id = :run_id
+            """)
+            session.execute(query, {"run_id": run_id})
+            session.commit()
 
     def reset_stale_items(self, stale_seconds: int = 300) -> int:
         """Reset stale processing items back to queued"""

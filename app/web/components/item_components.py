@@ -53,11 +53,16 @@ class ItemComponent(BaseComponent):
         # Compact display (always visible)
         compact_html = f"""
         <div class="sentiment-analysis mb-2">
-            <div class="d-flex align-items-center gap-2 sentiment-compact" style="cursor: pointer;" onclick="toggleSentimentDetails(this)">
-                <span class="sentiment-icon">{icon}</span>
-                <span class="badge bg-{color}">{score:.1f}</span>
-                <span class="badge bg-warning">⚡ {urgency:.1f}</span>
-                <span class="badge bg-info">📊 {impact_overall:.1f}</span>
+            <div class="d-flex align-items-center gap-2 sentiment-compact flex-wrap" style="cursor: pointer;" onclick="toggleSentimentDetails(this)">
+                <span class="badge bg-{color}">
+                    {icon} Sentiment: {score:.1f}
+                </span>
+                <span class="badge bg-warning">
+                    ⏰ Urgency: {urgency:.1f}
+                </span>
+                <span class="badge bg-info">
+                    ⚡ Impact: {impact_overall:.1f}
+                </span>
                 <small class="text-muted">Details ⌄</small>
             </div>
     """

@@ -1,14 +1,47 @@
 # Analysis Control Interface Documentation
 
-**Version:** 3.3 - Articles Integration & Dark Mode
-**Last Updated:** September 2025
-**Status:** ✅ Production Ready with Live Article Integration
+**Version:** 3.4 - Live Progress Tracking & Dark Mode Fixes
+**Last Updated:** September 26, 2025
+**Status:** ✅ Production Ready with Real-time Progress & Enhanced UX
 
 ## Overview
 
 The Analysis Control Interface serves as the central command center for managing AI-powered sentiment and impact analysis across the News MCP application. This interface has undergone a complete redesign implementing modern UI patterns and improved user experience.
 
-## Recent Major Changes (v3.3)
+## Recent Major Changes (v3.4 - September 26, 2025)
+
+### 🎯 Live Progress Tracking System
+- **Real-time Updates**: Progress now reads directly from `analysis_run_items` table for accurate tracking
+- **Auto-completion**: Analysis runs automatically complete when all items finish processing
+- **Live Metrics**: Shows actual processed/total counts during run execution
+- **Status Polling**: Frontend polls every 3 seconds to detect completion
+- **Smart Reset**: Job status automatically clears 5 seconds after completion
+
+### 🌙 Dark Mode Styling Enhancements
+- **Improved Text Contrast**: All text now properly visible in dark theme
+  - Headers: `#e9ecef` (bright white)
+  - Main text: `#dee2e6` (light gray)
+  - Secondary text: `#adb5bd` (medium gray)
+- **Enhanced Progress Bars**: 24px height with better visibility
+- **Card Backgrounds**: Consistent `rgba(255,255,255,0.05)` transparency
+- **Border Improvements**: Subtle borders for better element separation
+
+### 📊 Sentiment Analysis Display Improvements
+- **Consistent Symbol Usage**:
+  - `⚪ Sentiment: 0.2` (Overall sentiment score)
+  - `⏰ Urgency: 0.7` (Time-critical importance)
+  - `⚡ Impact: 0.4` (Market/relevance impact)
+- **Clear Labeling**: All badges now include descriptive text
+- **Symbol Standardization**: Unified across compact and detailed views
+- **Better Readability**: Improved spacing and typography
+
+### 🔧 Technical Fixes
+- **Worker Auto-completion**: Fixed `session.exec()` → `session.execute()` API issue
+- **Database Synchronization**: Proper counts sync between `analysis_runs` and `analysis_run_items`
+- **Route Optimization**: Corrected duplicate `/htmx` prefix in analysis routes
+- **Error Handling**: Enhanced error reporting for failed runs
+
+## Previous Major Changes (v3.3)
 
 ### 🔄 Articles Integration & Live Updates
 

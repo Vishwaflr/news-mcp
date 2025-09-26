@@ -55,10 +55,11 @@ alembic upgrade head
 - Batch processing with rate limiting
 
 ### 🎯 Advanced Analysis Control
-- **Unified Interface** - Combined Articles + Analysis dashboard
-- **Real-time Preview** - Live updates when changing targets
+- **Unified Interface** - Combined Articles + Analysis dashboard with live progress tracking
+- **Real-time Progress** - Live run status with auto-completion detection
 - **Smart Selection** - Time range, feed-based, or specific article targeting
-- **Progress Tracking** - Visual progress bars with ETA calculations
+- **Enhanced Dark Mode** - Improved text contrast and visual consistency
+- **Sentiment Display** - Clear labeled badges: ⚪ Sentiment, ⏰ Urgency, ⚡ Impact
 
 ### 🏗️ Enterprise Architecture
 - **Repository Pattern** - Clean, maintainable codebase

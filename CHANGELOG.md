@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.0] - 2025-09-26
+
+### Added
+- **Live Progress Tracking System**: Real-time analysis run progress with auto-completion
+- **Enhanced Dark Mode Support**: Improved text contrast and visual consistency
+- **Sentiment Analysis Labels**: Clear badges with descriptive text for all metrics
+- **Status Polling**: Frontend polls every 3 seconds for completion detection
+- **Smart Reset**: Automatic job status clearing after completion
+
+### Changed
+- **Progress Display**: Now reads directly from `analysis_run_items` for accuracy
+- **Symbol Standardization**: Consistent use of ⚪ (sentiment), ⏰ (urgency), ⚡ (impact)
+- **Text Colors**: Enhanced contrast with proper dark mode color scheme
+- **Progress Bars**: Increased to 24px height for better visibility
+
+### Fixed
+- **Worker Auto-completion**: Fixed `session.exec()` → `session.execute()` API issue
+- **Database Synchronization**: Proper counts sync between analysis tables
+- **Route Optimization**: Corrected duplicate `/htmx` prefix in analysis routes
+- **Error Handling**: Enhanced error reporting for failed runs
+
 ## [Unreleased]
 
 ### Added
