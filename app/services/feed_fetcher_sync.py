@@ -8,7 +8,7 @@ import hashlib
 from app.core.logging_config import get_logger
 from datetime import datetime
 from sqlmodel import Session, select
-from app.models import Feed, Item, FetchLog, FeedHealth, FeedStatus
+from app.models import Feed, Item, FetchLog, FeedHealth, FeedStatus, PendingAutoAnalysis
 from app.processors.manager import ContentProcessingManager
 from app.services.dynamic_template_manager import get_dynamic_template_manager
 
@@ -152,22 +152,7 @@ class SyncFeedFetcher:
 
             # Trigger auto-analysis if enabled and new items exist
             if new_item_ids and items_new > 0:
-                try:
-                    import asyncio
-                    from app.services.auto_analysis_service import AutoAnalysisService
-                    auto_analysis = AutoAnalysisService()
-                    # Use create_task to avoid asyncio.run() in running event loop
-                    try:
-                        loop = asyncio.get_running_loop()
-                        # We're in an async context, create task for later execution
-                        task = loop.create_task(auto_analysis.trigger_feed_auto_analysis(feed_id, new_item_ids))
-                        # Don't await here to avoid blocking sync context
-                        logger.info(f"Scheduled auto-analysis task for feed {feed_id} with {len(new_item_ids)} items")
-                    except RuntimeError:
-                        # No running event loop, skip auto-analysis (sync context)
-                        logger.info(f"No event loop available for auto-analysis of feed {feed_id}, skipping")
-                except Exception as e:
-                    logger.error(f"Failed to trigger auto-analysis for feed {feed_id}: {e}")
+                self._trigger_auto_analysis_sync(feed_id, new_item_ids)
 
             # Update log
             with Session(engine) as log_session:
@@ -212,6 +197,42 @@ class SyncFeedFetcher:
 
             self._update_health_sync(feed_id, False)
             return False, 0
+
+    def _trigger_auto_analysis_sync(self, feed_id: int, new_item_ids: list[int]):
+        """
+        Synchronous auto-analysis trigger via database queue.
+
+        This method queues auto-analysis jobs without requiring an async context.
+        The analysis worker will pick up pending jobs from the queue.
+        """
+        try:
+            from app.database import engine
+
+            with Session(engine) as session:
+                feed = session.get(Feed, feed_id)
+                if not feed or not feed.auto_analyze_enabled:
+                    logger.debug(f"Feed {feed_id} does not have auto-analysis enabled")
+                    return
+
+                max_items_per_run = 50
+                items_to_analyze = new_item_ids[:max_items_per_run]
+
+                if len(new_item_ids) > max_items_per_run:
+                    logger.info(f"Limiting auto-analysis for feed {feed_id} to {max_items_per_run} items (had {len(new_item_ids)})")
+
+                pending_run = PendingAutoAnalysis(
+                    feed_id=feed_id,
+                    item_ids=items_to_analyze,
+                    status="pending",
+                    created_at=datetime.utcnow()
+                )
+                session.add(pending_run)
+                session.commit()
+
+                logger.info(f"Queued auto-analysis for feed {feed_id} with {len(items_to_analyze)} items (queue id: {pending_run.id})")
+
+        except Exception as e:
+            logger.error(f"Failed to queue auto-analysis for feed {feed_id}: {e}")
 
     def _update_health_sync(self, feed_id: int, success: bool):
         """Update feed health synchronously"""

@@ -59,6 +59,11 @@ from .analysis import (
     AnalysisPreset,
 )
 
+# Import auto-analysis models
+from .auto_analysis import (
+    PendingAutoAnalysis,
+)
+
 # Export all models
 __all__ = [
     # Base classes and enums
@@ -103,4 +108,7 @@ __all__ = [
     "AnalysisRun",
     "AnalysisRunItem",
     "AnalysisPreset",
+
+    # Auto-analysis models
+    "PendingAutoAnalysis",
 ]

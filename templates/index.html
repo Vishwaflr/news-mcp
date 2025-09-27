@@ -97,9 +97,29 @@
         </div>
     </div>
 
-    <!-- Quick Stats Summary -->
-    <div class="row">
-        <div class="col-12">
+    <!-- Auto-Analysis Dashboard & System Overview -->
+    <div class="row g-4">
+        <!-- Auto-Analysis Widget -->
+        <div class="col-lg-4">
+            <div id="auto-analysis-dashboard"
+                 hx-get="/htmx/auto-analysis-dashboard"
+                 hx-trigger="load, every 10s"
+                 hx-swap="innerHTML">
+                <!-- Loading skeleton -->
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-center py-5">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Overview -->
+        <div class="col-lg-8">
             <div class="nmc-card">
                 <div class="card-body py-lg px-lg">
                     <div class="d-flex justify-content-between align-items-center mb-lg">

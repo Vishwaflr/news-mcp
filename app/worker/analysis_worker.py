@@ -21,6 +21,7 @@ from app.core.logging_config import get_logger, setup_logging
 
 from app.services.analysis_orchestrator import AnalysisOrchestrator
 from app.services.queue_processor import get_queue_processor
+from app.services.pending_analysis_processor import PendingAnalysisProcessor
 from app.domain.analysis.control import MODEL_PRICING
 from app.utils.feature_flags import feature_flags
 
@@ -35,6 +36,7 @@ class AnalysisWorker:
         self.running = True
         self.orchestrator = None
         self.queue_processor = None
+        self.pending_processor = None
         self.use_repository = False
         self.last_feature_flag_check = 0
         self._setup_signal_handlers()
@@ -78,6 +80,9 @@ class AnalysisWorker:
 
             # Initialize queue processor
             self.queue_processor = get_queue_processor()
+
+            # Initialize pending analysis processor
+            self.pending_processor = PendingAnalysisProcessor()
 
             # Reset stale items on startup if configured
             if self.config['reset_stale_on_start']:
@@ -131,7 +136,17 @@ class AnalysisWorker:
         work_done = False
 
         try:
-            # First, try to process queued runs (start new runs from queue)
+            # First, process pending auto-analysis jobs
+            if self.pending_processor:
+                try:
+                    pending_processed = asyncio.run(self.pending_processor.process_pending_queue())
+                    if pending_processed > 0:
+                        logger.info(f"Processed {pending_processed} pending auto-analysis jobs")
+                        work_done = True
+                except Exception as e:
+                    logger.error(f"Error processing pending auto-analysis: {e}")
+
+            # Second, try to process queued runs (start new runs from queue)
             if self.queue_processor:
                 try:
                     # Use asyncio.run for cleaner async execution in sync context

@@ -47,6 +47,26 @@ def fetch_feed_now_htmx(feed_id: int, session: Session = Depends(get_session)):
         logger.error(f"Error in HTMX feed fetch: {e}")
         return f'<div class="alert alert-danger">❌ Error: {str(e)}</div>'
 
+@router.post("/feed-toggle-auto-analysis/{feed_id}", response_class=HTMLResponse)
+def toggle_feed_auto_analysis(feed_id: int, session: Session = Depends(get_session)):
+    """HTMX endpoint to toggle auto-analysis for a feed"""
+    try:
+        feed = session.get(Feed, feed_id)
+        if not feed:
+            return '<div class="alert alert-danger">Feed not found</div>'
+
+        feed.auto_analyze_enabled = not feed.auto_analyze_enabled
+        session.commit()
+        session.refresh(feed)
+
+        logger.info(f"Toggled auto-analysis for feed {feed_id} to {feed.auto_analyze_enabled}")
+
+        return get_feeds_list(session)
+
+    except Exception as e:
+        logger.error(f"Error toggling auto-analysis: {e}")
+        return f'<div class="alert alert-danger">❌ Error: {str(e)}</div>'
+
 @router.get("/feeds-list", response_class=HTMLResponse)
 def get_feeds_list(
     session: Session = Depends(get_session),
@@ -228,6 +248,7 @@ def get_feeds_list(
                             <span class="badge bg-{status_badge} ms-2">{feed.status.value}</span>
                             {f'<span class="badge bg-info ms-1">{article_count} Articles</span>' if has_articles else '<span class="badge bg-warning ms-1">No Articles</span>'}
                             {f'<span class="badge bg-primary ms-1">{analysis_count} Analyzed</span>' if analysis_count > 0 else f'<span class="badge bg-secondary ms-1">0 Analyzed</span>' if has_articles else ''}
+                            {'<span class="badge bg-success ms-1" title="Auto-Analysis aktiv"><i class="bi bi-robot"></i> Auto</span>' if feed.auto_analyze_enabled else '<span class="badge bg-secondary ms-1" title="Auto-Analysis deaktiviert"><i class="bi bi-robot"></i> Manual</span>'}
                             {category_badges}
                         </h6>
                         <p class="card-text small text-muted mb-1">
@@ -241,12 +262,13 @@ def get_feeds_list(
                         <div id="fetch-status-{feed.id}"></div>
                         {analysis_info}
                     </div>
-                    <div class="btn-group">
-                        <button class="btn btn-sm btn-outline-primary"
-                                hx-get="/htmx/feed-health/{feed.id}"
-                                hx-target="#health-modal-content"
-                                data-bs-toggle="modal"
-                                data-bs-target="#healthModal">
+                    <div class="btn-group-vertical">
+                        <div class="btn-group mb-1">
+                            <button class="btn btn-sm btn-outline-primary"
+                                    hx-get="/htmx/feed-health/{feed.id}"
+                                    hx-target="#health-modal-content"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#healthModal">
                             <i class="bi bi-heart-pulse"></i>
                         </button>
                         <button class="btn btn-sm btn-outline-secondary"
@@ -269,6 +291,14 @@ def get_feeds_list(
                                 hx-target="#feeds-list"
                                 hx-confirm="Really delete feed?">
                             <i class="bi bi-trash"></i>
+                        </button>
+                        </div>
+                        <button class="btn btn-sm {'btn-success' if feed.auto_analyze_enabled else 'btn-outline-secondary'}"
+                                hx-post="/htmx/feed-toggle-auto-analysis/{feed.id}"
+                                hx-target="closest .card"
+                                hx-swap="outerHTML"
+                                title="{'Deaktiviere' if feed.auto_analyze_enabled else 'Aktiviere'} Auto-Analysis">
+                            <i class="bi bi-robot"></i> {'ON' if feed.auto_analyze_enabled else 'OFF'}
                         </button>
                     </div>
                 </div>
