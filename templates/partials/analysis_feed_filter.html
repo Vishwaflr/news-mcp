@@ -1,0 +1,50 @@
+<!-- Feed Filter Component (part of Target Selection) -->
+<div class="feed-filter-panel mt-3 p-3 bg-dark rounded">
+    <h6 class="text-white mb-3">📰 Feed Filter (Optional)</h6>
+    <div class="row align-items-end">
+        <div class="col-md-8">
+            <div class="form-check mb-2">
+                <input class="form-check-input"
+                       type="checkbox"
+                       id="useFeedFilter"
+                       x-model="uiInput.useFeedFilter"
+                       @change="if (!uiInput.useFeedFilter) { uiInput.selectedFeedId = ''; }">
+                <label class="form-check-label text-white" for="useFeedFilter">
+                    Limit to specific feed
+                </label>
+            </div>
+            <select class="form-select bg-secondary text-white border-secondary"
+                    x-model="uiInput.selectedFeedId"
+                    :disabled="!uiInput.useFeedFilter">
+                <option value="">Select a feed...</option>
+                <template x-for="feed in availableFeeds" :key="feed.id">
+                    <option :value="feed.id" x-text="feed.title"></option>
+                </template>
+            </select>
+            <small class="text-muted mt-1 d-block" x-show="uiInput.useFeedFilter && uiInput.selectedFeedId">
+                Selection will be limited to articles from this feed only
+            </small>
+        </div>
+        <div class="col-md-4">
+            <button type="button"
+                    class="btn btn-sm btn-primary w-100"
+                    @click="applyFeedFilter()"
+                    :disabled="uiInput.useFeedFilter && !uiInput.selectedFeedId">
+                ✅ Apply Feed Filter
+            </button>
+            <button type="button"
+                    class="btn btn-sm btn-outline-secondary w-100 mt-2"
+                    @click="clearFeedFilter()"
+                    x-show="futureRun.selection.feed_id">
+                🗑️ Clear Filter
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+.feed-filter-panel {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background-color: rgba(0, 0, 0, 0.3) !important;
+}
+</style>

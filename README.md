@@ -1,300 +1,578 @@
-# News MCP - Enterprise RSS Management & AI Analysis Platform
+# News MCP - Enterprise RSS Aggregation with AI Analysis
 
-**Dynamic RSS + AI Analysis + MCP Integration (PostgreSQL, FastAPI, HTMX)**
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg)](https://fastapi.tiangolo.com/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-blue.svg)](https://www.postgresql.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Enterprise-grade RSS feed aggregation system with intelligent content processing, real-time analysis, and MCP (Model Context Protocol) compatibility for seamless AI integration.
+News MCP ist ein enterprise-grade RSS-Aggregationssystem mit integrierter KI-Analyse. Das System sammelt, verarbeitet und analysiert Nachrichtenartikel aus verschiedenen RSS-Feeds und bietet ein modernes Web-Interface für das Management und die Analyse.
 
-## 🚀 Quick Start
+## 🚀 Features
 
-### System Requirements
-- **Python**: 3.11+
-- **Database**: PostgreSQL 14+
-- **Memory**: 2GB+ RAM recommended
-- **OS**: Linux/macOS/Windows
+### Core Funktionalitäten
+- **RSS Feed Management**: Automatische Erfassung und Verarbeitung von RSS-Feeds
+- **KI-Powered Analysis**: Sentiment-Analyse und Kategorisierung mit OpenAI GPT
+- **Real-time Dashboard**: Live-Monitoring von Feed-Status und Analyse-Runs
+- **Advanced Analytics**: Detaillierte Statistiken und Performance-Metriken
+- **Template System**: Dynamische Feed-Templates für flexible Konfiguration
 
-### Installation
+### Technical Features
+- **Async Processing**: Hochperformante asynchrone Verarbeitung
+- **Queue Management**: Intelligente Job-Queue mit Rate-Limiting
+- **Centralized Caching**: In-Memory Selection Cache für optimierte Performance
+- **Modular Architecture**: Saubere Trennung von API, Services und Views
+- **Dark Mode UI**: Moderne, responsive Web-Oberfläche
+
+## 📋 Inhaltsverzeichnis
+
+- [Installation](#installation)
+- [Konfiguration](#konfiguration)
+- [API Dokumentation](#api-dokumentation)
+- [Datenbank Schema](#datenbank-schema)
+- [Deployment](#deployment)
+- [Entwicklung](#entwicklung)
+- [Architektur](#architektur)
+
+## 🛠 Installation
+
+### Voraussetzungen
 
 ```bash
-# Clone and setup
-git clone <repository-url>
-cd news-mcp
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements.txt
+# System-Requirements
+- Python 3.9+
+- PostgreSQL 15+
+- Redis (optional, für erweiterte Caching-Features)
+- Git
 
-# Database setup
-cp .env.example .env  # Configure your database settings
+# Ubuntu/Debian
+sudo apt update
+sudo apt install python3 python3-pip postgresql postgresql-contrib git
+
+# macOS
+brew install python postgresql git
+```
+
+### Setup
+
+1. **Repository klonen**
+```bash
+git clone https://github.com/your-org/news-mcp.git
+cd news-mcp
+```
+
+2. **Virtual Environment erstellen**
+```bash
+python3 -m venv venv
+source venv/bin/activate  # Linux/macOS
+# oder: venv\Scripts\activate  # Windows
+```
+
+3. **Dependencies installieren**
+```bash
+pip install -r requirements.txt
+```
+
+4. **Datenbank Setup**
+```bash
+# PostgreSQL User und Database erstellen
+sudo -u postgres psql
+CREATE USER news_user WITH PASSWORD 'news_password';
+CREATE DATABASE news_db OWNER news_user;
+GRANT ALL PRIVILEGES ON DATABASE news_db TO news_user;
+\q
+
+# Environment Variables setzen
+export PGPASSWORD=news_password
+export DATABASE_URL="postgresql://news_user:news_password@localhost/news_db"
+```
+
+5. **Datenbank initialisieren**
+```bash
+# Alembic Migrations
 alembic upgrade head
 
-# Start services (production-ready scripts)
-./scripts/start-web-server.sh      # Web UI (http://localhost:8000)
-./scripts/start-worker.sh          # Background analysis worker
-./scripts/start-scheduler.sh       # Feed fetching scheduler
-./scripts/start_mcp_server.sh      # MCP server for AI integration
+# Oder direkte Schema-Erstellung
+python -c "from app.database import create_tables; create_tables()"
 ```
 
-### Access Points
-- 🌐 **Dashboard**: http://localhost:8000
-- 📊 **Analysis Control**: http://localhost:8000/admin/analysis
-- 🔍 **API Documentation**: http://localhost:8000/docs
-- ⚕️ **Health Check**: http://localhost:8000/admin/health
-- 🤖 **MCP Server**: stdio (default) or HTTP mode
-
-## ✨ Key Features
-
-### 📰 Dynamic Feed Management
-- **37 Active Feeds** with 100% success rate
-- Dynamic template system for content extraction
-- Health monitoring with automatic retry logic
-- Real-time feed status dashboard
-
-### 🧠 AI-Powered Analysis
-- **GPT-4.1-nano** integration for content analysis
-- Sentiment analysis and impact scoring
-- ~30 articles/minute processing throughput
-- Batch processing with rate limiting
-
-### 🎯 Advanced Analysis Control
-- **Unified Interface** - Combined Articles + Analysis dashboard with live progress tracking
-- **Real-time Progress** - Live run status with auto-completion detection
-- **Smart Selection** - Time range, feed-based, or specific article targeting
-- **Enhanced Dark Mode** - Improved text contrast and visual consistency
-- **Sentiment Display** - Clear labeled badges: ⚪ Sentiment, ⏰ Urgency, ⚡ Impact
-
-### 🏗️ Enterprise Architecture
-- **Repository Pattern** - Clean, maintainable codebase
-- **Feature Flags** - Controlled rollout of new features
-- **HTMX Integration** - Dynamic UI updates without full page reloads
-- **PostgreSQL** - Robust data persistence with full ACID compliance
-
-## 📚 Documentation
-
-### Core Documentation
-- [🏗️ Architecture Guide](./docs/ARCHITECTURE.md) - System design and patterns
-- [🗄️ Database Schema](./docs/DATABASE_SCHEMA.md) - Complete schema documentation
-- [🚀 API Reference](./docs/API_DOCUMENTATION.md) - REST API endpoints
-- [⚙️ Configuration Guide](./docs/CONFIGURATION.md) - Environment setup
-
-### Operational Guides
-- [📋 Deployment Guide](./docs/DEPLOYMENT.md) - Production deployment
-- [🔧 Developer Setup](./docs/DEVELOPER_SETUP.md) - Development environment
-- [🧪 Testing Guide](./docs/TESTING.md) - Testing procedures
-- [📈 Monitoring Guide](./docs/MONITORING.md) - Performance monitoring
-
-### Integration Guides
-- [🤖 MCP Integration](./docs/MCP_INTEGRATION.md) - Model Context Protocol setup
-- [🔌 Open WebUI Setup](./docs/OPEN_WEBUI_INTEGRATION.md) - WebUI integration
-- [📊 Analytics Setup](./docs/ANALYTICS.md) - Analytics configuration
-
-## 🏛️ Architecture Overview
-
-```mermaid
-graph TB
-    Client[Web Client] --> FastAPI[FastAPI Server]
-    Client --> HTMX[HTMX Endpoints]
-
-    FastAPI --> Repos[Repository Layer]
-    HTMX --> Repos
-
-    Repos --> DB[(PostgreSQL)]
-
-    Worker[Analysis Worker] --> Queue[Task Queue]
-    Worker --> AI[AI Services<br/>GPT-4.1-nano]
-    Worker --> DB
-
-    Scheduler[Feed Scheduler] --> Feeds[RSS Feeds]
-    Scheduler --> DB
-
-    MCP[MCP Server] --> Repos
-    MCP --> AI
-```
-
-### Key Components
-
-| Component | Purpose | Status |
-|-----------|---------|--------|
-| **Web Server** | FastAPI + HTMX UI | 🟢 Production Ready |
-| **Analysis Worker** | Background AI processing | 🟢 Production Ready |
-| **Feed Scheduler** | RSS feed fetching | 🟢 Production Ready |
-| **MCP Server** | AI model integration | 🟢 Production Ready |
-| **Database** | PostgreSQL with migrations | 🟢 Production Ready |
-
-## 📊 System Metrics
-
-| Metric | Current Value | Status |
-|--------|---------------|---------|
-| **Feed Success Rate** | 100% (37/37 active) | 🟢 Excellent |
-| **Analysis Throughput** | ~30 items/minute | 🟢 Optimal |
-| **Database Response** | <100ms average | 🟢 Fast |
-| **Worker Error Rate** | 0% | 🟢 Stable |
-| **Uptime** | 99.9%+ | 🟢 Reliable |
-| **Code Coverage** | 85%+ | 🟢 Well-tested |
-
-## 🗄️ Database Schema
-
-### Core Tables
-- **feeds** - RSS feed configuration and status
-- **items** - Individual news articles
-- **analysis_runs** - AI analysis job tracking
-- **analysis_run_items** - Individual analysis tasks
-- **dynamic_feed_templates** - Content extraction templates
-- **feed_health** - Feed monitoring and health checks
-
-### Analysis System
-- **analysis_presets** - Saved analysis configurations
-- **categories** - Article categorization
-- **content_processing_logs** - Processing audit trail
-
-[Complete Schema Documentation →](./docs/DATABASE_SCHEMA.md)
-
-## 🔧 API Endpoints
-
-### Core Feed Management
-```http
-GET    /api/feeds                    # List all feeds
-POST   /api/feeds                    # Create new feed
-PUT    /api/feeds/{id}              # Update feed
-DELETE /api/feeds/{id}              # Delete feed
-GET    /api/feeds/{id}/health       # Feed health status
-```
-
-### Content & Analysis
-```http
-GET    /api/items                    # List articles
-GET    /api/items/{id}              # Get specific article
-POST   /api/analysis/preview        # Preview analysis scope
-POST   /api/analysis/jobs           # Start analysis job
-GET    /api/analysis/jobs/{id}      # Get job status
-```
-
-### System Management
-```http
-GET    /api/health                   # System health
-GET    /api/metrics                  # Performance metrics
-GET    /api/statistics              # Usage statistics
-```
-
-[Complete API Documentation →](./docs/API_DOCUMENTATION.md)
-
-## 🏃‍♂️ Running in Production
-
-### Using System Services
+6. **Server starten**
 ```bash
-# Install as system services
-sudo cp scripts/systemd/*.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable news-mcp-web news-mcp-worker news-mcp-scheduler
-sudo systemctl start news-mcp-web news-mcp-worker news-mcp-scheduler
+# Development Server
+./scripts/start-web-server.sh
+
+# Oder manuell
+uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
 ```
 
-### Docker Deployment
-```bash
-# Using Docker Compose
-docker-compose up -d
-```
+## ⚙️ Konfiguration
 
 ### Environment Variables
+
 ```bash
-# Database
-DATABASE_URL=postgresql://user:password@host:port/dbname
+# .env Datei erstellen
+cp .env.example .env
 
-# Services
-WEB_HOST=0.0.0.0
-WEB_PORT=8000
-WORKER_CONCURRENCY=4
-
-# AI Integration
-OPENAI_API_KEY=your_api_key_here
-DEFAULT_MODEL=gpt-4.1-nano
+# Wichtige Konfigurationen
+DATABASE_URL=postgresql://news_user:news_password@localhost/news_db
+OPENAI_API_KEY=your_openai_api_key_here
+ENVIRONMENT=development
+LOG_LEVEL=INFO
+REDIS_URL=redis://localhost:6379/0  # Optional
 ```
 
-## 🧪 Development
+### Konfigurationsdateien
 
-### Setup Development Environment
+- `app/core/config.py` - Hauptkonfiguration
+- `alembic.ini` - Datenbank-Migrations-Konfiguration
+- `scripts/` - Deployment und Management-Scripts
+
+## 📊 Verwendung
+
+### Web Interface
+
 ```bash
-# Install dependencies
-pip install -r requirements.txt
+# Haupt-Dashboard
+http://localhost:8001/
+
+# Analysis Cockpit
+http://localhost:8001/admin/analysis
+
+# Feed Management
+http://localhost:8001/admin/feeds
+```
+
+### CLI Tools
+
+```bash
+# Service Management
+./scripts/start-all-background.sh    # Alle Services starten
+./scripts/stop-all.sh               # Alle Services stoppen
+./scripts/status.sh                 # Status aller Services
+
+# Workers
+./scripts/start-worker.sh           # Analysis Worker starten
+./scripts/start-scheduler.sh        # Feed Scheduler starten
+```
+
+## 📡 API Dokumentation
+
+### Core Endpoints
+
+#### Feed Management
+```http
+GET    /api/feeds              # Liste aller Feeds
+POST   /api/feeds              # Neuen Feed erstellen
+PUT    /api/feeds/{id}         # Feed aktualisieren
+DELETE /api/feeds/{id}         # Feed löschen
+```
+
+#### Article Management
+```http
+GET    /api/items              # Artikel auflisten
+GET    /api/items/{id}         # Einzelnen Artikel abrufen
+POST   /api/items/search       # Artikel suchen
+```
+
+#### Analysis API
+```http
+POST   /api/analysis/selection    # Artikel-Auswahl erstellen
+GET    /api/analysis/runs         # Analysis Runs auflisten
+POST   /api/analysis/runs         # Neue Analyse starten
+GET    /api/analysis/runs/{id}    # Run Status abrufen
+POST   /api/analysis/runs/{id}/cancel  # Run abbrechen
+```
+
+#### System Management
+```http
+GET    /api/analysis/manager/status     # System Status
+POST   /api/analysis/manager/emergency-stop  # Notfall-Stop
+POST   /api/analysis/manager/resume     # Betrieb fortsetzen
+GET    /api/analysis/health            # Health Check
+```
+
+### HTMX Endpoints
+
+```http
+GET    /htmx/analysis/stats-horizontal    # Dashboard Statistiken
+GET    /htmx/analysis/runs/active         # Aktive Runs
+GET    /htmx/analysis/runs/history        # Run Historie
+GET    /htmx/analysis/articles-live       # Live Artikel-Feed
+```
+
+### API Response Formats
+
+```json
+// Standard Success Response
+{
+  "success": true,
+  "data": { ... },
+  "message": "Optional message"
+}
+
+// Error Response
+{
+  "success": false,
+  "error": "Error description",
+  "detail": "Detailed error information"
+}
+
+// Analysis Run Response
+{
+  "id": 123,
+  "status": "completed",
+  "total_items": 50,
+  "processed_count": 50,
+  "error_count": 0,
+  "created_at": "2024-01-01T12:00:00Z",
+  "completed_at": "2024-01-01T12:05:00Z"
+}
+```
+
+## 🗄️ Datenbank Schema
+
+### Core Tables
+
+#### feeds
+```sql
+CREATE TABLE feeds (
+    id SERIAL PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    url TEXT NOT NULL UNIQUE,
+    status VARCHAR(20) DEFAULT 'ACTIVE',
+    fetch_interval_minutes INTEGER DEFAULT 60,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+#### items
+```sql
+CREATE TABLE items (
+    id SERIAL PRIMARY KEY,
+    feed_id INTEGER REFERENCES feeds(id),
+    title TEXT,
+    link TEXT,
+    description TEXT,
+    author VARCHAR(255),
+    published TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+#### analysis_runs
+```sql
+CREATE TABLE analysis_runs (
+    id SERIAL PRIMARY KEY,
+    status VARCHAR(20) DEFAULT 'pending',
+    scope_json JSONB,
+    params_json JSONB,
+    queued_count INTEGER DEFAULT 0,
+    processed_count INTEGER DEFAULT 0,
+    failed_count INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT NOW(),
+    started_at TIMESTAMP,
+    completed_at TIMESTAMP
+);
+```
+
+#### item_analysis
+```sql
+CREATE TABLE item_analysis (
+    id SERIAL PRIMARY KEY,
+    item_id INTEGER REFERENCES items(id),
+    sentiment_json JSONB,
+    urgency_json JSONB,
+    impact_json JSONB,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+### Indizes und Performance
+
+```sql
+-- Performance Indizes
+CREATE INDEX idx_items_feed_id ON items(feed_id);
+CREATE INDEX idx_items_published ON items(published);
+CREATE INDEX idx_analysis_runs_status ON analysis_runs(status);
+CREATE INDEX idx_item_analysis_item_id ON item_analysis(item_id);
+
+-- Composite Indizes
+CREATE INDEX idx_items_feed_published ON items(feed_id, published DESC);
+CREATE INDEX idx_runs_status_created ON analysis_runs(status, created_at DESC);
+```
+
+### Migrations
+
+```bash
+# Neue Migration erstellen
+alembic revision --autogenerate -m "Description"
+
+# Migrations anwenden
+alembic upgrade head
+
+# Migration rückgängig machen
+alembic downgrade -1
+
+# History anzeigen
+alembic history
+```
+
+## 🚀 Deployment
+
+### Docker Deployment
+
+```dockerfile
+# Dockerfile
+FROM python:3.9-slim
+
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+
+COPY . .
+EXPOSE 8001
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001"]
+```
+
+```yaml
+# docker-compose.yml
+version: '3.8'
+services:
+  web:
+    build: .
+    ports:
+      - "8001:8001"
+    environment:
+      - DATABASE_URL=postgresql://news_user:news_password@db:5432/news_db
+    depends_on:
+      - db
+
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: news_db
+      POSTGRES_USER: news_user
+      POSTGRES_PASSWORD: news_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
+```
+
+### Production Setup
+
+```bash
+# Systemd Service
+sudo cp deployment/news-mcp.service /etc/systemd/system/
+sudo systemctl enable news-mcp
+sudo systemctl start news-mcp
+
+# Nginx Konfiguration
+sudo cp deployment/nginx.conf /etc/nginx/sites-available/news-mcp
+sudo ln -s /etc/nginx/sites-available/news-mcp /etc/nginx/sites-enabled/
+sudo systemctl reload nginx
+```
+
+### Environment-spezifische Konfiguration
+
+```bash
+# Production
+export ENVIRONMENT=production
+export LOG_LEVEL=WARNING
+export DATABASE_URL=postgresql://user:pass@prod-db:5432/news_db
+
+# Development
+export ENVIRONMENT=development
+export LOG_LEVEL=DEBUG
+export DATABASE_URL=postgresql://news_user:news_password@localhost/news_db
+```
+
+## 👨‍💻 Entwicklung
+
+### Development Setup
+
+```bash
+# Development Dependencies
 pip install -r requirements-dev.txt
 
-# Run tests
-python -m pytest tests/ -v
+# Pre-commit Hooks
+pre-commit install
 
-# Code quality
-black app/ tests/
-isort app/ tests/
-flake8 app/ tests/
+# Tests ausführen
+pytest
+
+# Code Formatting
+black app/
+isort app/
+
+# Type Checking
 mypy app/
 ```
 
-### Database Migrations
-```bash
-# Create migration
-alembic revision --autogenerate -m "Description"
+### Projekt Struktur
 
-# Apply migrations
-alembic upgrade head
-
-# Rollback
-alembic downgrade -1
+```
+news-mcp/
+├── app/
+│   ├── api/                    # API Routes
+│   │   ├── analysis_management.py
+│   │   ├── analysis_selection.py
+│   │   └── htmx.py
+│   ├── core/                   # Core Konfiguration
+│   │   ├── config.py
+│   │   └── logging_config.py
+│   ├── models/                 # SQLModel Definitionen
+│   │   └── __init__.py
+│   ├── services/               # Business Logic
+│   │   ├── analysis_run_manager.py
+│   │   └── selection_cache.py
+│   ├── web/                    # Web Views
+│   │   ├── components/         # HTMX Komponenten
+│   │   └── views/              # Page Views
+│   ├── database.py            # DB Connection
+│   └── main.py                # FastAPI App
+├── templates/                  # Jinja2 Templates
+├── static/                     # Static Assets
+├── scripts/                    # Management Scripts
+├── alembic/                    # DB Migrations
+├── tests/                      # Test Suite
+└── docs/                       # Dokumentation
 ```
 
-## 🤝 Contributing
+### Testing
 
-1. **Fork** the repository
-2. **Create** a feature branch: `git checkout -b feature-name`
-3. **Commit** changes: `git commit -m 'Add feature'`
-4. **Push** to branch: `git push origin feature-name`
-5. **Submit** a Pull Request
+```bash
+# Unit Tests
+pytest tests/unit/
+
+# Integration Tests
+pytest tests/integration/
+
+# Test Coverage
+pytest --cov=app
+
+# Load Tests
+locust -f tests/load/locustfile.py
+```
+
+### Git Workflow
+
+```bash
+# Feature Branch
+git checkout -b feature/new-feature
+git commit -m "feat: add new feature"
+git push origin feature/new-feature
+
+# Pull Request Review
+# Nach Merge:
+git checkout main
+git pull origin main
+git branch -d feature/new-feature
+```
+
+## 🏗️ Architektur
+
+### System Übersicht
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Web Client    │    │   API Client    │    │   Admin UI      │
+└─────────┬───────┘    └─────────┬───────┘    └─────────┬───────┘
+          │                      │                      │
+          └──────────────────────┼──────────────────────┘
+                                 │
+                    ┌─────────────▼─────────────┐
+                    │      FastAPI Server      │
+                    │   (app/main.py)         │
+                    └─────────────┬─────────────┘
+                                 │
+                ┌────────────────┼────────────────┐
+                │                │                │
+       ┌────────▼────────┐ ┌─────▼─────┐ ┌───────▼───────┐
+       │   API Routes    │ │ Services  │ │  Web Views    │
+       │  (app/api/)     │ │(app/services/)│ (app/web/)   │
+       └─────────────────┘ └───────────┘ └───────────────┘
+                                 │
+                    ┌─────────────▼─────────────┐
+                    │     PostgreSQL DB        │
+                    │   (feeds, items, etc.)   │
+                    └───────────────────────────┘
+```
+
+### Service Architecture
+
+```
+Analysis Manager
+├── Run Manager (Queue Management)
+├── Selection Cache (In-Memory)
+├── Worker Processes (Async)
+└── Rate Limiting (API Protection)
+
+Feed System
+├── Feed Fetcher (RSS Parser)
+├── Content Processor (Article Extraction)
+├── Scheduler (Cron-like)
+└── Health Monitor (Status Tracking)
+```
+
+### Data Flow
+
+```
+RSS Feeds → Feed Fetcher → Content Processor → Database
+                                                    ↓
+Selection Cache ← API Endpoints ← Analysis Manager ← Database
+                     ↓
+Web Interface ← HTMX Components ← Alpine.js State
+```
+
+## 📝 Contributing
 
 ### Code Standards
-- **Python**: Follow PEP 8, use type hints
-- **SQL**: Use Alembic for all schema changes
-- **Tests**: Maintain 80%+ code coverage
-- **Documentation**: Update docs for all new features
 
-[Contributing Guidelines →](./CONTRIBUTING.md)
+- **Python**: PEP 8, Type Hints, Docstrings
+- **JavaScript**: ES6+, Alpine.js patterns
+- **SQL**: Standardized naming conventions
+- **Git**: Conventional Commits
 
-## 🔒 Security
+### Pull Request Process
 
-- **Input Validation**: All API inputs validated
-- **SQL Injection**: SQLModel ORM prevents injection
-- **Rate Limiting**: API and analysis rate limits
-- **Environment**: Secrets in environment variables only
-- **Dependencies**: Regular security audits via pip-audit
+1. Fork das Repository
+2. Erstelle Feature Branch
+3. Implementiere Changes mit Tests
+4. Führe Code Quality Checks aus
+5. Erstelle Pull Request mit ausführlicher Beschreibung
 
-## 📈 Monitoring & Observability
+### Issue Reporting
 
-### Built-in Monitoring
-- **Health Checks**: `/api/health` endpoint
-- **Metrics**: Prometheus-compatible metrics
-- **Logging**: Structured JSON logging
-- **Alerts**: Configurable alerting for failures
+```markdown
+**Bug Report Template:**
+- Environment: Development/Production
+- Python Version: 3.x
+- Error Message: Full traceback
+- Steps to Reproduce: 1, 2, 3...
+- Expected vs Actual Behavior
+```
 
-### Key Metrics to Monitor
-- Feed success rates and response times
-- Analysis throughput and error rates
-- Database connection pool usage
-- Memory and CPU utilization
+## 📞 Support
 
-## 🏷️ Versioning
-
-This project uses [Semantic Versioning](https://semver.org/):
-- **MAJOR**: Breaking changes
-- **MINOR**: New features (backward compatible)
-- **PATCH**: Bug fixes (backward compatible)
-
-Current Version: **v2.1.0** (September 2024)
+- **Documentation**: [docs/](docs/)
+- **Issues**: [GitHub Issues](https://github.com/your-org/news-mcp/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/your-org/news-mcp/discussions)
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Dieses Projekt ist unter der MIT License lizenziert - siehe [LICENSE](LICENSE) für Details.
 
-## 🆘 Support
+## 🙏 Acknowledgments
 
-- **Issues**: [GitHub Issues](https://github.com/your-org/news-mcp/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-org/news-mcp/discussions)
-- **Documentation**: [Wiki](https://github.com/your-org/news-mcp/wiki)
+- FastAPI Framework
+- SQLModel ORM
+- Alpine.js für reaktive UI
+- Bootstrap für UI-Komponenten
+- OpenAI für KI-Analyse
 
 ---
 
-**Built with ❤️ for enterprise RSS management and AI integration**
+**News MCP** - Enterprise RSS Aggregation with AI Analysis

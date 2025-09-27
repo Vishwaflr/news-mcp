@@ -16,7 +16,6 @@ from app.web.components.feed_components import router as feed_router
 from app.web.components.item_components import router as item_router
 from app.web.components.processor_components import router as processor_router
 from app.web.components.system_components import router as system_router
-from app.web.views.analysis_control import router as analysis_router
 
 # Create main router that includes all specialized routers
 router = APIRouter(tags=["htmx"])
@@ -26,4 +25,3 @@ router.include_router(feed_router, prefix="")
 router.include_router(item_router, prefix="")
 router.include_router(processor_router, prefix="")
 router.include_router(system_router, prefix="")
-router.include_router(analysis_router, prefix="")

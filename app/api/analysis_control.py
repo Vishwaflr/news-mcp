@@ -45,17 +45,53 @@ async def preview_run(
 
 @router.post("/start")
 async def start_run(
-    scope: RunScope = Body(...),
-    params: RunParams = Body(...),
+    scope: RunScope = Body(None),
+    params: RunParams = Body(None),
+    job_id: Optional[str] = Body(None),
     analysis_service: AnalysisService = Depends(get_analysis_service)
 ) -> AnalysisRun:
-    """Start a new analysis run"""
+    """Start a new analysis run (supports both direct and job-based starts)"""
+
+    # If job_id is provided, get config from job service
+    if job_id:
+        from app.services.domain.job_service import get_job_service
+        job_service = get_job_service()
+
+        # Get job configuration
+        job = job_service.get_job(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+
+        # Convert job to run parameters
+        run_scope_result = job_service.convert_job_to_run_scope(job)
+        if not run_scope_result or not run_scope_result.success:
+            raise HTTPException(status_code=400, detail="Failed to convert job to run scope")
+
+        run_scope = run_scope_result.data
+        scope = run_scope["scope"]
+        params = run_scope["params"]
+
+        # Update job status to executing
+        job_service.update_job_status(job_id, "executing")
+
+    elif not scope or not params:
+        raise HTTPException(status_code=400, detail="Either job_id or (scope, params) must be provided")
+
+    # Start the analysis run
     result = await analysis_service.start_analysis_run(scope, params)
 
     if not result.success:
+        if job_id:
+            # Update job status to failed
+            job_service.update_job_status(job_id, "failed")
+
         if "exceeds limit" in result.error or "concurrent runs" in result.error:
             raise HTTPException(status_code=400, detail=result.error)
         raise HTTPException(status_code=500, detail=result.error)
+
+    # Link job to run if job-based
+    if job_id:
+        job_service.link_job_to_run(job_id, result.data.id)
 
     return result.data
 

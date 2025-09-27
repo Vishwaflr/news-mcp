@@ -156,10 +156,16 @@ class SyncFeedFetcher:
                     import asyncio
                     from app.services.auto_analysis_service import AutoAnalysisService
                     auto_analysis = AutoAnalysisService()
-                    # Run async function in sync context
-                    result = asyncio.run(auto_analysis.trigger_feed_auto_analysis(feed_id, new_item_ids))
-                    if result:
-                        logger.info(f"Triggered auto-analysis run {result['run_id']} for feed {feed_id} with {result['items_count']} items")
+                    # Use create_task to avoid asyncio.run() in running event loop
+                    try:
+                        loop = asyncio.get_running_loop()
+                        # We're in an async context, create task for later execution
+                        task = loop.create_task(auto_analysis.trigger_feed_auto_analysis(feed_id, new_item_ids))
+                        # Don't await here to avoid blocking sync context
+                        logger.info(f"Scheduled auto-analysis task for feed {feed_id} with {len(new_item_ids)} items")
+                    except RuntimeError:
+                        # No running event loop, skip auto-analysis (sync context)
+                        logger.info(f"No event loop available for auto-analysis of feed {feed_id}, skipping")
                 except Exception as e:
                     logger.error(f"Failed to trigger auto-analysis for feed {feed_id}: {e}")
 

@@ -43,23 +43,28 @@ class JobManager {
             });
 
             if (!response.ok) {
-                throw new Error(`Job creation failed: ${response.statusText}`);
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.detail || `Job creation failed: ${response.statusText}`);
             }
 
             const result = await response.json();
 
-            if (!result.success || !result.job_id) {
-                throw new Error(result.error || 'Job creation failed');
+            // Handle both direct job response and wrapped response
+            const jobId = result.job_id || result.data?.job_id;
+            const estimates = result.estimates || result.data?.estimates || result;
+
+            if (!jobId) {
+                throw new Error('No job ID returned from preview');
             }
 
-            this.currentJobId = result.job_id;
+            this.currentJobId = jobId;
             this.retryCount = 0;
 
-            // Start polling for job status
-            this.startPolling();
+            // Don't start polling yet - wait for confirmation
+            // this.startPolling();
 
-            // Trigger queued callback
-            this.callbacks.onQueued(this.currentJobId, result.estimates);
+            // Trigger queued callback with estimates
+            this.callbacks.onQueued(this.currentJobId, estimates);
 
             return this.currentJobId;
 
@@ -161,21 +166,30 @@ class JobManager {
 
         console.log('Job status check:', status);
 
+        // Extract run information if job is executing
+        if (status.run_id) {
+            // Fetch actual run status for progress
+            const runStatus = await this.getRunStatus(status.run_id);
+            status.progress = runStatus;
+        }
+
         // Handle different status states
         switch (status.status) {
             case 'queued':
             case 'created':
+            case 'confirmed':
                 // Still queued, no additional action needed
                 break;
 
             case 'running':
-                this.callbacks.onRunning(this.currentJobId, status);
+            case 'executing':
+                this.callbacks.onRunning(this.currentJobId, status.progress || status);
                 break;
 
             case 'completed':
             case 'done':
                 this.stop();
-                this.callbacks.onDone(this.currentJobId, status);
+                this.callbacks.onDone(this.currentJobId, status.progress || status);
                 break;
 
             case 'failed':
@@ -190,6 +204,25 @@ class JobManager {
     }
 
     /**
+     * Get run status for progress tracking
+     * @param {string} runId - Run ID
+     * @returns {Promise<Object>} Run status with progress
+     */
+    async getRunStatus(runId) {
+        try {
+            const response = await fetch(`/api/analysis/status/${runId}`);
+            if (!response.ok) {
+                console.warn('Failed to get run status:', response.statusText);
+                return null;
+            }
+            return await response.json();
+        } catch (error) {
+            console.error('Error getting run status:', error);
+            return null;
+        }
+    }
+
+    /**
      * Stop polling and reset state
      */
     stop() {
@@ -197,6 +230,8 @@ class JobManager {
             clearInterval(this.pollInterval);
             this.pollInterval = null;
         }
+        this.currentJobId = null;
+        this.retryCount = 0;
         this.currentJobId = null;
         this.retryCount = 0;
         console.log('JobManager stopped');

@@ -6,9 +6,9 @@ from app.core.logging_config import get_logger
 
 from app.config import settings
 from app.database import create_db_and_tables
-from app.api import feeds, items, health, categories, sources, htmx, processors, statistics, database, analysis_control, user_settings, feature_flags_admin, templates as api_templates, scheduler, analysis_management, metrics, feed_limits
+from app.api import feeds, items, health, categories, sources, htmx, processors, statistics, database, analysis_control, user_settings, feature_flags_admin, templates as api_templates, scheduler, analysis_management, metrics, feed_limits, system, analysis_selection
 from app.routes import templates as template_routes
-from app.web.views import analysis_htmx_clean as analysis_htmx
+from app.web.views import analysis
 
 # Import monitoring and error handling components
 from app.core.logging_config import setup_logging, get_logger
@@ -100,6 +100,10 @@ templates = Jinja2Templates(directory="templates")
 
 app.include_router(feeds.router, prefix="/api")
 app.include_router(items.router, prefix="/api")
+
+# Simple feeds endpoint for UI
+from app.api import feeds_simple
+app.include_router(feeds_simple.router)
 app.include_router(health.router, prefix="/api")
 app.include_router(categories.router, prefix="/api")
 app.include_router(sources.router, prefix="/api")
@@ -111,17 +115,21 @@ app.include_router(template_routes.router)
 app.include_router(analysis_control.router, prefix="/api")
 app.include_router(user_settings.router, prefix="/api")
 app.include_router(feature_flags_admin.router)
-app.include_router(analysis_htmx.router)
+app.include_router(analysis.router)
 
 # Job-based analysis system
-from app.api import analysis_jobs
+from app.api import analysis_jobs, websocket_endpoint
 app.include_router(analysis_jobs.router, prefix="/api")
+# WebSocket endpoint for real-time updates
+app.include_router(websocket_endpoint.router)
 # MCP v2 API endpoints
 app.include_router(api_templates.router, prefix="/api")
 app.include_router(scheduler.router, prefix="/api")
 app.include_router(analysis_management.router)
 app.include_router(metrics.router)
 app.include_router(feed_limits.router)
+app.include_router(system.router, prefix="/api")
+app.include_router(analysis_selection.router)
 
 # Include monitoring routers (schrittweise aktiviert)
 from app.core.health import create_health_router
@@ -174,8 +182,8 @@ async def admin_database(request: Request):
 
 @app.get("/admin/analysis", response_class=HTMLResponse)
 async def admin_analysis(request: Request):
-    # Use the refactored template with modular components
-    return templates.TemplateResponse("analysis_control_refactored.html", {"request": request})
+    # Use the v4 clean unified Alpine.js template
+    return templates.TemplateResponse("analysis_cockpit_v4.html", {"request": request})
 
 @app.get("/admin/metrics", response_class=HTMLResponse)
 async def admin_metrics(request: Request):

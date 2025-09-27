@@ -16,8 +16,12 @@
         </div>
         <div class="col-4">
             <div class="preview-stat">
-                <div class="stat-value text-primary" x-text="preview.new_items_count || preview.item_count || 0"></div>
-                <div class="stat-label" style="color: white !important; font-weight: 500;">To Analyze</div>
+                <div class="stat-value"
+                     :class="preview.limit_exceeded ? 'text-danger' : 'text-primary'"
+                     x-text="preview.new_items_count || preview.item_count || 0"></div>
+                <div class="stat-label" style="color: white !important; font-weight: 500;">
+                    <span x-text="preview.limit_exceeded ? 'To Analyze (LIMIT!)' : 'To Analyze'"></span>
+                </div>
             </div>
         </div>
     </div>

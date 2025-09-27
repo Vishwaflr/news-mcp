@@ -6,11 +6,94 @@ Provides endpoints for monitoring and controlling analysis runs.
 
 from fastapi import APIRouter, Depends, HTTPException
 from typing import Dict, Any
+from sqlmodel import Session, select
 from app.core.logging_config import get_logger
 from app.services.analysis_run_manager import get_run_manager
+from app.database import get_session
+from app.models import AnalysisRun
 
 router = APIRouter(prefix="/api/analysis", tags=["analysis-management"])
 logger = get_logger(__name__)
+
+@router.get("/runs/{run_id}")
+async def get_run_status(run_id: int, db: Session = Depends(get_session)) -> Dict[str, Any]:
+    """Get status of a specific analysis run"""
+    try:
+        from sqlmodel import text
+        query = text("""
+            SELECT
+                id, status, created_at, updated_at, started_at, completed_at,
+                queued_count, processed_count, failed_count
+            FROM analysis_runs
+            WHERE id = :run_id
+        """)
+
+        result = db.execute(query, {"run_id": run_id})
+        row = result.fetchone()
+
+        if not row:
+            raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
+
+        return {
+            "id": row[0],
+            "status": row[1],
+            "created_at": row[2].isoformat() if row[2] else None,
+            "updated_at": row[3].isoformat() if row[3] else None,
+            "started_at": row[4].isoformat() if row[4] else None,
+            "completed_at": row[5].isoformat() if row[5] else None,
+            "total_items": row[6],
+            "processed_count": row[7],
+            "error_count": row[8]
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting run {run_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/runs/{run_id}/cancel")
+async def cancel_run(run_id: int, db: Session = Depends(get_session)) -> Dict[str, Any]:
+    """Cancel a running analysis run"""
+    try:
+        from sqlmodel import text
+        from datetime import datetime
+
+        check_query = text("SELECT status FROM analysis_runs WHERE id = :run_id")
+        result = db.execute(check_query, {"run_id": run_id})
+        row = result.fetchone()
+
+        if not row:
+            raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
+
+        current_status = row[0]
+        if current_status not in ['queued', 'running', 'pending']:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot cancel run with status '{current_status}'"
+            )
+
+        update_query = text("""
+            UPDATE analysis_runs
+            SET status = 'cancelled', updated_at = :now
+            WHERE id = :run_id
+        """)
+
+        db.execute(update_query, {"run_id": run_id, "now": datetime.utcnow()})
+        db.commit()
+
+        logger.info(f"Run {run_id} cancelled via API")
+
+        return {
+            "success": True,
+            "message": f"Run {run_id} cancelled",
+            "id": run_id,
+            "status": "cancelled"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error cancelling run {run_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/manager/status")
 async def get_manager_status() -> Dict[str, Any]:

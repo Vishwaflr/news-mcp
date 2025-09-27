@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 import asyncio
 
 from app.domain.analysis.jobs import PreviewJob, JobResult, JobStatus
-from app.domain.analysis.control import RunPreview
+from app.domain.analysis.control import RunPreview, RunScope, RunParams
 from app.repositories.analysis_control import AnalysisControlRepo
 from app.core.logging_config import get_logger
 from app.services.domain.base import ServiceResult
@@ -15,6 +15,7 @@ class JobService:
 
     def __init__(self):
         self._job_store: Dict[str, PreviewJob] = {}  # In-memory store for preview jobs
+        self._job_run_mapping: Dict[str, int] = {}  # Map job IDs to run IDs
 
     def create_preview_job(self, job_config: PreviewJob) -> ServiceResult[JobResult]:
         """Create a new preview job and calculate estimates"""
@@ -47,7 +48,7 @@ class JobService:
             )
 
             logger.info(f"Preview job {job_config.job_id} created successfully: {preview.item_count} items, ${preview.estimated_cost_usd:.4f}")
-            return ServiceResult.success(result)
+            return ServiceResult.ok(result)
 
         except Exception as e:
             logger.error(f"Failed to create preview job: {e}")
@@ -69,7 +70,7 @@ class JobService:
                 job.run_id = run_id
 
             logger.info(f"Updated job {job_id} status to {status}" + (f" with run_id {run_id}" if run_id else ""))
-            return ServiceResult.success(True)
+            return ServiceResult.ok(True)
 
         except Exception as e:
             logger.error(f"Failed to update job {job_id} status: {e}")
@@ -97,7 +98,7 @@ class JobService:
             )
 
             logger.info(f"Refreshed estimates for job {job_id}: {preview.item_count} items")
-            return ServiceResult.success(result)
+            return ServiceResult.ok(result)
 
         except Exception as e:
             logger.error(f"Failed to refresh job {job_id} estimates: {e}")
@@ -113,7 +114,7 @@ class JobService:
                 if job.created_at > cutoff and job.status == "preview"
             }
 
-            return ServiceResult.success(active_jobs)
+            return ServiceResult.ok(active_jobs)
 
         except Exception as e:
             logger.error(f"Failed to list active jobs: {e}")
@@ -145,6 +146,42 @@ class JobService:
 
         except Exception as e:
             logger.error(f"Failed to cleanup old jobs: {e}")
+
+    def convert_job_to_run_scope(self, job: PreviewJob) -> Optional[ServiceResult]:
+        """Convert a preview job to run scope and parameters"""
+        try:
+            if not job:
+                return None
+
+            scope = job.to_run_scope()
+            params = job.to_run_params()
+
+            return ServiceResult.ok({"scope": scope, "params": params})
+
+        except Exception as e:
+            logger.error(f"Failed to convert job to run scope: {e}")
+            return None
+
+    def link_job_to_run(self, job_id: str, run_id: int) -> bool:
+        """Link a job to an analysis run"""
+        try:
+            self._job_run_mapping[job_id] = run_id
+
+            # Update job status
+            if job_id in self._job_store:
+                self._job_store[job_id].status = "running"
+                self._job_store[job_id].run_id = run_id
+
+            logger.info(f"Linked job {job_id} to run {run_id}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to link job {job_id} to run {run_id}: {e}")
+            return False
+
+    def get_run_for_job(self, job_id: str) -> Optional[int]:
+        """Get the run ID associated with a job"""
+        return self._job_run_mapping.get(job_id)
 
 # Global service instance
 _job_service = None

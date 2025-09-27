@@ -93,6 +93,34 @@ async def confirm_job_for_execution(
 
     return {"success": True, "job_id": job_id, "status": "confirmed"}
 
+@router.post("/{job_id}/cancel")
+async def cancel_job(
+    job_id: str,
+    job_service: JobService = Depends(get_job_service)
+) -> dict:
+    """Cancel a job and any associated analysis run"""
+    try:
+        # Update job status
+        result = job_service.update_job_status(job_id, "cancelled")
+        if not result.success:
+            raise HTTPException(status_code=404, detail=result.error)
+
+        # Check if job has an associated run and cancel it
+        run_id = job_service.get_run_for_job(job_id)
+        if run_id:
+            # Cancel the analysis run
+            from app.repositories.analysis_control import AnalysisControlRepo
+            AnalysisControlRepo.update_run_status(run_id, "cancelled")
+            return {"success": True, "job_id": job_id, "status": "cancelled", "run_id": run_id}
+
+        return {"success": True, "job_id": job_id, "status": "cancelled"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error cancelling job {job_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to cancel job: {str(e)}")
+
 # Alternative endpoint that mimics the existing preview API for compatibility
 @router.post("/preview/legacy", response_model=JobResult)
 async def create_preview_job_legacy(

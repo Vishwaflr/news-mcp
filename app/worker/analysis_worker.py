@@ -5,17 +5,19 @@ Analysis Worker - Processes analysis runs and items from the queue
 
 import os
 import sys
+
+# Add project root to Python path FIRST
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+
 import time
 import signal
 import asyncio
-from app.core.logging_config import get_logger, setup_logging
+import logging
 import argparse
 import requests
 from typing import Optional
 from datetime import datetime
-
-# Add project root to Python path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+from app.core.logging_config import get_logger, setup_logging
 
 from app.services.analysis_orchestrator import AnalysisOrchestrator
 from app.services.queue_processor import get_queue_processor

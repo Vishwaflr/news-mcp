@@ -1,0 +1,54 @@
+<!-- Additional Filters Component -->
+<div class="additional-filters-panel">
+    <div class="row">
+        <!-- Feed Filter -->
+        <div class="col-md-6 mb-3">
+            <div class="form-check mb-2">
+                <input class="form-check-input"
+                       type="checkbox"
+                       id="useFeedFilter"
+                       x-model="uiInput.useFeedFilter">
+                <label class="form-check-label text-white" for="useFeedFilter">
+                    Filter by specific feed
+                </label>
+            </div>
+            <select class="form-select bg-secondary text-white border-secondary"
+                    x-model="uiInput.selectedFeedId"
+                    :disabled="!uiInput.useFeedFilter">
+                <option value="">Select a feed...</option>
+                <template x-for="feed in availableFeeds" :key="feed.id">
+                    <option :value="feed.id" x-text="feed.title"></option>
+                </template>
+            </select>
+        </div>
+
+        <!-- Override Existing -->
+        <div class="col-md-6 mb-3">
+            <div class="form-check">
+                <input class="form-check-input"
+                       type="checkbox"
+                       id="overrideExisting"
+                       x-model="futureRun.filters.override_existing">
+                <label class="form-check-label text-white" for="overrideExisting">
+                    Re-analyze already processed articles
+                </label>
+            </div>
+            <small class="text-muted d-block mt-2">
+                ⚠️ This will override existing analysis results
+            </small>
+        </div>
+    </div>
+
+    <div class="mt-3 d-flex gap-2">
+        <button type="button"
+                class="btn btn-sm btn-primary"
+                @click="applyFilters()">
+            ✅ Apply
+        </button>
+        <button type="button"
+                class="btn btn-sm btn-outline-secondary"
+                @click="clearFilters()">
+            🗑️ Clear
+        </button>
+    </div>
+</div>

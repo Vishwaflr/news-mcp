@@ -1,0 +1,185 @@
+<!-- Job Confirmation Modal -->
+<div class="modal fade" id="jobConfirmationModal" tabindex="-1" aria-labelledby="jobConfirmationModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content bg-dark text-light">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title" id="jobConfirmationModalLabel">
+                    <i class="bi bi-check-circle"></i> Confirm Analysis Job
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body" x-data="jobConfirmData">
+                <!-- Job Summary -->
+                <div class="card bg-dark border-info mb-3">
+                    <div class="card-header bg-info bg-opacity-10">
+                        <h6 class="mb-0"><i class="bi bi-info-circle"></i> Job Summary</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <small class="text-muted">Selection Mode:</small>
+                                    <div class="fw-bold" x-text="previewData.selection_mode"></div>
+                                </div>
+                                <div class="mb-3">
+                                    <small class="text-muted">Total Articles:</small>
+                                    <div class="fw-bold text-info">
+                                        <i class="bi bi-newspaper"></i>
+                                        <span x-text="previewData.item_count"></span> articles
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <small class="text-muted">New Articles:</small>
+                                    <div class="fw-bold text-success">
+                                        <i class="bi bi-plus-circle"></i>
+                                        <span x-text="previewData.new_items_count"></span> new
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <small class="text-muted">Model:</small>
+                                    <div class="fw-bold" x-text="previewData.model_tag"></div>
+                                </div>
+                                <div class="mb-3">
+                                    <small class="text-muted">Estimated Cost:</small>
+                                    <div class="fw-bold text-warning">
+                                        <i class="bi bi-currency-dollar"></i>
+                                        $<span x-text="(previewData.estimated_cost_usd || 0).toFixed(3)"></span>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <small class="text-muted">Estimated Duration:</small>
+                                    <div class="fw-bold text-primary">
+                                        <i class="bi bi-clock"></i>
+                                        <span x-text="Math.round(previewData.estimated_duration_minutes || 0)"></span> minutes
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Warning for Already Analyzed Items -->
+                <div x-show="previewData.already_analyzed_count > 0" class="alert alert-warning border-warning">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <strong>Note:</strong> <span x-text="previewData.already_analyzed_count"></span> articles
+                    have already been analyzed and will be skipped.
+                </div>
+
+                <!-- Save as Preset Option -->
+                <div class="card bg-dark border-secondary">
+                    <div class="card-body">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="saveAsPreset" x-model="saveAsPreset">
+                            <label class="form-check-label" for="saveAsPreset">
+                                Save this configuration as a preset
+                            </label>
+                        </div>
+                        <div x-show="saveAsPreset" class="mt-2">
+                            <input type="text"
+                                   class="form-control bg-dark text-light border-secondary"
+                                   placeholder="Enter preset name..."
+                                   x-model="presetName">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle"></i> Cancel
+                </button>
+                <button type="button"
+                        class="btn btn-primary"
+                        @click="confirmAndStartJob()">
+                    <i class="bi bi-play-circle"></i> Confirm & Start Analysis
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Job confirmation data handler
+document.addEventListener('alpine:init', () => {
+    Alpine.data('jobConfirmData', () => ({
+        previewData: {},
+        saveAsPreset: false,
+        presetName: '',
+
+        init() {
+            // Listen for preview data updates
+            window.addEventListener('job-preview-ready', (e) => {
+                this.previewData = e.detail;
+                // Show modal
+                const modal = new bootstrap.Modal(document.getElementById('jobConfirmationModal'));
+                modal.show();
+            });
+        },
+
+        async confirmAndStartJob() {
+            try {
+                // Get the current job ID from the main controller
+                const jobId = this.$root.jobState?.currentJob;
+                if (!jobId) {
+                    throw new Error('No job ID available');
+                }
+
+                // Save preset if requested
+                if (this.saveAsPreset && this.presetName) {
+                    await this.savePreset();
+                }
+
+                // Confirm the job
+                const response = await fetch(`/api/analysis/jobs/${jobId}/confirm`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to confirm job');
+                }
+
+                // Hide modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('jobConfirmationModal'));
+                modal.hide();
+
+                // Trigger job execution
+                window.dispatchEvent(new CustomEvent('job-confirmed', { detail: { jobId } }));
+
+                // Reset form
+                this.saveAsPreset = false;
+                this.presetName = '';
+
+            } catch (error) {
+                console.error('Error confirming job:', error);
+                alert('Failed to confirm job: ' + error.message);
+            }
+        },
+
+        async savePreset() {
+            try {
+                const response = await fetch('/api/analysis/presets', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: this.presetName,
+                        config: this.previewData
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to save preset');
+                }
+
+                console.log('Preset saved successfully');
+            } catch (error) {
+                console.error('Error saving preset:', error);
+            }
+        }
+    }));
+});
+</script>

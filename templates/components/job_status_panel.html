@@ -1,0 +1,103 @@
+<!-- Job Status Panel Component -->
+<div id="job-status-panel" x-show="jobState.currentJob" x-cloak
+     class="card bg-dark border-info mb-3"
+     x-transition:enter="transition ease-out duration-300"
+     x-transition:enter-start="opacity-0 transform translate-y--4"
+     x-transition:enter-end="opacity-100 transform translate-y-0">
+
+    <div class="card-header bg-info bg-opacity-10 border-info">
+        <div class="d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="bi bi-gear-fill" :class="{'bi-gear-fill spin': jobState.status === 'running'}"></i>
+                Current Job Status
+            </h5>
+            <div class="d-flex align-items-center gap-2">
+                <!-- Status Badge -->
+                <span class="badge"
+                      :class="{
+                          'bg-warning': jobState.status === 'queued',
+                          'bg-info': jobState.status === 'running',
+                          'bg-success': jobState.status === 'completed',
+                          'bg-danger': jobState.status === 'failed',
+                          'bg-secondary': jobState.status === 'cancelled'
+                      }">
+                    <span x-text="jobState.status.toUpperCase()"></span>
+                </span>
+
+                <!-- Cancel Button -->
+                <button x-show="jobState.status === 'running' || jobState.status === 'queued'"
+                        @click="cancelCurrentJob()"
+                        class="btn btn-sm btn-outline-danger"
+                        title="Cancel Job">
+                    <i class="bi bi-x-circle"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card-body">
+        <!-- Job Details -->
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <small class="text-muted">Job ID:</small>
+                <div class="font-monospace small" x-text="jobState.currentJob"></div>
+            </div>
+            <div class="col-md-6">
+                <small class="text-muted">Started:</small>
+                <div x-text="jobState.startTime ? new Date(jobState.startTime).toLocaleTimeString() : '-'"></div>
+            </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div x-show="jobState.status === 'running'" class="mb-3">
+            <div class="d-flex justify-content-between mb-1">
+                <small class="text-muted">Progress</small>
+                <small class="text-info">
+                    <span x-text="jobState.progress.current"></span> /
+                    <span x-text="jobState.progress.total"></span> items
+                    (<span x-text="Math.round(jobState.progress.percent)"></span>%)
+                </small>
+            </div>
+            <div class="progress bg-dark" style="height: 20px;">
+                <div class="progress-bar progress-bar-striped progress-bar-animated bg-info"
+                     role="progressbar"
+                     :style="`width: ${jobState.progress.percent}%`"
+                     :aria-valuenow="jobState.progress.percent"
+                     aria-valuemin="0"
+                     aria-valuemax="100">
+                </div>
+            </div>
+
+            <!-- ETA Display -->
+            <div x-show="jobState.eta" class="mt-2">
+                <small class="text-muted">
+                    <i class="bi bi-clock"></i>
+                    Estimated time remaining:
+                    <span class="text-info" x-text="formatDuration(jobState.eta)"></span>
+                </small>
+            </div>
+        </div>
+
+        <!-- Status Message -->
+        <div x-show="jobState.message" class="alert alert-dark border-secondary mb-0">
+            <small x-text="jobState.message"></small>
+        </div>
+
+        <!-- Error Display -->
+        <div x-show="jobState.error" class="alert alert-danger mb-0">
+            <i class="bi bi-exclamation-triangle"></i>
+            <span x-text="jobState.error"></span>
+        </div>
+    </div>
+</div>
+
+<style>
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+.spin {
+    animation: spin 2s linear infinite;
+}
+[x-cloak] { display: none !important; }
+</style>

@@ -32,17 +32,18 @@
                     <label class="form-label text-white-50 small">Number of articles (1-1000)</label>
                     <input type="number"
                            class="form-control bg-secondary text-white border-secondary"
-                           x-model.number="latestCount"
+                           x-model.number="futureRun.selection.count"
                            min="1"
                            max="1000"
                            placeholder="50"
-                           @keyup.enter="setLatestSelection()">
+                           @keyup.enter="setLatestSelection()"
+                           @change="setLatestSelection()">
                 </div>
                 <div class="col-md-4">
                     <button type="button"
                             class="btn btn-success w-100"
                             @click.prevent="setLatestSelection()">
-                        ✅ Apply Selection
+                        ✅ Apply
                     </button>
                 </div>
             </div>
@@ -75,7 +76,7 @@
                     <button type="button"
                             class="btn btn-success w-100"
                             @click.prevent="setTimeRangeSelection()">
-                        ✅ Apply Selection
+                        ✅ Apply
                     </button>
                 </div>
             </div>
@@ -91,72 +92,13 @@
             <button type="button"
                     class="btn btn-success w-100"
                     @click.prevent="setUnanalyzedSelection()">
-                ✅ Apply Selection
+                ✅ Apply
             </button>
         </div>
     </div>
 
-    <!-- Active Selection Display -->
-    <div x-show="activeSelection.mode" class="active-selection-display">
-        <div class="alert alert-success d-flex justify-content-between align-items-center">
-            <div>
-                <strong>✅ Active Selection:</strong>
-                <span x-text="activeSelection.description" class="ms-2"></span>
-            </div>
-            <button class="btn btn-sm btn-outline-danger" @click="clearSelection()">
-                ❌ Clear
-            </button>
-        </div>
-    </div>
-
-    <!-- Additional Filters -->
-    <div class="additional-filters bg-dark p-3 rounded">
-        <h6 class="text-white mb-3">⚙️ Additional Filters</h6>
-
-        <div class="row">
-            <!-- Feed Filter -->
-            <div class="col-md-6 mb-3">
-                <div class="form-check mb-2">
-                    <input class="form-check-input"
-                           type="checkbox"
-                           id="useFeedFilter"
-                           x-model="filters.useFeedFilter"
-                           @change="updatePreview()">
-                    <label class="form-check-label text-white" for="useFeedFilter">
-                        Filter by specific feed
-                    </label>
-                </div>
-                <select class="form-select bg-secondary text-white border-secondary"
-                        x-model="filters.feed_id"
-                        :disabled="!filters.useFeedFilter"
-                        @change="updatePreview()">
-                    <option value="">Select a feed...</option>
-                    <option value="1">BBC News</option>
-                    <option value="2">CNN</option>
-                    <option value="3">Reuters</option>
-                    <option value="4">The Guardian</option>
-                    <option value="5">Associated Press</option>
-                </select>
-            </div>
-
-            <!-- Override Existing -->
-            <div class="col-md-6 mb-3">
-                <div class="form-check">
-                    <input class="form-check-input"
-                           type="checkbox"
-                           id="overrideExisting"
-                           x-model="filters.override_existing"
-                           @change="updatePreview()">
-                    <label class="form-check-label text-white" for="overrideExisting">
-                        Re-analyze already processed articles
-                    </label>
-                </div>
-                <small class="text-muted d-block mt-2">
-                    ⚠️ This will override existing analysis results
-                </small>
-            </div>
-        </div>
-    </div>
+    <!-- Feed Filter Integration -->
+    {% include 'partials/analysis_feed_filter.html' %}
 </div>
 
 <style>
