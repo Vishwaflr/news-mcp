@@ -8,6 +8,7 @@ from mcp.types import TextContent
 import httpx
 import json
 from sqlmodel import Session, select
+from sqlalchemy import text
 from app.database import engine
 from app.models import Feed, Item
 
@@ -126,23 +127,34 @@ class MCPv2Handlers:
             logger.error(f"Error previewing analysis: {e}")
             return [TextContent(type="text", text=f"Error previewing analysis: {str(e)}")]
 
-    async def analysis_run(self, selector: Dict[str, Any], model: str = "gpt-4o-mini", persist: bool = True,
-                           tags: Optional[List[str]] = None) -> List[TextContent]:
+    async def analysis_run(self, selector: Dict[str, Any], model: str = "gpt-4o-mini", limit: int = 200,
+                           dry_run: bool = False) -> List[TextContent]:
         """Start analysis run"""
         try:
             api_url = f"{self.BASE_URL}/analysis/start"
             # Convert selector to RunScope format
-            scope_data = {"type": "custom"}
+            scope_data = {"type": "global"}
             if "latest" in selector:
-                scope_data = {"type": "latest", "count": selector["latest"]}
+                # For latest, we need to use global scope with limit
+                scope_data = {"type": "global"}
+                limit = selector["latest"]
             elif "time_range" in selector:
-                scope_data = {"type": "time_range", **selector["time_range"]}
+                scope_data = {"type": "global", "start_time": selector["time_range"].get("start"),
+                             "end_time": selector["time_range"].get("end")}
             elif "feeds" in selector:
                 scope_data = {"type": "feeds", "feed_ids": selector["feeds"]}
+            elif "items" in selector:
+                scope_data = {"type": "items", "item_ids": selector["items"]}
 
             data = {
                 "scope": scope_data,
-                "params": {"model": model, "persist": persist, "tags": tags or []}
+                "params": {
+                    "model_tag": model,
+                    "limit": limit,
+                    "rate_per_second": 1.0,
+                    "dry_run": dry_run,
+                    "triggered_by": "mcp"
+                }
             }
 
             async with httpx.AsyncClient(timeout=60.0) as client:
@@ -157,12 +169,118 @@ class MCPv2Handlers:
 
     async def analysis_history(self, limit: int = 50, offset: int = 0, status: Optional[str] = None) -> List[TextContent]:
         """Get analysis run history"""
-        # This would need to be implemented in the analysis_control API
-        return [TextContent(type="text", text=json.dumps({
-            "ok": False,
-            "data": None,
-            "errors": [{"code": "not_implemented", "message": "Analysis history not yet implemented"}]
-        }, indent=2))]
+        try:
+            api_url = f"{self.BASE_URL}/analysis/runs"
+            params = {"limit": limit}
+            if status:
+                params["status"] = status
+
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.get(api_url, params=params)
+                response.raise_for_status()
+                runs = response.json()
+
+            # Format runs for readability
+            result = {
+                "ok": True,
+                "data": {
+                    "runs": [{
+                        "id": run["id"],
+                        "status": run["status"],
+                        "triggered_by": run.get("triggered_by", "unknown"),
+                        "started_at": run.get("started_at"),
+                        "completed_at": run.get("completed_at"),
+                        "metrics": {
+                            "total": run["metrics"]["total_count"],
+                            "processed": run["metrics"]["processed_count"],
+                            "failed": run["metrics"]["failed_count"],
+                            "progress": run["metrics"]["progress_percent"]
+                        },
+                        "scope": run.get("scope", {}),
+                        "params": run.get("params", {})
+                    } for run in runs[offset:offset+limit]]
+                },
+                "meta": {"limit": limit, "offset": offset, "total": len(runs)},
+                "errors": []
+            }
+
+            return [TextContent(type="text", text=safe_json_dumps(result, indent=2))]
+        except Exception as e:
+            logger.error(f"Error getting analysis history: {e}")
+            return [TextContent(type="text", text=f"Error getting analysis history: {str(e)}")]
+
+    async def analysis_results(self, run_id: int, limit: int = 50) -> List[TextContent]:
+        """Get detailed sentiment results for a completed analysis run"""
+        try:
+            # Query items analyzed in this run with their sentiment data
+            with Session(engine) as session:
+                # Get run info first
+                api_url = f"{self.BASE_URL}/analysis/runs"
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    response = await client.get(api_url, params={"limit": 100})
+                    runs = response.json()
+                    run = next((r for r in runs if r["id"] == run_id), None)
+                    if not run:
+                        return [TextContent(type="text", text=json.dumps({
+                            "ok": False,
+                            "errors": [{"code": "not_found", "message": f"Run #{run_id} not found"}]
+                        }, indent=2))]
+
+                # Query analyzed items from database
+                query = text("""
+                    SELECT
+                        i.id, i.title, i.link,
+                        ia.sentiment_json,
+                        ia.impact_json,
+                        ia.model_tag,
+                        ia.updated_at
+                    FROM analysis_run_items ari
+                    JOIN items i ON ari.item_id = i.id
+                    LEFT JOIN item_analysis ia ON i.id = ia.item_id
+                    WHERE ari.run_id = :run_id
+                    ORDER BY i.published DESC
+                    LIMIT :limit
+                """)
+                results = session.execute(
+                    query,
+                    {"run_id": run_id, "limit": limit}
+                ).fetchall()
+
+                articles = []
+                for row in results:
+                    # JSONB columns are already dicts, no need to parse
+                    sentiment = row[3] if row[3] else {}
+                    impact = row[4] if row[4] else {}
+
+                    articles.append({
+                        "id": row[0],
+                        "title": row[1],
+                        "link": row[2],
+                        "sentiment": sentiment.get("overall", {}).get("label", "unknown"),
+                        "sentiment_score": sentiment.get("overall", {}).get("confidence", 0.0),
+                        "impact_score": impact.get("overall", 0.0),
+                        "urgency": sentiment.get("urgency", 0.0),
+                        "topics": sentiment.get("topics", []),
+                        "model": row[5],
+                        "analyzed_at": str(row[6])
+                    })
+
+                result = {
+                    "ok": True,
+                    "data": {
+                        "run_id": run_id,
+                        "run_status": run["status"],
+                        "articles": articles
+                    },
+                    "meta": {"total": len(articles), "limit": limit},
+                    "errors": []
+                }
+
+                return [TextContent(type="text", text=safe_json_dumps(result, indent=2))]
+
+        except Exception as e:
+            logger.error(f"Error getting analysis results: {e}")
+            return [TextContent(type="text", text=f"Error getting analysis results: {str(e)}")]
 
     # Scheduler Tools
     async def scheduler_set_interval(self, minutes: int, feed_id: Optional[int] = None) -> List[TextContent]:

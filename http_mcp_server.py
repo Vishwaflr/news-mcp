@@ -437,7 +437,38 @@ alias_map = {
     "/mcp/tools/analysis_history": "analysis_history",
     # Tools listing endpoints
     "/tools/list": "tools.list",
-    "/mcp/tools/tools.list": "tools.list"
+    "/mcp/tools/tools.list": "tools.list",
+    # Additional OpenWebUI compatibility routes (without 'tools' in path)
+    "/mcp/system/ping": "system.ping",
+    "/mcp/system/health": "system.health",
+    "/mcp/feeds/list": "feeds.list",
+    "/mcp/feeds/add": "feeds.add",
+    "/mcp/feeds/update": "feeds.update",
+    "/mcp/feeds/delete": "feeds.delete",
+    "/mcp/feeds/test": "feeds.test",
+    "/mcp/feeds/refresh": "feeds.refresh",
+    "/mcp/feeds/performance": "feeds.performance",
+    "/mcp/feeds/diagnostics": "feeds.diagnostics",
+    "/mcp/articles/latest": "articles.latest",
+    "/mcp/articles/search": "articles.search",
+    "/mcp/templates/assign": "templates.assign",
+    "/mcp/data/export": "data.export",
+    "/mcp/categories/list": "categories_list",
+    "/mcp/categories/add": "categories_add",
+    "/mcp/categories/update": "categories_update",
+    "/mcp/categories/delete": "categories_delete",
+    "/mcp/categories/assign": "categories_assign",
+    "/mcp/sources/list": "sources_list",
+    "/mcp/sources/add": "sources_add",
+    "/mcp/sources/update": "sources_update",
+    "/mcp/sources/delete": "sources_delete",
+    "/mcp/templates/list": "list_templates",
+    "/mcp/templates/performance": "template_performance",
+    "/mcp/templates/create": "templates_create",
+    "/mcp/templates/test": "templates_test",
+    "/mcp/analysis/preview": "analysis_preview",
+    "/mcp/analysis/run": "analysis_run",
+    "/mcp/analysis/history": "analysis_history"
 }
 
 def register_compatibility_routes():
@@ -505,42 +536,50 @@ def get_mcp_tools_registry() -> Dict[str, Dict[str, Any]]:
 
     # Extract tools from the comprehensive server's method mapping
     tool_methods = {
-        "system.ping": {"method": mcp_server_instance._system_ping, "params": []},
-        "system.health": {"method": mcp_server_instance._system_health, "params": []},
-        "feeds.list": {"method": mcp_server_instance._list_feeds, "params": ["status", "include_health", "include_stats", "limit"]},
-        "feeds.add": {"method": mcp_server_instance._add_feed, "params": ["url", "title", "fetch_interval_minutes", "auto_assign_template"]},
-        "feeds.update": {"method": mcp_server_instance._update_feed, "params": ["feed_id", "title", "fetch_interval_minutes", "status"]},
-        "feeds.delete": {"method": mcp_server_instance._delete_feed, "params": ["feed_id", "confirm"]},
-        "feeds.test": {"method": mcp_server_instance._test_feed, "params": ["url", "show_items"]},
-        "feeds.refresh": {"method": mcp_server_instance._refresh_feed, "params": ["feed_id"]},
-        "feeds.performance": {"method": mcp_server_instance._feed_performance, "params": ["days", "limit"]},
-        "feeds.diagnostics": {"method": mcp_server_instance._feed_diagnostics, "params": ["feed_id", "include_logs"]},
-        "articles.latest": {"method": mcp_server_instance._latest_articles, "params": ["limit", "feed_id", "category_filter"]},
-        "articles.search": {"method": mcp_server_instance._search_articles, "params": ["query", "limit", "feed_id", "date_filter"]},
-        "templates.assign": {"method": mcp_server_instance._assign_template, "params": ["feed_id", "template_id", "auto_assign"]},
-        "data.export": {"method": mcp_server_instance._export_data, "params": ["format", "table", "limit"]},
+        "system.ping": {"method": mcp_server_instance._system_ping, "params": [], "description": "Health check ping for connectivity testing"},
+        "system.health": {"method": mcp_server_instance._system_health, "params": [], "description": "Overall system health status and diagnostics"},
+        "feeds.list": {"method": mcp_server_instance._list_feeds, "params": ["status", "include_health", "include_stats", "limit"], "description": "List all RSS feed sources (NYT, Guardian, etc.) with status, metrics and health info"},
+        "feeds.add": {"method": mcp_server_instance._add_feed, "params": ["url", "title", "fetch_interval_minutes", "auto_assign_template"], "description": "Add new RSS feed source with automatic template detection"},
+        "feeds.update": {"method": mcp_server_instance._update_feed, "params": ["feed_id", "title", "fetch_interval_minutes", "status"], "description": "Update feed source configuration (title, interval, status)"},
+        "feeds.delete": {"method": mcp_server_instance._delete_feed, "params": ["feed_id", "confirm"], "description": "Delete a feed source and all its articles"},
+        "feeds.test": {"method": mcp_server_instance._test_feed, "params": ["url", "show_items"], "description": "Test RSS feed URL and preview items without adding"},
+        "feeds.refresh": {"method": mcp_server_instance._refresh_feed, "params": ["feed_id"], "description": "Manually trigger immediate feed update to fetch new articles"},
+        "feeds.performance": {"method": mcp_server_instance._feed_performance, "params": ["days", "limit"], "description": "Analyze feed source performance and efficiency metrics"},
+        "feeds.diagnostics": {"method": mcp_server_instance._feed_diagnostics, "params": ["feed_id", "include_logs"], "description": "Detailed feed health analysis and error diagnostics"},
+        "articles.latest": {"method": mcp_server_instance._latest_articles, "params": ["limit", "feed_id", "category_filter"], "description": "Get latest news articles from all feeds, sorted by publication date"},
+        "articles.search": {"method": mcp_server_instance._search_articles, "params": ["query", "limit", "feed_id", "date_filter"], "description": "Full-text search across all news articles"},
+        "templates.assign": {"method": mcp_server_instance._assign_template, "params": ["feed_id", "template_id", "auto_assign"], "description": "Assign content extraction template to a feed"},
+        "data.export": {"method": mcp_server_instance._export_data, "params": ["format", "table", "limit"], "description": "Export data to JSON or CSV format"},
         # Categories Management
-        "categories_list": {"method": mcp_server_instance._categories_list, "params": ["include_feeds", "include_stats"]},
-        "categories_add": {"method": mcp_server_instance._categories_add, "params": ["name", "description", "color"]},
-        "categories_update": {"method": mcp_server_instance._categories_update, "params": ["category_id", "name", "description", "color"]},
-        "categories_delete": {"method": mcp_server_instance._categories_delete, "params": ["category_id", "confirm"]},
-        "categories_assign": {"method": mcp_server_instance._categories_assign, "params": ["feed_id", "category_ids", "replace"]},
+        "categories_list": {"method": mcp_server_instance._categories_list, "params": ["include_feeds", "include_stats"], "description": "List all article categories with feed assignments and statistics"},
+        "categories_add": {"method": mcp_server_instance._categories_add, "params": ["name", "description", "color"], "description": "Create new category for organizing feeds"},
+        "categories_update": {"method": mcp_server_instance._categories_update, "params": ["category_id", "name", "description", "color"], "description": "Update category properties (name, description, color)"},
+        "categories_delete": {"method": mcp_server_instance._categories_delete, "params": ["category_id", "confirm"], "description": "Delete category (requires confirmation)"},
+        "categories_assign": {"method": mcp_server_instance._categories_assign, "params": ["feed_id", "category_ids", "replace"], "description": "Assign categories to a specific feed"},
         # Sources Management
-        "sources_list": {"method": mcp_server_instance._sources_list, "params": ["include_feeds", "include_stats"]},
-        "sources_add": {"method": mcp_server_instance._sources_add, "params": ["name", "description", "url", "contact_email"]},
-        "sources_update": {"method": mcp_server_instance._sources_update, "params": ["source_id", "name", "description", "url", "contact_email"]},
-        "sources_delete": {"method": mcp_server_instance._sources_delete, "params": ["source_id", "confirm"]},
+        "sources_list": {"method": mcp_server_instance._sources_list, "params": ["include_feeds", "include_stats"], "description": "List news publisher sources with trust ratings and metrics"},
+        "sources_add": {"method": mcp_server_instance._sources_add, "params": ["name", "description", "url", "contact_email"], "description": "Add new news publisher source"},
+        "sources_update": {"method": mcp_server_instance._sources_update, "params": ["source_id", "name", "description", "url", "contact_email"], "description": "Update news publisher source properties"},
+        "sources_delete": {"method": mcp_server_instance._sources_delete, "params": ["source_id", "confirm"], "description": "Delete news publisher source (requires confirmation)"},
         # Extended Templates Management
-        "list_templates": {"method": mcp_server_instance._list_templates, "params": ["include_performance", "include_assignments", "status_filter"]},
-        "template_performance": {"method": mcp_server_instance._template_performance, "params": ["days", "template_id"]},
-        "templates_create": {"method": mcp_server_instance.v2_handlers.templates_create, "params": ["name", "description", "patterns", "processing_rules", "category_assignments"]},
-        "templates_test": {"method": mcp_server_instance.v2_handlers.templates_test, "params": ["template_id", "test_feeds", "sample_size"]},
-        "templates_assign": {"method": mcp_server_instance.v2_handlers.templates_assign, "params": ["template_id", "feed_id", "auto_assign"]},
+        "list_templates": {"method": mcp_server_instance._list_templates, "params": ["include_performance", "include_assignments", "status_filter"], "description": "List content extraction templates with usage statistics"},
+        "template_performance": {"method": mcp_server_instance._template_performance, "params": ["days", "template_id"], "description": "Analyze template extraction success rates and performance"},
+        "templates_create": {"method": mcp_server_instance.v2_handlers.templates_create, "params": ["name", "description", "patterns", "processing_rules", "category_assignments"], "description": "Create new content extraction template with rules"},
+        "templates_test": {"method": mcp_server_instance.v2_handlers.templates_test, "params": ["template_id", "test_feeds", "sample_size"], "description": "Test template against sample feeds to verify extraction rules"},
+        "templates_assign": {"method": mcp_server_instance.v2_handlers.templates_assign, "params": ["template_id", "feed_id", "auto_assign"], "description": "Assign template to feed with optional auto-detection"},
         # AI Analysis Control
-        "analysis_preview": {"method": mcp_server_instance.v2_handlers.analysis_preview, "params": ["selector", "model", "cost_estimate"]},
-        "analysis_run": {"method": mcp_server_instance.v2_handlers.analysis_run, "params": ["selector", "model", "auto_save"]},
-        "analysis_history": {"method": mcp_server_instance.v2_handlers.analysis_history, "params": ["limit", "filters"]},
-        "tools.list": {"method": None, "params": []}  # Special handler for listing tools
+        "analysis_preview": {"method": mcp_server_instance.v2_handlers.analysis_preview, "params": ["selector", "model", "cost_estimate"], "description": "Preview AI sentiment analysis scope and cost estimate"},
+        "analysis_run": {"method": mcp_server_instance.v2_handlers.analysis_run, "params": ["selector", "model", "limit", "dry_run"], "description": "Run AI sentiment analysis on selected articles"},
+        "analysis_history": {"method": mcp_server_instance.v2_handlers.analysis_history, "params": ["limit", "offset", "status"], "description": "Get history of AI analysis runs with results"},
+        "analysis_results": {"method": mcp_server_instance.v2_handlers.analysis_results, "params": ["run_id", "limit"], "description": "Get detailed sentiment results (scores, labels, topics) for a completed analysis run"},
+        # Auto-Analysis Management
+        "auto_analysis_status": {"method": mcp_server_instance._auto_analysis_status, "params": [], "description": "Get automatic sentiment analysis system status"},
+        "auto_analysis_toggle": {"method": mcp_server_instance._auto_analysis_toggle, "params": ["feed_id", "enabled"], "description": "Enable or disable automatic analysis for a feed"},
+        "auto_analysis_queue": {"method": mcp_server_instance._auto_analysis_queue, "params": ["limit"], "description": "View pending articles in automatic analysis queue"},
+        "auto_analysis_history": {"method": mcp_server_instance._auto_analysis_history, "params": ["days", "limit"], "description": "Get automatic analysis processing history and results"},
+        "auto_analysis_config": {"method": mcp_server_instance._auto_analysis_config, "params": ["max_runs_per_day", "max_items_per_run", "ai_model"], "description": "View or update automatic analysis system configuration"},
+        "auto_analysis_stats": {"method": mcp_server_instance._auto_analysis_stats, "params": ["feed_id"], "description": "Get comprehensive automatic analysis statistics and metrics"},
+        "tools.list": {"method": None, "params": [], "description": "List all available MCP tools with descriptions"}  # Special handler for listing tools
     }
 
     return tool_methods
@@ -597,12 +636,15 @@ def register_dynamic_tool_routes():
         namespace = tool_name.split('.')[0] if '.' in tool_name else "misc"
 
         # Register the route
+        tool_description = tool_info.get('description', f"Execute {tool_name} MCP tool")
+        params_list = ', '.join(tool_info['params']) if tool_info['params'] else 'None'
+
         app.post(
             f"/tools/{tool_name}",
             response_model=BaseResponse,
             tags=["tools", namespace],
-            summary=f"Execute {tool_name} MCP tool",
-            description=f"Dynamic endpoint for MCP tool: {tool_name}\nParameters: {', '.join(tool_info['params']) if tool_info['params'] else 'None'}",
+            summary=tool_description,
+            description=f"{tool_description}\n\nParameters: {params_list}",
             operation_id=f"tool_endpoint_tools_{tool_name.replace('.', '_')}_post"
         )(endpoint_func)
 
@@ -695,6 +737,15 @@ async def mcp_openapi():
     """
     OpenAPI specification endpoint for Open WebUI integration
     Returns the OpenAPI specification that Open WebUI expects
+    """
+    return app.openapi()
+
+
+@app.get("/mcp/openapi.json")
+async def mcp_openapi_json():
+    """
+    OpenAPI specification endpoint at /mcp/openapi.json
+    Open WebUI expects this specific path when configured with http://host:port/mcp
     """
     return app.openapi()
 
