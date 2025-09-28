@@ -71,8 +71,11 @@ def toggle_feed_auto_analysis(feed_id: int, session: Session = Depends(get_sessi
 def get_feeds_list(
     session: Session = Depends(get_session),
     category_id: Optional[int] = Query(None),
-    status: Optional[str] = Query(None)
+    status: Optional[str] = Query(None),
+    auto_analysis_only: Optional[str] = Query(None)
 ):
+    logger.info(f"get_feeds_list called with auto_analysis_only={auto_analysis_only}")
+
     # Build base query with source and categories
     query = select(Feed, Source).join(Source)
 
@@ -82,6 +85,10 @@ def get_feeds_list(
 
     if status and status.strip():
         query = query.where(Feed.status == status.strip())
+
+    if auto_analysis_only and auto_analysis_only.lower() in ["true", "1", "yes"]:
+        logger.info(f"Applying auto_analyze_enabled filter")
+        query = query.where(Feed.auto_analyze_enabled == True)
 
     results = session.exec(query).all()
 
@@ -103,6 +110,15 @@ def get_feeds_list(
         # Check if feed has articles and get analysis stats
         article_count = len(session.exec(select(Item).where(Item.feed_id == feed.id)).all())
         has_articles = article_count > 0
+
+        # Get latest article date
+        latest_article = session.exec(
+            select(Item)
+            .where(Item.feed_id == feed.id)
+            .order_by(Item.published.desc())
+            .limit(1)
+        ).first()
+        latest_article_date = latest_article.published if latest_article and latest_article.published else None
 
         # Get sentiment analysis statistics for this feed
         sentiment_stats = None
@@ -258,7 +274,8 @@ def get_feeds_list(
                             <strong>Source:</strong> {source.name} |
                             <strong>Interval:</strong> {feed.fetch_interval_minutes} min
                         </p>
-                        {f'<p class="card-text small text-muted"><strong>Last Fetch:</strong> {feed.last_fetched.strftime("%d.%m.%Y %H:%M")}</p>' if feed.last_fetched else '<p class="card-text small text-warning"><strong>Never fetched</strong></p>'}
+                        {f'<p class="card-text small text-muted mb-1"><strong>Last Fetch:</strong> {feed.last_fetched.strftime("%d.%m.%Y %H:%M")}</p>' if feed.last_fetched else '<p class="card-text small text-warning mb-1"><strong>Never fetched</strong></p>'}
+                        {f'<p class="card-text small text-muted"><strong>Latest Article:</strong> {latest_article_date.strftime("%d.%m.%Y %H:%M")}</p>' if latest_article_date else '<p class="card-text small text-muted"><strong>Latest Article:</strong> N/A</p>' if has_articles else ''}
                         <div id="fetch-status-{feed.id}"></div>
                         {analysis_info}
                     </div>

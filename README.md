@@ -11,6 +11,7 @@ News MCP ist ein enterprise-grade RSS-Aggregationssystem mit integrierter KI-Ana
 
 ### Core Funktionalitäten
 - **RSS Feed Management**: Automatische Erfassung und Verarbeitung von RSS-Feeds
+- **Auto-Analysis System**: Automatische KI-Analyse neuer Feed-Items (Phase 2)
 - **KI-Powered Analysis**: Sentiment-Analyse und Kategorisierung mit OpenAI GPT
 - **Real-time Dashboard**: Live-Monitoring von Feed-Status und Analyse-Runs
 - **Advanced Analytics**: Detaillierte Statistiken und Performance-Metriken
@@ -101,7 +102,7 @@ python -c "from app.database import create_tables; create_tables()"
 ./scripts/start-web-server.sh
 
 # Oder manuell
-uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 ## ⚙️ Konfiguration
@@ -132,13 +133,16 @@ REDIS_URL=redis://localhost:6379/0  # Optional
 
 ```bash
 # Haupt-Dashboard
-http://localhost:8001/
+http://localhost:8000/
 
 # Analysis Cockpit
-http://localhost:8001/admin/analysis
+http://localhost:8000/admin/analysis
 
 # Feed Management
-http://localhost:8001/admin/feeds
+http://localhost:8000/admin/feeds
+
+# Auto-Analysis Dashboard
+http://localhost:8000/admin/auto-analysis
 ```
 
 ### CLI Tools
@@ -182,6 +186,14 @@ GET    /api/analysis/runs/{id}    # Run Status abrufen
 POST   /api/analysis/runs/{id}/cancel  # Run abbrechen
 ```
 
+#### Auto-Analysis API (Phase 2)
+```http
+POST   /api/feeds/{id}/toggle-auto-analysis  # Auto-Analysis aktivieren/deaktivieren
+GET    /api/feeds/{id}/auto-analysis-status  # Auto-Analysis Status
+GET    /api/auto-analysis/queue              # Queue Status
+GET    /api/auto-analysis/history            # Auto-Analysis Historie
+```
+
 #### System Management
 ```http
 GET    /api/analysis/manager/status     # System Status
@@ -197,6 +209,9 @@ GET    /htmx/analysis/stats-horizontal    # Dashboard Statistiken
 GET    /htmx/analysis/runs/active         # Aktive Runs
 GET    /htmx/analysis/runs/history        # Run Historie
 GET    /htmx/analysis/articles-live       # Live Artikel-Feed
+GET    /htmx/auto-analysis/dashboard      # Auto-Analysis Dashboard
+GET    /htmx/auto-analysis/queue          # Queue Status
+GET    /htmx/auto-analysis/history        # Auto-Analysis Historie
 ```
 
 ### API Response Formats
@@ -223,8 +238,8 @@ GET    /htmx/analysis/articles-live       # Live Artikel-Feed
   "total_items": 50,
   "processed_count": 50,
   "error_count": 0,
-  "created_at": "2024-01-01T12:00:00Z",
-  "completed_at": "2024-01-01T12:05:00Z"
+  "created_at": "2025-09-28T12:00:00Z",
+  "completed_at": "2025-09-28T12:05:00Z"
 }
 ```
 
@@ -287,6 +302,19 @@ CREATE TABLE item_analysis (
 );
 ```
 
+#### pending_auto_analysis (Phase 2)
+```sql
+CREATE TABLE pending_auto_analysis (
+    id SERIAL PRIMARY KEY,
+    item_id INTEGER REFERENCES items(id),
+    feed_id INTEGER REFERENCES feeds(id),
+    priority INTEGER DEFAULT 5,
+    status VARCHAR(20) DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT NOW(),
+    processed_at TIMESTAMP
+);
+```
+
 ### Indizes und Performance
 
 ```sql
@@ -295,10 +323,13 @@ CREATE INDEX idx_items_feed_id ON items(feed_id);
 CREATE INDEX idx_items_published ON items(published);
 CREATE INDEX idx_analysis_runs_status ON analysis_runs(status);
 CREATE INDEX idx_item_analysis_item_id ON item_analysis(item_id);
+CREATE INDEX idx_pending_auto_analysis_status ON pending_auto_analysis(status);
+CREATE INDEX idx_pending_auto_analysis_feed_id ON pending_auto_analysis(feed_id);
 
 -- Composite Indizes
 CREATE INDEX idx_items_feed_published ON items(feed_id, published DESC);
 CREATE INDEX idx_runs_status_created ON analysis_runs(status, created_at DESC);
+CREATE INDEX idx_pending_auto_analysis_status_priority ON pending_auto_analysis(status, priority DESC);
 ```
 
 ### Migrations
@@ -330,9 +361,9 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt
 
 COPY . .
-EXPOSE 8001
+EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
 ```yaml
@@ -342,7 +373,7 @@ services:
   web:
     build: .
     ports:
-      - "8001:8001"
+      - "8000:8000"
     environment:
       - DATABASE_URL=postgresql://news_user:news_password@db:5432/news_db
     depends_on:
@@ -419,6 +450,7 @@ news-mcp/
 │   ├── api/                    # API Routes
 │   │   ├── analysis_management.py
 │   │   ├── analysis_selection.py
+│   │   ├── feeds.py            # Feed Management + Auto-Analysis
 │   │   └── htmx.py
 │   ├── core/                   # Core Konfiguration
 │   │   ├── config.py
@@ -427,10 +459,14 @@ news-mcp/
 │   │   └── __init__.py
 │   ├── services/               # Business Logic
 │   │   ├── analysis_run_manager.py
+│   │   ├── auto_analysis_service.py      # Auto-Analysis (Phase 2)
+│   │   ├── pending_analysis_processor.py # Queue Processor
 │   │   └── selection_cache.py
 │   ├── web/                    # Web Views
 │   │   ├── components/         # HTMX Komponenten
-│   │   └── views/              # Page Views
+│   │   └── views/              # Page Views + Auto-Analysis Views
+│   ├── worker/                 # Background Workers
+│   │   └── analysis_worker.py
 │   ├── database.py            # DB Connection
 │   └── main.py                # FastAPI App
 ├── templates/                  # Jinja2 Templates

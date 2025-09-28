@@ -1,11 +1,12 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
+from sqlmodel import Session
 from app.core.logging_config import get_logger
 
 from app.config import settings
-from app.database import create_db_and_tables
+from app.database import create_db_and_tables, get_session
 from app.api import feeds, items, health, categories, sources, htmx, processors, statistics, database, analysis_control, user_settings, feature_flags_admin, templates as api_templates, scheduler, analysis_management, metrics, feed_limits, system, analysis_selection
 from app.routes import templates as template_routes
 from app.web.views import analysis, auto_analysis_views
@@ -158,8 +159,18 @@ async def admin_dashboard(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 @app.get("/admin/feeds", response_class=HTMLResponse)
-async def admin_feeds(request: Request):
-    return templates.TemplateResponse("admin/feeds.html", {"request": request})
+async def admin_feeds(request: Request, session: Session = Depends(get_session)):
+    from sqlmodel import select
+    from app.models.feeds import Source, Category
+
+    sources = session.exec(select(Source).order_by(Source.name)).all()
+    categories = session.exec(select(Category).order_by(Category.name)).all()
+
+    return templates.TemplateResponse("admin/feeds.html", {
+        "request": request,
+        "sources": sources,
+        "categories": categories
+    })
 
 @app.get("/admin/items", response_class=HTMLResponse)
 async def admin_items(request: Request):
@@ -185,6 +196,10 @@ async def admin_database(request: Request):
 async def admin_analysis(request: Request):
     # Use the v4 clean unified Alpine.js template
     return templates.TemplateResponse("analysis_cockpit_v4.html", {"request": request})
+
+@app.get("/admin/auto-analysis", response_class=HTMLResponse)
+async def admin_auto_analysis(request: Request):
+    return templates.TemplateResponse("auto_analysis.html", {"request": request})
 
 @app.get("/admin/metrics", response_class=HTMLResponse)
 async def admin_metrics(request: Request):

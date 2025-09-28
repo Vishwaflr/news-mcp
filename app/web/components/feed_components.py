@@ -20,11 +20,16 @@ class FeedComponent(BaseComponent):
     """Component for feed-related HTMX endpoints."""
 
     @staticmethod
-    def build_feed_card(feed: Feed, source: Source, categories: list, article_count: int, analysis_stats: dict = None) -> str:
+    def build_feed_card(feed: Feed, source: Source, categories: list, article_count: int, analysis_stats: dict = None, auto_analysis_only: str = None, latest_article_date = None) -> str:
         """Build HTML for a single feed card."""
         has_articles = article_count > 0
         status_badge = FeedComponent.status_badge(feed.status.value)
         category_badges = FeedComponent.category_badges(categories)
+
+        # Build edit URL with optional query parameter
+        edit_url = f'/htmx/feed-edit-form/{feed.id}'
+        if auto_analysis_only:
+            edit_url += f'?auto_analysis_only={auto_analysis_only}'
 
         # Article count badge
         article_badge = (
@@ -68,7 +73,7 @@ class FeedComponent(BaseComponent):
             {
                 'classes': 'btn btn-sm btn-outline-secondary',
                 'attrs': {
-                    'hx-get': f'/htmx/feed-edit-form/{feed.id}',
+                    'hx-get': edit_url,
                     'hx-target': '#edit-modal-content',
                     'data-bs-toggle': 'modal',
                     'data-bs-target': '#editFeedModal'
@@ -105,11 +110,20 @@ class FeedComponent(BaseComponent):
         </button>
         '''
 
-        last_fetch_info = (
-            f'<p class="card-text small text-muted"><strong>Last Fetch:</strong> {FeedComponent.format_date(feed.last_fetched)}</p>'
+        # Combine last fetch and latest article in one line
+        last_fetch_text = (
+            f'<strong>Last Fetch:</strong> {FeedComponent.format_date(feed.last_fetched)}'
             if feed.last_fetched else
-            '<p class="card-text small text-warning"><strong>Never fetched</strong></p>'
+            '<strong>Last Fetch:</strong> <span class="text-warning">Never</span>'
         )
+
+        latest_article_text = (
+            f' | <strong>Latest Article:</strong> {FeedComponent.format_date(latest_article_date)}'
+            if latest_article_date else
+            ''
+        )
+
+        fetch_info = f'<p class="card-text small text-muted">{last_fetch_text}{latest_article_text}</p>'
 
         return f'''
         <div class="card mb-2">
@@ -132,7 +146,7 @@ class FeedComponent(BaseComponent):
                             <strong>Interval:</strong> {feed.fetch_interval_minutes} min
                         </p>
                         {FeedComponent.analysis_summary(analysis_stats)}
-                        {last_fetch_info}
+                        {fetch_info}
                         <div id="fetch-status-{feed.id}"></div>
                     </div>
                     <div class="btn-group">
@@ -261,7 +275,8 @@ def fetch_feed_now_htmx(feed_id: int, session: Session = Depends(get_session)):
 def get_feeds_list(
     session: Session = Depends(get_session),
     category_id: Optional[int] = Query(None),
-    status: Optional[str] = Query(None)
+    status: Optional[str] = Query(None),
+    auto_analysis_only: Optional[str] = Query(None)
 ):
     """Get filtered HTML list of feeds."""
     try:
@@ -281,6 +296,9 @@ def get_feeds_list(
         if status and status.strip():
             conditions.append("f.status = :status")
             params["status"] = status.strip()
+
+        if auto_analysis_only and auto_analysis_only.lower() in ["true", "1", "yes"]:
+            conditions.append("f.auto_analyze_enabled = true")
 
         where_clause = ""
         if conditions:
@@ -357,6 +375,10 @@ def get_feeds_list(
             count_sql = "SELECT COUNT(*) FROM items WHERE feed_id = :feed_id"
             article_count = session.execute(text(count_sql), {"feed_id": feed.id}).scalar()
 
+            # Get latest article date
+            latest_article_sql = "SELECT MAX(published) FROM items WHERE feed_id = :feed_id"
+            latest_article_date = session.execute(text(latest_article_sql), {"feed_id": feed.id}).scalar()
+
             # Get analysis statistics
             analysis_stats = None
             if article_count > 0:
@@ -384,7 +406,7 @@ def get_feeds_list(
                         }
                     }
 
-            html += FeedComponent.build_feed_card(feed, source, feed_categories, article_count, analysis_stats)
+            html += FeedComponent.build_feed_card(feed, source, feed_categories, article_count, analysis_stats, auto_analysis_only, latest_article_date)
 
         if not html:
             html = BaseComponent.alert_box('No feeds found.', 'info')
@@ -539,7 +561,11 @@ def test_feed_url(url: str, session: Session = Depends(get_session)):
 
 
 @router.get("/feed-edit-form/{feed_id}", response_class=HTMLResponse)
-def get_feed_edit_form(feed_id: int, session: Session = Depends(get_session)):
+def get_feed_edit_form(
+    feed_id: int,
+    auto_analysis_only: Optional[str] = Query(None),
+    session: Session = Depends(get_session)
+):
     """Get feed edit form for modal display."""
     try:
         feed = session.get(Feed, feed_id)
@@ -552,9 +578,9 @@ def get_feed_edit_form(feed_id: int, session: Session = Depends(get_session)):
 
         # Get current feed categories
         current_categories = session.exec(
-            select(FeedCategory.category_id).where(FeedCategory.feed_id == feed_id)
+            select(FeedCategory).where(FeedCategory.feed_id == feed_id)
         ).all()
-        current_category_ids = [cat[0] for cat in current_categories]
+        current_category_ids = [fc.category_id for fc in current_categories]
     except Exception as e:
         logger.error(f"Error in feed edit form for feed {feed_id}: {str(e)}")
         import traceback
@@ -579,12 +605,15 @@ def get_feed_edit_form(feed_id: int, session: Session = Depends(get_session)):
         </div>
         '''
 
+    hidden_auto_analysis = f'<input type="hidden" name="auto_analysis_only" value="{auto_analysis_only}">' if auto_analysis_only else ''
+
     return f'''
     <div class="modal-header">
         <h5 class="modal-title">Edit Feed: {feed.title}</h5>
     </div>
     <div class="modal-body">
-        <form id="edit-feed-form" hx-put="/api/feeds/{feed_id}/form" hx-target="#feeds-list">
+        <form id="edit-feed-form-{feed_id}">
+            {hidden_auto_analysis}
             <div class="mb-3">
                 <label for="edit-title" class="form-label">Title</label>
                 <input type="text" class="form-control" id="edit-title" name="title"
@@ -612,8 +641,8 @@ def get_feed_edit_form(feed_id: int, session: Session = Depends(get_session)):
 
             <div class="mb-3">
                 <div class="form-check form-switch">
-                    <input class="form-check-input" type="checkbox" id="auto-analyze-enabled"
-                           name="auto_analyze_enabled" value="true" {'checked' if feed.auto_analyze_enabled else ''}>
+                    <input class="form-check-input" type="checkbox" name="auto_analyze_enabled" value="true"
+                           {'checked' if feed.auto_analyze_enabled else ''}>
                     <label class="form-check-label" for="auto-analyze-enabled">
                         <strong>Auto-Analyze New Articles</strong>
                         <br><small class="text-muted">Automatically analyze new articles for sentiment and impact when fetched</small>
@@ -625,10 +654,17 @@ def get_feed_edit_form(feed_id: int, session: Session = Depends(get_session)):
                 <label class="form-label">Categories</label>
                 {categories_checkboxes}
             </div>
+
+            <div class="d-flex justify-content-end gap-2">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary"
+                        hx-put="/api/feeds/{feed_id}/form"
+                        hx-include="#edit-feed-form-{feed_id}"
+                        hx-target="#feeds-list"
+                        hx-swap="innerHTML">
+                    <i class="bi bi-save"></i> Save Changes
+                </button>
+            </div>
         </form>
-    </div>
-    <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-        <button type="submit" form="edit-feed-form" class="btn btn-primary">Save Changes</button>
     </div>
     '''

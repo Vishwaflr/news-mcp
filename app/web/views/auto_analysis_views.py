@@ -1,6 +1,6 @@
 """HTMX views for auto-analysis monitoring and statistics"""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Form
 from fastapi.responses import HTMLResponse
 from sqlmodel import Session
 from app.core.logging_config import get_logger
@@ -12,6 +12,13 @@ from app.services.pending_analysis_processor import PendingAnalysisProcessor
 
 router = APIRouter(tags=["htmx-auto-analysis"])
 logger = get_logger(__name__)
+
+auto_analysis_config = {
+    "max_runs_per_day": 10,
+    "max_items_per_run": 50,
+    "ai_model": "gpt-4.1-nano",
+    "check_interval": 60
+}
 
 
 @router.get("/auto-analysis-dashboard", response_class=HTMLResponse)
@@ -180,3 +187,73 @@ def get_auto_analysis_history(session: Session = Depends(get_session)):
     except Exception as e:
         logger.error(f"Error getting history: {e}")
         return f'<div class="alert alert-danger">Error: {str(e)}</div>'
+
+
+@router.post("/auto-analysis-config", response_class=HTMLResponse)
+def update_auto_analysis_config(
+    max_runs_per_day: int = Form(...),
+    max_items_per_run: int = Form(...),
+    ai_model: str = Form(...),
+    check_interval: int = Form(...)
+):
+    """Update auto-analysis configuration"""
+    try:
+        auto_analysis_config["max_runs_per_day"] = max_runs_per_day
+        auto_analysis_config["max_items_per_run"] = max_items_per_run
+        auto_analysis_config["ai_model"] = ai_model
+        auto_analysis_config["check_interval"] = check_interval
+
+        logger.info(f"Updated auto-analysis config: {auto_analysis_config}")
+
+        html = f"""
+        <div id="config-view" class="row">
+            <div class="col-md-4">
+                <h6>Daily Limits</h6>
+                <ul class="small">
+                    <li><span id="view-max-runs">{max_runs_per_day}</span> Auto-Runs pro Feed/Tag</li>
+                    <li>Max <span id="view-max-items">{max_items_per_run}</span> Items pro Run</li>
+                    <li>Job Expiry: 24 Stunden</li>
+                </ul>
+            </div>
+            <div class="col-md-4">
+                <h6>Model</h6>
+                <ul class="small">
+                    <li>Default: <span id="view-model">{ai_model}</span></li>
+                    <li>Cost-optimiert für Auto-Analyse</li>
+                    <li>Rate: 1.0 req/s</li>
+                </ul>
+            </div>
+            <div class="col-md-4">
+                <h6>Queue Processing</h6>
+                <ul class="small">
+                    <li>Worker: Analysis Worker</li>
+                    <li>Check Interval: <span id="view-interval">{check_interval}</span>s</li>
+                    <li>Async Processing</li>
+                </ul>
+            </div>
+        </div>
+        <div class="alert alert-success mt-3">
+            <i class="bi bi-check-circle"></i> Configuration saved successfully!
+        </div>
+        <script>
+            document.getElementById('config-edit').style.display = 'none';
+            document.getElementById('toggle-config-edit').style.display = 'inline-block';
+        </script>
+        """
+
+        return html
+
+    except Exception as e:
+        logger.error(f"Error updating config: {e}")
+        return f'<div class="alert alert-danger">Error: {str(e)}</div>'
+
+
+@router.get("/auto-analysis-config", response_class=HTMLResponse)
+def get_auto_analysis_config():
+    """Get current auto-analysis configuration"""
+    return {
+        "max_runs_per_day": auto_analysis_config["max_runs_per_day"],
+        "max_items_per_run": auto_analysis_config["max_items_per_run"],
+        "ai_model": auto_analysis_config["ai_model"],
+        "check_interval": auto_analysis_config["check_interval"]
+    }

@@ -14,12 +14,15 @@ class FeedStatus(str, Enum):
 
 class FeedCreate(BaseModel):
     """Schema for creating a new feed."""
-    url: HttpUrl
+    url: str
     title: Optional[str] = None
     description: Optional[str] = None
     category_id: Optional[int] = None
+    category_ids: Optional[List[int]] = None
     fetch_interval_minutes: int = Field(default=60, ge=5, le=1440)
     status: FeedStatus = FeedStatus.ACTIVE
+    auto_analyze_enabled: bool = False
+    source_id: Optional[int] = None
 
 
 class FeedUpdate(BaseModel):
@@ -27,8 +30,10 @@ class FeedUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     category_id: Optional[int] = None
+    category_ids: Optional[List[int]] = None
     fetch_interval_minutes: Optional[int] = Field(None, ge=5, le=1440)
     status: Optional[FeedStatus] = None
+    auto_analyze_enabled: Optional[bool] = None
 
 
 class FeedResponse(BaseModel):

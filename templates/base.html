@@ -243,6 +243,9 @@
                     <a class="nav-link" href="/admin/analysis">
                         <i class="fas fa-brain"></i> Analysis
                     </a>
+                    <a class="nav-link" href="/admin/auto-analysis">
+                        <i class="bi bi-robot"></i> Auto-Analysis
+                    </a>
                     <a class="nav-link" href="/admin/templates">
                         <i class="fas fa-cogs"></i> Templates
                     </a>
@@ -278,6 +281,27 @@
                         form.reset();
                     }
                 });
+            }
+        });
+
+        // Close modal on HTMX closeModal event
+        document.body.addEventListener('closeModal', function() {
+            // Try to close edit modal
+            const editModal = document.getElementById('editFeedModal');
+            if (editModal) {
+                const modalInstance = bootstrap.Modal.getInstance(editModal);
+                if (modalInstance) {
+                    modalInstance.hide();
+                }
+            }
+
+            // Try to close add modal
+            const addModal = document.getElementById('addFeedModal');
+            if (addModal) {
+                const modalInstance = bootstrap.Modal.getInstance(addModal);
+                if (modalInstance) {
+                    modalInstance.hide();
+                }
             }
         });
     </script>

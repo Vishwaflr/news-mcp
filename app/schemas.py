@@ -34,6 +34,7 @@ class FeedCreate(BaseModel):
     fetch_interval_minutes: int = 60
     source_id: Optional[int] = None
     category_ids: Optional[List[int]] = []
+    auto_analyze_enabled: bool = False
 
 class FeedUpdate(BaseModel):
     title: Optional[str] = None

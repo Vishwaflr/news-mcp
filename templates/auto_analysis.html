@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+
+{% block title %}Auto-Analysis System - News MCP{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h2><i class="bi bi-robot"></i> Auto-Analysis System</h2>
+            <p class="text-muted">Automatische KI-Analyse neuer Feed-Artikel</p>
+        </div>
+    </div>
+
+    <!-- System Configuration ---->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card border-primary">
+                <div class="card-header bg-primary bg-opacity-10 d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="bi bi-gear-fill"></i> System Configuration</h6>
+                    <button class="btn btn-sm btn-outline-primary" id="toggle-config-edit">
+                        <i class="bi bi-pencil"></i> Edit
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div id="config-view" class="row">
+                        <div class="col-md-4">
+                            <h6>Daily Limits</h6>
+                            <ul class="small">
+                                <li><span id="view-max-runs">10</span> Auto-Runs pro Feed/Tag</li>
+                                <li>Max <span id="view-max-items">50</span> Items pro Run</li>
+                                <li>Job Expiry: 24 Stunden</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-4">
+                            <h6>Model</h6>
+                            <ul class="small">
+                                <li>Default: <span id="view-model">gpt-4.1-nano</span></li>
+                                <li>Cost-optimiert für Auto-Analyse</li>
+                                <li>Rate: 1.0 req/s</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-4">
+                            <h6>Queue Processing</h6>
+                            <ul class="small">
+                                <li>Worker: Analysis Worker</li>
+                                <li>Check Interval: <span id="view-interval">60</span>s</li>
+                                <li>Async Processing</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <form id="config-edit" style="display: none;"
+                          hx-post="/htmx/auto-analysis-config"
+                          hx-target="#config-view"
+                          hx-swap="outerHTML">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label small">Max Auto-Runs pro Feed/Tag</label>
+                                    <input type="number" class="form-control form-control-sm" name="max_runs_per_day" value="10" min="1" max="100">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label small">Max Items pro Run</label>
+                                    <input type="number" class="form-control form-control-sm" name="max_items_per_run" value="50" min="10" max="500">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label small">AI Model</label>
+                                    <select class="form-select form-select-sm" name="ai_model">
+                                        <option value="gpt-4.1-nano" selected>gpt-4.1-nano (Cost-optimiert)</option>
+                                        <option value="gpt-4o-mini">gpt-4o-mini</option>
+                                        <option value="gpt-4o">gpt-4o (High Quality)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label small">Check Interval (Sekunden)</label>
+                                    <input type="number" class="form-control form-control-sm" name="check_interval" value="60" min="30" max="300">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-12">
+                                <button type="submit" class="btn btn-sm btn-success me-2">
+                                    <i class="bi bi-save"></i> Save
+                                </button>
+                                <button type="button" class="btn btn-sm btn-secondary" id="cancel-config-edit">
+                                    <i class="bi bi-x"></i> Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                    <hr>
+                    <small class="text-muted">
+                        <strong>Tipp:</strong> Auto-Analysis kann pro Feed in den Feed-Einstellungen aktiviert werden.
+                        Neue Artikel werden dann automatisch analysiert.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard Widget -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div id="auto-analysis-dashboard"
+                 hx-get="/htmx/auto-analysis-dashboard"
+                 hx-trigger="load, every 30s"
+                 hx-swap="innerHTML">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2 text-muted">Loading dashboard...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Queue & History -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-clock-history"></i> Pending Queue</h5>
+                </div>
+                <div class="card-body">
+                    <div id="auto-analysis-queue"
+                         hx-get="/htmx/auto-analysis-queue"
+                         hx-trigger="load, every 15s"
+                         hx-swap="innerHTML">
+                        <div class="text-center">
+                            <div class="spinner-border spinner-border-sm text-secondary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-2 text-muted small">Loading queue...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-list-check"></i> Recent History</h5>
+                    <button class="btn btn-sm btn-outline-secondary"
+                            hx-get="/htmx/auto-analysis-history"
+                            hx-target="#auto-analysis-history"
+                            hx-swap="innerHTML">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div id="auto-analysis-history"
+                         hx-get="/htmx/auto-analysis-history"
+                         hx-trigger="load, every 30s"
+                         hx-swap="innerHTML">
+                        <div class="text-center">
+                            <div class="spinner-border spinner-border-sm text-secondary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-2 text-muted small">Loading history...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Feeds with Auto-Analysis -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-rss-fill"></i> Feeds mit Auto-Analysis</h5>
+                </div>
+                <div class="card-body">
+                    <div id="feeds-list"
+                         hx-get="/htmx/feeds-list?auto_analysis_only=true"
+                         hx-trigger="load"
+                         hx-swap="innerHTML">
+                        <div class="text-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-2 text-muted">Loading feeds...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const toggleBtn = document.getElementById('toggle-config-edit');
+    const cancelBtn = document.getElementById('cancel-config-edit');
+    const configView = document.getElementById('config-view');
+    const configEdit = document.getElementById('config-edit');
+
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', function() {
+            configView.style.display = 'none';
+            configEdit.style.display = 'block';
+            toggleBtn.style.display = 'none';
+        });
+    }
+
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', function() {
+            configView.style.display = 'block';
+            configEdit.style.display = 'none';
+            toggleBtn.style.display = 'inline-block';
+        });
+    }
+});
+</script>
+{% endblock %}

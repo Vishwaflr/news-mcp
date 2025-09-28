@@ -22,6 +22,7 @@ graph TB
         Web[FastAPI Web Server]
         Worker[Analysis Worker]
         Scheduler[Feed Scheduler]
+        AutoAnalysis[Auto-Analysis System]
         MCP[MCP Server]
     end
 
@@ -35,6 +36,8 @@ graph TB
     LB --> Web
     RSS --> Scheduler
     Scheduler --> DB
+    Scheduler --> AutoAnalysis
+    AutoAnalysis --> Worker
     Worker --> OpenAI
     Worker --> DB
     Web --> DB
@@ -44,6 +47,7 @@ graph TB
     style Web fill:#e1f5fe
     style Worker fill:#f3e5f5
     style Scheduler fill:#e8f5e8
+    style AutoAnalysis fill:#fce4ec
     style DB fill:#fff3e0
 ```
 
@@ -67,7 +71,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 
 app = FastAPI(
     title="News MCP API",
-    version="2.1.0",
+    version="3.1.0",
     docs_url="/docs",
     redoc_url="/redoc"
 )
@@ -153,7 +157,69 @@ class FeedScheduler:
         )
 ```
 
-### 4. Database Layer
+### 4. Auto-Analysis System (Phase 2)
+
+**Verantwortlichkeiten:**
+- Automatische Analyse neuer Feed-Items
+- Queue-Management für pending items
+- Feed-spezifische Konfiguration
+- Rate Limiting & Error Handling
+
+**Architecture Pattern:**
+```python
+class AutoAnalysisService:
+    async def process_new_items(self, feed_id: int, items: List[Item]):
+        """Process new items from feed for auto-analysis"""
+
+        # Check if feed has auto-analysis enabled
+        feed_config = await self.get_feed_config(feed_id)
+        if not feed_config.auto_analysis_enabled:
+            return
+
+        # Queue items for processing
+        for item in items:
+            await self.queue_item_for_analysis(item, priority=5)
+
+    async def queue_item_for_analysis(self, item: Item, priority: int = 5):
+        """Add item to pending_auto_analysis queue"""
+
+        pending_analysis = PendingAutoAnalysis(
+            item_id=item.id,
+            feed_id=item.feed_id,
+            priority=priority,
+            status="pending"
+        )
+
+        self.session.add(pending_analysis)
+        await self.session.commit()
+
+class PendingAnalysisProcessor:
+    async def process_queue(self):
+        """Process pending auto-analysis queue with rate limiting"""
+
+        while True:
+            # Get next batch (respect rate limits)
+            batch = await self.get_next_batch(size=10)
+            if not batch:
+                await asyncio.sleep(30)  # No work, wait
+                continue
+
+            # Process batch
+            for pending_item in batch:
+                try:
+                    await self.analyze_item(pending_item)
+                    await self.mark_completed(pending_item)
+                except Exception as e:
+                    await self.handle_error(pending_item, e)
+```
+
+**Integration Points:**
+- **Feed Fetcher**: Triggers auto-analysis for new items
+- **Analysis Worker**: Processes queued items
+- **Rate Limiter**: Respects OpenAI API limits
+- **Web UI**: Management interface via HTMX views
+
+### 5. Database Layer
 
 **Schema Design Principles:**
 - **Normalization**: 3NF für Datenintegrität
@@ -164,12 +230,12 @@ class FeedScheduler:
 **Key Tables:**
 ```sql
 -- Core Content
-feeds (37 rows) → RSS Feed Konfiguration
-items (10,285 rows) → Nachrichtenartikel
-sources (38 rows) → Nachrichtenquellen
+feeds (40 rows, 37 aktiv) → RSS Feed Konfiguration
+items (11,254 rows) → Nachrichtenartikel
+sources (41 rows) → Nachrichtenquellen
 
 -- Analysis System
-analysis_runs (49 rows) → AI Analysis Jobs
+analysis_runs (75 rows) → AI Analysis Jobs
 analysis_run_items (2,981 rows) → Individual Tasks
 item_analysis (2,866 rows) → Analysis Results
 
@@ -354,9 +420,9 @@ services:
 # Nginx Upstream Configuration
 upstream news_mcp_backend {
     least_conn;
-    server web1:8001 max_fails=3 fail_timeout=30s;
-    server web2:8001 max_fails=3 fail_timeout=30s;
-    server web3:8001 max_fails=3 fail_timeout=30s;
+    server web1:8000 max_fails=3 fail_timeout=30s;
+    server web2:8000 max_fails=3 fail_timeout=30s;
+    server web3:8000 max_fails=3 fail_timeout=30s;
 }
 
 server {
@@ -727,11 +793,12 @@ async def process_analysis(run_id: int):
 
 ### Scaling Targets
 
-| Metric | Current | Target (6 months) | Target (1 year) |
+| Metric | Current (Q3 2025) | Target (Q1 2026) | Target (Q4 2026) |
 |--------|---------|-------------------|-----------------|
 | **Feeds** | 37 | 200 | 1000 |
 | **Articles/day** | 450 | 2000 | 10000 |
 | **Analysis throughput** | 30/min | 100/min | 500/min |
+| **Auto-Analysis throughput** | 20/min | 150/min | 750/min |
 | **API Response time** | 85ms | <50ms | <30ms |
 | **Uptime** | 99.9% | 99.95% | 99.99% |
 
@@ -754,5 +821,5 @@ async def process_analysis(run_id: int):
 
 ---
 
-**Letzte Aktualisierung:** September 2024
-**Architecture Version:** v2.1.0
+**Letzte Aktualisierung:** September 2025
+**Architecture Version:** v3.1.0
