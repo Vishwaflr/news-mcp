@@ -109,7 +109,24 @@ async def list_tools():
             # Administration
             {"name": "maintenance_tasks", "description": "System maintenance (cleanup, vacuum, etc.)"},
             {"name": "log_analysis", "description": "Analyze system logs for patterns"},
-            {"name": "usage_stats", "description": "System usage statistics and metrics"}
+            {"name": "usage_stats", "description": "System usage statistics and metrics"},
+
+            # Categories Management
+            {"name": "categories_list", "description": "List all categories with feeds and statistics"},
+            {"name": "categories_add", "description": "Create new category with name, description and color"},
+            {"name": "categories_update", "description": "Update category properties (name, description, color)"},
+            {"name": "categories_delete", "description": "Remove category (requires confirmation)"},
+            {"name": "categories_assign", "description": "Assign category to specific feed"},
+
+            # Sources Management
+            {"name": "sources_list", "description": "List news sources with trust levels and statistics"},
+            {"name": "sources_add", "description": "Add new news source with URL and trust level (1-5)"},
+            {"name": "sources_update", "description": "Update source properties (name, URL, trust level)"},
+            {"name": "sources_delete", "description": "Remove source (requires confirmation)"},
+            {"name": "sources_stats", "description": "Detailed source performance statistics and metrics"},
+
+            # System Utilities
+            {"name": "system_ping", "description": "Simple health check ping for connectivity testing"}
         ]
 
         return {"tools": available_tools, "total": len(available_tools)}

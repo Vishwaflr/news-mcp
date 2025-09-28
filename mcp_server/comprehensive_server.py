@@ -17,10 +17,12 @@ from app.database import engine
 from app.models import (
     Feed, Item, Category, FeedCategory, FeedHealth, Source,
     DynamicFeedTemplate, FeedTemplateAssignment, FeedConfigurationChange,
-    ContentProcessingLog, FetchLog
+    ContentProcessingLog, FetchLog, PendingAutoAnalysis
 )
 from app.config import settings
 from app.services.dynamic_template_manager import get_dynamic_template_manager
+from app.services.auto_analysis_service import AutoAnalysisService
+from app.services.pending_analysis_processor import PendingAnalysisProcessor
 from .v2_handlers import MCPv2Handlers
 
 logging.basicConfig(level=logging.INFO)
@@ -2882,6 +2884,304 @@ class ComprehensiveNewsServer:
                 result.append(source_stats)
 
         return [TextContent(type="text", text=safe_json_dumps(result, indent=2))]
+
+    async def _auto_analysis_status(self) -> List[TextContent]:
+        """Get auto-analysis system status and statistics"""
+        try:
+            with Session(engine) as session:
+                processor = PendingAnalysisProcessor()
+                queue_stats = processor.get_queue_stats()
+
+                feeds_with_auto = session.exec(
+                    select(func.count(Feed.id)).where(Feed.auto_analyze_enabled == True)
+                ).first() or 0
+
+                yesterday = datetime.utcnow() - timedelta(days=1)
+
+                completed_today = session.exec(
+                    select(func.count(PendingAutoAnalysis.id)).where(
+                        PendingAutoAnalysis.status == "completed",
+                        PendingAutoAnalysis.processed_at >= yesterday
+                    )
+                ).first() or 0
+
+                failed_today = session.exec(
+                    select(func.count(PendingAutoAnalysis.id)).where(
+                        PendingAutoAnalysis.status == "failed",
+                        PendingAutoAnalysis.processed_at >= yesterday
+                    )
+                ).first() or 0
+
+                completed_jobs = session.exec(
+                    select(PendingAutoAnalysis).where(
+                        PendingAutoAnalysis.status == "completed",
+                        PendingAutoAnalysis.processed_at >= yesterday
+                    )
+                ).all()
+
+                total_items_analyzed = sum(len(job.item_ids) for job in completed_jobs)
+
+                success_rate = round(
+                    (completed_today / (completed_today + failed_today) * 100), 1
+                ) if (completed_today + failed_today) > 0 else 100
+
+                result = {
+                    "system_status": "active",
+                    "feeds_with_auto_analysis": feeds_with_auto,
+                    "queue": queue_stats,
+                    "last_24h": {
+                        "completed_jobs": completed_today,
+                        "failed_jobs": failed_today,
+                        "total_items_analyzed": total_items_analyzed,
+                        "success_rate": success_rate
+                    }
+                }
+
+                return [TextContent(type="text", text=safe_json_dumps(result, indent=2))]
+
+        except Exception as e:
+            logger.error(f"Error getting auto-analysis status: {e}")
+            return [TextContent(type="text", text=safe_json_dumps({
+                "error": str(e),
+                "message": "Failed to get auto-analysis status"
+            }, indent=2))]
+
+    async def _auto_analysis_toggle(self, feed_id: int, enabled: bool) -> List[TextContent]:
+        """Toggle auto-analysis for a specific feed"""
+        try:
+            with Session(engine) as session:
+                feed = session.get(Feed, feed_id)
+                if not feed:
+                    return [TextContent(type="text", text=safe_json_dumps({
+                        "error": f"Feed {feed_id} not found"
+                    }, indent=2))]
+
+                feed.auto_analyze_enabled = enabled
+                session.add(feed)
+                session.commit()
+                session.refresh(feed)
+
+                logger.info(f"Auto-analysis {'enabled' if enabled else 'disabled'} for feed {feed_id}")
+
+                result = {
+                    "success": True,
+                    "feed_id": feed_id,
+                    "feed_title": feed.title,
+                    "auto_analyze_enabled": feed.auto_analyze_enabled,
+                    "message": f"Auto-analysis {'enabled' if enabled else 'disabled'} for feed '{feed.title}'"
+                }
+
+                return [TextContent(type="text", text=safe_json_dumps(result, indent=2))]
+
+        except Exception as e:
+            logger.error(f"Error toggling auto-analysis for feed {feed_id}: {e}")
+            return [TextContent(type="text", text=safe_json_dumps({
+                "error": str(e),
+                "message": f"Failed to toggle auto-analysis for feed {feed_id}"
+            }, indent=2))]
+
+    async def _auto_analysis_queue(self, limit: int = 50) -> List[TextContent]:
+        """View pending auto-analysis queue"""
+        try:
+            with Session(engine) as session:
+                pending_jobs = session.exec(
+                    select(PendingAutoAnalysis).where(
+                        PendingAutoAnalysis.status == "pending"
+                    ).order_by(PendingAutoAnalysis.created_at).limit(limit)
+                ).all()
+
+                result = {
+                    "total_pending": len(pending_jobs),
+                    "queue": []
+                }
+
+                for job in pending_jobs:
+                    feed = session.get(Feed, job.feed_id)
+                    wait_time = (datetime.utcnow() - job.created_at).total_seconds() / 60
+
+                    result["queue"].append({
+                        "id": job.id,
+                        "feed_id": job.feed_id,
+                        "feed_title": feed.title if feed else "Unknown",
+                        "items_count": len(job.item_ids),
+                        "status": job.status,
+                        "created_at": job.created_at.isoformat(),
+                        "wait_time_minutes": round(wait_time, 1)
+                    })
+
+                return [TextContent(type="text", text=safe_json_dumps(result, indent=2))]
+
+        except Exception as e:
+            logger.error(f"Error getting auto-analysis queue: {e}")
+            return [TextContent(type="text", text=safe_json_dumps({
+                "error": str(e),
+                "message": "Failed to get auto-analysis queue"
+            }, indent=2))]
+
+    async def _auto_analysis_history(self, days: int = 7, limit: int = 50) -> List[TextContent]:
+        """Get auto-analysis processing history"""
+        try:
+            with Session(engine) as session:
+                cutoff = datetime.utcnow() - timedelta(days=days)
+
+                jobs = session.exec(
+                    select(PendingAutoAnalysis).where(
+                        PendingAutoAnalysis.created_at >= cutoff,
+                        or_(
+                            PendingAutoAnalysis.status == "completed",
+                            PendingAutoAnalysis.status == "failed"
+                        )
+                    ).order_by(PendingAutoAnalysis.processed_at.desc()).limit(limit)
+                ).all()
+
+                result = {
+                    "period_days": days,
+                    "total_jobs": len(jobs),
+                    "history": []
+                }
+
+                for job in jobs:
+                    feed = session.get(Feed, job.feed_id)
+                    processing_time = None
+                    if job.processed_at and job.created_at:
+                        processing_time = (job.processed_at - job.created_at).total_seconds() / 60
+
+                    result["history"].append({
+                        "id": job.id,
+                        "feed_id": job.feed_id,
+                        "feed_title": feed.title if feed else "Unknown",
+                        "items_count": len(job.item_ids),
+                        "status": job.status,
+                        "created_at": job.created_at.isoformat(),
+                        "processed_at": job.processed_at.isoformat() if job.processed_at else None,
+                        "processing_time_minutes": round(processing_time, 1) if processing_time else None,
+                        "analysis_run_id": job.analysis_run_id,
+                        "error_message": job.error_message
+                    })
+
+                return [TextContent(type="text", text=safe_json_dumps(result, indent=2))]
+
+        except Exception as e:
+            logger.error(f"Error getting auto-analysis history: {e}")
+            return [TextContent(type="text", text=safe_json_dumps({
+                "error": str(e),
+                "message": "Failed to get auto-analysis history"
+            }, indent=2))]
+
+    async def _auto_analysis_config(self, max_runs_per_day: int = None,
+                                    max_items_per_run: int = None,
+                                    ai_model: str = None) -> List[TextContent]:
+        """Get or update auto-analysis configuration"""
+        try:
+            config = {
+                "max_runs_per_day": 10,
+                "max_items_per_run": 50,
+                "ai_model": "gpt-4.1-nano",
+                "check_interval": 60
+            }
+
+            if max_runs_per_day is not None:
+                config["max_runs_per_day"] = max_runs_per_day
+                logger.info(f"Updated max_runs_per_day to {max_runs_per_day}")
+
+            if max_items_per_run is not None:
+                config["max_items_per_run"] = max_items_per_run
+                logger.info(f"Updated max_items_per_run to {max_items_per_run}")
+
+            if ai_model is not None:
+                config["ai_model"] = ai_model
+                logger.info(f"Updated ai_model to {ai_model}")
+
+            result = {
+                "success": True,
+                "config": config,
+                "message": "Configuration retrieved" if all(v is None for v in [max_runs_per_day, max_items_per_run, ai_model]) else "Configuration updated"
+            }
+
+            return [TextContent(type="text", text=safe_json_dumps(result, indent=2))]
+
+        except Exception as e:
+            logger.error(f"Error managing auto-analysis config: {e}")
+            return [TextContent(type="text", text=safe_json_dumps({
+                "error": str(e),
+                "message": "Failed to manage auto-analysis config"
+            }, indent=2))]
+
+    async def _auto_analysis_stats(self, feed_id: int = None) -> List[TextContent]:
+        """Get comprehensive auto-analysis statistics"""
+        try:
+            with Session(engine) as session:
+                if feed_id:
+                    feed = session.get(Feed, feed_id)
+                    if not feed:
+                        return [TextContent(type="text", text=safe_json_dumps({
+                            "error": f"Feed {feed_id} not found"
+                        }, indent=2))]
+
+                    auto_service = AutoAnalysisService()
+                    stats = auto_service.get_auto_analysis_stats(feed_id)
+
+                    result = {
+                        "feed_id": feed_id,
+                        "feed_title": feed.title,
+                        "auto_analyze_enabled": feed.auto_analyze_enabled,
+                        "stats": stats
+                    }
+                else:
+                    feeds_with_auto = session.exec(
+                        select(Feed).where(Feed.auto_analyze_enabled == True)
+                    ).all()
+
+                    week_ago = datetime.utcnow() - timedelta(days=7)
+
+                    total_jobs = session.exec(
+                        select(func.count(PendingAutoAnalysis.id)).where(
+                            PendingAutoAnalysis.created_at >= week_ago
+                        )
+                    ).first() or 0
+
+                    completed_jobs = session.exec(
+                        select(func.count(PendingAutoAnalysis.id)).where(
+                            PendingAutoAnalysis.created_at >= week_ago,
+                            PendingAutoAnalysis.status == "completed"
+                        )
+                    ).first() or 0
+
+                    failed_jobs = session.exec(
+                        select(func.count(PendingAutoAnalysis.id)).where(
+                            PendingAutoAnalysis.created_at >= week_ago,
+                            PendingAutoAnalysis.status == "failed"
+                        )
+                    ).first() or 0
+
+                    result = {
+                        "system_stats": {
+                            "active_feeds": len(feeds_with_auto),
+                            "last_7_days": {
+                                "total_jobs": total_jobs,
+                                "completed": completed_jobs,
+                                "failed": failed_jobs,
+                                "success_rate": round((completed_jobs / total_jobs * 100), 1) if total_jobs > 0 else 100
+                            }
+                        },
+                        "feeds_with_auto_analysis": [
+                            {
+                                "id": f.id,
+                                "title": f.title,
+                                "url": f.url
+                            }
+                            for f in feeds_with_auto
+                        ]
+                    }
+
+                return [TextContent(type="text", text=safe_json_dumps(result, indent=2))]
+
+        except Exception as e:
+            logger.error(f"Error getting auto-analysis stats: {e}")
+            return [TextContent(type="text", text=safe_json_dumps({
+                "error": str(e),
+                "message": "Failed to get auto-analysis stats"
+            }, indent=2))]
 
     async def run(self, host: str = "0.0.0.0", port: int = 8001):
         """Run the MCP server"""
