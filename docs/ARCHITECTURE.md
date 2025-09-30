@@ -1,10 +1,10 @@
 # News MCP System Architecture
 
-## Übersicht
+## Overview
 
-Das News MCP System ist eine modulare, skalierbare Plattform für RSS-Feed-Aggregation mit integrierter KI-Analyse. Die Architektur folgt modernen Microservice-Prinzipien mit klarer Trennung von Verantwortlichkeiten.
+The News MCP System is a modular, scalable platform for RSS feed aggregation with integrated AI analysis. The architecture follows modern microservice principles with clear separation of concerns.
 
-## High-Level Architektur
+## High-Level Architecture
 
 ```mermaid
 graph TB
@@ -51,18 +51,18 @@ graph TB
     style DB fill:#fff3e0
 ```
 
-## Systemkomponenten
+## System Components
 
 ### 1. Web Server (FastAPI)
 
-**Verantwortlichkeiten:**
+**Responsibilities:**
 - HTTP API Endpoints
 - Web Interface (HTMX)
 - Request/Response Handling
 - Authentication & Authorization
 - Rate Limiting
 
-**Technische Details:**
+**Technical Details:**
 ```python
 # app/main.py
 from fastapi import FastAPI
@@ -82,18 +82,18 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"])
 ```
 
 **Performance Characteristics:**
-- **Concurrency**: Async/await für I/O-bound Operations
+- **Concurrency**: Async/await for I/O-bound operations
 - **Throughput**: 1000+ requests/second (single instance)
-- **Latency**: <100ms für Standard API Calls
+- **Latency**: <100ms for standard API calls
 - **Memory**: ~200MB baseline + request overhead
 
 ### 2. Analysis Worker
 
-**Verantwortlichkeiten:**
-- AI-basierte Artikel-Analyse
-- Queue-Processing
-- Rate Limiting für externe APIs
-- Batch Processing
+**Responsibilities:**
+- AI-based article analysis
+- Queue processing
+- Rate limiting for external APIs
+- Batch processing
 
 **Architecture Pattern:**
 ```python
@@ -125,11 +125,11 @@ class AnalysisWorker:
 
 ### 3. Feed Scheduler
 
-**Verantwortlichkeiten:**
-- RSS Feed Fetching
-- Schedule Management
-- Health Monitoring
-- Content Deduplication
+**Responsibilities:**
+- RSS feed fetching
+- Schedule management
+- Health monitoring
+- Content deduplication
 
 **Scheduling Algorithm:**
 ```python
@@ -159,11 +159,11 @@ class FeedScheduler:
 
 ### 4. Auto-Analysis System (Phase 2)
 
-**Verantwortlichkeiten:**
-- Automatische Analyse neuer Feed-Items
-- Queue-Management für pending items
-- Feed-spezifische Konfiguration
-- Rate Limiting & Error Handling
+**Responsibilities:**
+- Automatic analysis of new feed items
+- Queue management for pending items
+- Feed-specific configuration
+- Rate limiting & error handling
 
 **Architecture Pattern:**
 ```python
@@ -222,17 +222,17 @@ class PendingAnalysisProcessor:
 ### 5. Database Layer
 
 **Schema Design Principles:**
-- **Normalization**: 3NF für Datenintegrität
-- **Denormalization**: Selective für Performance
-- **Indexing**: Query-optimierte Indizes
-- **Partitioning**: Zeit-basiert für große Tabellen
+- **Normalization**: 3NF for data integrity
+- **Denormalization**: Selective for performance
+- **Indexing**: Query-optimized indexes
+- **Partitioning**: Time-based for large tables
 
 **Key Tables:**
 ```sql
 -- Core Content
-feeds (40 rows, 37 aktiv) → RSS Feed Konfiguration
-items (11,254 rows) → Nachrichtenartikel
-sources (41 rows) → Nachrichtenquellen
+feeds (40 rows, 37 active) → RSS Feed Configuration
+items (11,254 rows) → News Articles
+sources (41 rows) → News Sources
 
 -- Analysis System
 analysis_runs (75 rows) → AI Analysis Jobs
@@ -240,22 +240,22 @@ analysis_run_items (2,981 rows) → Individual Tasks
 item_analysis (2,866 rows) → Analysis Results
 
 -- Monitoring
-fetch_log (35,040 rows) → Feed Fetch Historie
+fetch_log (35,040 rows) → Feed Fetch History
 feed_health (37 rows) → Health Monitoring
 ```
 
 **Performance Optimizations:**
 ```sql
--- Composite Indizes für häufige Queries
+-- Composite indexes for common queries
 CREATE INDEX idx_items_feed_published
 ON items(feed_id, published DESC);
 
--- Partial Indizes für filtered queries
+-- Partial indexes for filtered queries
 CREATE INDEX idx_analysis_runs_active
 ON analysis_runs(status, created_at DESC)
 WHERE status IN ('pending', 'running');
 
--- Zeit-basierte Partitionierung
+-- Time-based partitioning
 CREATE TABLE fetch_log_y2024 PARTITION OF fetch_log
 FOR VALUES FROM ('2024-01-01') TO ('2025-01-01');
 ```
@@ -266,7 +266,7 @@ FOR VALUES FROM ('2024-01-01') TO ('2025-01-01');
 
 **Web API ↔ Database:**
 ```python
-# Repository Pattern für Data Access
+# Repository Pattern for Data Access
 class FeedRepository:
     def __init__(self, session: Session):
         self.session = session
@@ -280,9 +280,9 @@ class FeedRepository:
 ```
 
 **Benefits:**
-- Einfache Fehlerbehandlung
-- Konsistente Transaktionen
-- Direct Response Handling
+- Simple error handling
+- Consistent transactions
+- Direct response handling
 
 ### 2. Asynchronous Communication
 
@@ -430,6 +430,8 @@ server {
         proxy_pass http://news_mcp_backend;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
 ```
@@ -453,7 +455,7 @@ engine = create_async_engine(
 
 **Memory Management:**
 ```python
-# Streaming Response für große Datasets
+# Streaming Response for large datasets
 @router.get("/api/items/export")
 async def export_items():
     def generate_csv():
@@ -580,15 +582,15 @@ class FeedCreateRequest(BaseModel):
 
 **SQL Injection Prevention:**
 ```python
-# SQLModel/SQLAlchemy ORM verhindert SQL Injection
+# SQLModel/SQLAlchemy ORM prevents SQL Injection
 from sqlmodel import select
 
-# Sicher - Parametrisierte Queries
+# Safe - Parameterized Queries
 async def get_items_by_feed(feed_id: int):
     statement = select(Item).where(Item.feed_id == feed_id)
     return await session.execute(statement)
 
-# Auch bei Raw SQL - Parametrisiert
+# Even with Raw SQL - Parameterized
 async def custom_query(feed_id: int):
     query = text("""
         SELECT title, published
@@ -603,13 +605,13 @@ async def custom_query(feed_id: int):
 
 **Environment Variables:**
 ```bash
-# Sichere Konfiguration
+# Secure Configuration
 DATABASE_URL=postgresql://user:pass@localhost/db
 OPENAI_API_KEY=sk-...
-SECRET_KEY=...  # 32+ zufällige Zeichen
+SECRET_KEY=...  # 32+ random characters
 
-# Niemals in Code:
-# API_KEY = "sk-hardcoded"  # SCHLECHT!
+# Never in code:
+# API_KEY = "sk-hardcoded"  # BAD!
 ```
 
 **Data Encryption:**
@@ -705,7 +707,7 @@ active_feeds = Gauge(
     'Number of active feeds'
 )
 
-# Middleware für automatische Metriken
+# Middleware for automatic metrics
 @app.middleware("http")
 async def metrics_middleware(request: Request, call_next):
     start_time = time.time()
@@ -805,21 +807,21 @@ async def process_analysis(run_id: int):
 ### Optimization Roadmap
 
 1. **Phase 1: Database Optimization**
-   - Read Replicas für Analytics
-   - Query Performance Tuning
-   - Connection Pool Optimization
+   - Read replicas for analytics
+   - Query performance tuning
+   - Connection pool optimization
 
 2. **Phase 2: Caching Layer**
-   - Redis Cluster Setup
-   - Intelligent Cache Invalidation
-   - Edge Caching (CDN)
+   - Redis cluster setup
+   - Intelligent cache invalidation
+   - Edge caching (CDN)
 
 3. **Phase 3: Microservices Split**
-   - Analysis Service separation
-   - Event-driven Architecture
-   - Service Mesh Implementation
+   - Analysis service separation
+   - Event-driven architecture
+   - Service mesh implementation
 
 ---
 
-**Letzte Aktualisierung:** September 2025
+**Last Updated:** September 2025
 **Architecture Version:** v3.1.0

@@ -2,28 +2,28 @@
 
 **Version:** 1.0.0
 **Status:** ✅ Production Ready
-**Letzte Aktualisierung:** 2025-09-27
+**Last Updated:** 2025-09-27
 
 ---
 
-## 📋 Übersicht
+## 📋 Overview
 
-Das Auto-Analysis System ermöglicht die automatische KI-Analyse neuer Artikel direkt nach dem Feed-Fetch. Sobald ein Feed neue Items abruft, werden diese automatisch zur Analyse in eine Queue eingereiht und vom Analysis Worker verarbeitet.
+The Auto-Analysis System enables automatic AI analysis of new articles immediately after feed fetching. As soon as a feed retrieves new items, they are automatically queued for analysis and processed by the Analysis Worker.
 
 ### Features
 
-- ✅ **Feed-Level Toggle**: Aktiviere/Deaktiviere Auto-Analysis pro Feed
-- ✅ **Queue-Based Processing**: Asynchrone Verarbeitung ohne Blockierung
-- ✅ **Rate Limiting**: Automatische Limits (10 Runs/Tag pro Feed)
-- ✅ **Error Handling**: Robuste Fehlerbehandlung mit Retry
-- ✅ **Live Dashboard**: HTMX-basierte Echtzeit-Übersicht
-- ✅ **Cost Control**: Günstigeres Modell (gpt-4.1-nano) für Auto-Analysen
+- ✅ **Feed-Level Toggle**: Enable/disable auto-analysis per feed
+- ✅ **Queue-Based Processing**: Asynchronous processing without blocking
+- ✅ **Rate Limiting**: Automatic limits (10 runs/day per feed)
+- ✅ **Error Handling**: Robust error handling with retry
+- ✅ **Live Dashboard**: HTMX-based real-time overview
+- ✅ **Cost Control**: Cheaper model (gpt-4.1-nano) for auto-analyses
 
 ---
 
 ## 🚀 Quick Start
 
-### 1. Auto-Analysis für einen Feed aktivieren
+### 1. Enable Auto-Analysis for a Feed
 
 **Via API:**
 ```bash
@@ -41,11 +41,11 @@ curl -X POST "http://localhost:8000/api/feeds/1/toggle-auto-analysis?enabled=tru
 ```
 
 **Via UI:**
-1. Öffne `/admin/feeds`
-2. Klicke auf den grünen/grauen "🤖 ON/OFF" Button beim gewünschten Feed
-3. Feed-Karte refresht automatisch
+1. Open `/admin/feeds`
+2. Click the green/gray "🤖 ON/OFF" button for the desired feed
+3. Feed card refreshes automatically
 
-### 2. Status prüfen
+### 2. Check Status
 
 **Via API:**
 ```bash
@@ -67,48 +67,48 @@ curl "http://localhost:8000/api/feeds/1/auto-analysis-status"
 }
 ```
 
-### 3. Dashboard anzeigen
+### 3. View Dashboard
 
 **Via Browser:**
 ```
 http://localhost:8000/admin/feeds
 ```
 
-Im Dashboard siehst du:
-- 🟢 Grüner Badge "🤖 Auto" = Auto-Analysis aktiv
-- 🔘 Grauer Badge "🤖 Manual" = Auto-Analysis deaktiviert
+In the dashboard you will see:
+- 🟢 Green badge "🤖 Auto" = Auto-analysis active
+- 🔘 Gray badge "🤖 Manual" = Auto-analysis disabled
 
 ---
 
-## 🔧 System-Architektur
+## 🔧 System Architecture
 
 ### Workflow
 
 ```
-1. Feed Scheduler triggert Fetch (alle N Minuten)
+1. Feed Scheduler triggers fetch (every N minutes)
            ↓
-2. SyncFeedFetcher holt neue Items
+2. SyncFeedFetcher retrieves new items
            ↓
-3. Prüfung: Feed.auto_analyze_enabled = True?
-           ↓ JA
-4. PendingAutoAnalysis Job erstellen
+3. Check: Feed.auto_analyze_enabled = True?
+           ↓ YES
+4. Create PendingAutoAnalysis job
            ↓
-5. Worker holt Job aus Queue
+5. Worker retrieves job from queue
            ↓
 6. PendingAnalysisProcessor → Analysis Run
            ↓
-7. Results in item_analysis speichern
+7. Store results in item_analysis
 ```
 
-### Komponenten
+### Components
 
-| Komponente | Datei | Beschreibung |
-|------------|-------|--------------|
-| **Auto-Analysis Service** | `app/services/auto_analysis_service.py` | Direct-Trigger + Stats |
-| **Pending Processor** | `app/services/pending_analysis_processor.py` | Queue Processing |
-| **Feed Fetcher** | `app/services/feed_fetcher_sync.py` | Integration Hook |
-| **API Endpoints** | `app/api/feeds.py` | Toggle + Status |
-| **HTMX Views** | `app/web/views/auto_analysis_views.py` | Dashboard + Queue |
+| Component | File | Description |
+|-----------|------|-------------|
+| **Auto-Analysis Service** | `app/services/auto_analysis_service.py` | Direct trigger + stats |
+| **Pending Processor** | `app/services/pending_analysis_processor.py` | Queue processing |
+| **Feed Fetcher** | `app/services/feed_fetcher_sync.py` | Integration hook |
+| **API Endpoints** | `app/api/feeds.py` | Toggle + status |
+| **HTMX Views** | `app/web/views/auto_analysis_views.py` | Dashboard + queue |
 
 ### Database Schema
 
@@ -129,7 +129,7 @@ CREATE INDEX idx_pending_auto_analysis_status ON pending_auto_analysis(status);
 CREATE INDEX idx_pending_auto_analysis_created ON pending_auto_analysis(created_at);
 ```
 
-**`feeds` Table (erweitert):**
+**`feeds` Table (extended):**
 ```sql
 ALTER TABLE feeds ADD COLUMN auto_analyze_enabled BOOLEAN DEFAULT FALSE;
 ```
@@ -140,18 +140,18 @@ ALTER TABLE feeds ADD COLUMN auto_analyze_enabled BOOLEAN DEFAULT FALSE;
 
 ### Daily Limits
 
-- **Max Auto-Runs pro Feed:** 10/24h
-- **Max Items pro Run:** 50
-- **Job Expiry:** 24 Stunden
+- **Max Auto-Runs per Feed:** 10/24h
+- **Max Items per Run:** 50
+- **Job Expiry:** 24 hours
 
-### Konfiguration ändern
+### Change Configuration
 
 **In `app/services/auto_analysis_service.py`:**
 ```python
 class AutoAnalysisService:
     def __init__(self):
-        self.max_items_per_run = 50  # Items pro Run
-        self.max_daily_auto_runs_per_feed = 10  # Runs pro Tag
+        self.max_items_per_run = 50  # Items per run
+        self.max_daily_auto_runs_per_feed = 10  # Runs per day
 ```
 
 **In `app/services/pending_analysis_processor.py`:**
@@ -159,18 +159,18 @@ class AutoAnalysisService:
 class PendingAnalysisProcessor:
     def __init__(self):
         self.max_daily_auto_runs_per_feed = 10
-        self.max_age_hours = 24  # Job Expiry
+        self.max_age_hours = 24  # Job expiry
 ```
 
 ### Model Selection
 
-Auto-Analysen verwenden standardmäßig **gpt-4.1-nano** (günstiger):
+Auto-analyses use **gpt-4.1-nano** by default (cheaper):
 
 ```python
 params = RunParams(
     limit=len(items_to_analyze),
     rate_per_second=1.0,
-    model_tag="gpt-4.1-nano",  # Kostengünstig für Auto-Analysen
+    model_tag="gpt-4.1-nano",  # Cost-effective for auto-analyses
     triggered_by="auto"
 )
 ```
@@ -184,11 +184,11 @@ params = RunParams(
 **Endpoint:** `GET /htmx/auto-analysis-dashboard`
 
 **Features:**
-- Anzahl Feeds mit Auto-Analysis
+- Number of feeds with auto-analysis
 - Jobs Today (Completed)
 - Items Analyzed
 - Success Rate
-- Queue Status (Warning bei >5 pending)
+- Queue Status (Warning at >5 pending)
 
 **Integration:**
 ```html
@@ -205,7 +205,7 @@ params = RunParams(
 
 **Shows:**
 - Pending Jobs (max 10)
-- Feed-Name
+- Feed Name
 - Items Count
 - Age (Minutes/Hours)
 
@@ -214,16 +214,16 @@ params = RunParams(
 **Endpoint:** `GET /htmx/auto-analysis-history`
 
 **Shows:**
-- 20 neueste Jobs
+- 20 most recent jobs
 - Status (✅ Completed, ❌ Failed)
 - Processed Time
-- Run-ID Referenz
+- Run-ID Reference
 
 ---
 
 ## 🧪 Testing
 
-### Integration Tests ausführen
+### Run Integration Tests
 
 ```bash
 source venv/bin/activate
@@ -239,9 +239,9 @@ python test_auto_analysis_integration.py
 6. ✅ Error Handling
 7. ✅ Performance Check
 
-**Erwartetes Ergebnis:** 6-7/7 tests passed
+**Expected Result:** 6-7/7 tests passed
 
-### Manuelle Tests
+### Manual Tests
 
 **1. Enable + Fetch:**
 ```bash
@@ -257,7 +257,7 @@ psql -U news_user -d news_db -c "SELECT * FROM pending_auto_analysis WHERE statu
 
 **2. Process Queue:**
 ```bash
-# Worker sollte automatisch laufen, oder manuell:
+# Worker should run automatically, or manually:
 source venv/bin/activate
 python -c "
 import asyncio
@@ -286,10 +286,10 @@ GROUP BY status;
 curl "http://localhost:8000/htmx/auto-analysis-queue"
 ```
 
-**Indikatoren:**
+**Indicators:**
 - **Pending < 5:** ✅ Healthy
 - **Pending 5-20:** ⚠️ Warning
-- **Pending > 20:** 🔴 Critical - Worker überlastet
+- **Pending > 20:** 🔴 Critical - Worker overloaded
 
 ### Database Queries
 
@@ -333,11 +333,11 @@ ORDER BY auto_runs_today DESC;
 
 ## 🐛 Troubleshooting
 
-### Problem: Jobs bleiben in "pending" Status
+### Problem: Jobs remain in "pending" status
 
-**Ursache:** Worker läuft nicht oder ist überlastet
+**Cause:** Worker not running or overloaded
 
-**Lösung:**
+**Solution:**
 ```bash
 # Check Worker Status
 ps aux | grep analysis_worker
@@ -349,11 +349,11 @@ ps aux | grep analysis_worker
 tail -f logs/worker.log
 ```
 
-### Problem: Jobs schlagen fehl ("failed")
+### Problem: Jobs fail ("failed")
 
-**Ursache:** OpenAI API Error, Rate Limiting, Invalid Items
+**Cause:** OpenAI API Error, rate limiting, invalid items
 
-**Diagnose:**
+**Diagnosis:**
 ```sql
 SELECT error_message, COUNT(*)
 FROM pending_auto_analysis
@@ -362,59 +362,59 @@ WHERE status = 'failed'
 GROUP BY error_message;
 ```
 
-**Häufige Fehler:**
-- `"Auto-analysis disabled"` → Feed wurde deaktiviert nach Job-Erstellung
-- `"No valid items"` → Items wurden gelöscht
-- `"Daily limit exceeded"` → 10 Runs/Tag Limit erreicht
+**Common Errors:**
+- `"Auto-analysis disabled"` → Feed was disabled after job creation
+- `"No valid items"` → Items were deleted
+- `"Daily limit exceeded"` → 10 runs/day limit reached
 
-### Problem: Feed erreicht Daily Limit
+### Problem: Feed reaches daily limit
 
-**Ursache:** Feed fetch_interval zu kurz + viele neue Items
+**Cause:** Feed fetch_interval too short + many new items
 
-**Lösung:**
+**Solution:**
 ```bash
 # Increase interval
 curl -X PUT "http://localhost:8000/api/feeds/1" \
   -H "Content-Type: application/json" \
   -d '{"fetch_interval_minutes": 60}'
 
-# Oder: Limit in Code erhöhen (siehe Configuration)
+# Or: Increase limit in code (see Configuration)
 ```
 
 ---
 
 ## 🔐 Best Practices
 
-### 1. Feed-Auswahl
+### 1. Feed Selection
 
-✅ **Aktiviere Auto-Analysis für:**
-- High-Value Feeds (wichtige Quellen)
-- Feeds mit 5-50 neuen Items/Tag
-- Stabile, qualitativ hochwertige Feeds
+✅ **Enable Auto-Analysis for:**
+- High-value feeds (important sources)
+- Feeds with 5-50 new items/day
+- Stable, high-quality feeds
 
-❌ **Deaktiviere für:**
-- Test-Feeds
-- Feeds mit >100 Items/Tag (Cost)
-- Fehlerhafte/instabile Feeds
+❌ **Disable for:**
+- Test feeds
+- Feeds with >100 items/day (Cost)
+- Faulty/unstable feeds
 
 ### 2. Cost Management
 
-- **Model:** gpt-4.1-nano (günstiger als gpt-4)
-- **Batch Size:** Max 50 Items/Run
-- **Daily Limits:** 10 Runs/Feed/Tag
+- **Model:** gpt-4.1-nano (cheaper than gpt-4)
+- **Batch Size:** Max 50 items/run
+- **Daily Limits:** 10 runs/feed/day
 - **Monitoring:** Track costs via `analysis_runs` table
 
 ### 3. Performance
 
-- **Worker:** Mindestens 1 Worker-Instanz laufen lassen
-- **Queue:** Bei >20 pending Jobs: Mehr Worker starten
-- **Database:** Indexes auf `pending_auto_analysis.status`, `.created_at`
+- **Worker:** Keep at least 1 worker instance running
+- **Queue:** At >20 pending jobs: Start more workers
+- **Database:** Indexes on `pending_auto_analysis.status`, `.created_at`
 
 ### 4. Maintenance
 
-**Wöchentlich:**
+**Weekly:**
 ```bash
-# Cleanup alte Jobs (>7 Tage)
+# Cleanup old jobs (>7 days)
 python -c "
 from app.services.pending_analysis_processor import PendingAnalysisProcessor
 processor = PendingAnalysisProcessor()
@@ -422,10 +422,10 @@ processor.cleanup_old_jobs(days=7)
 "
 ```
 
-**Monatlich:**
-- Cost-Analyse durchführen
-- Feed-Performance reviewen
-- Failed Jobs analysieren
+**Monthly:**
+- Perform cost analysis
+- Review feed performance
+- Analyze failed jobs
 
 ---
 
@@ -464,13 +464,13 @@ processor.cleanup_old_jobs(days=7)
 
 ---
 
-## 📚 Weitere Dokumentation
+## 📚 Further Documentation
 
-- **NAVIGATOR.md** - System-Navigator mit Roadmap
-- **ENDPOINTS.md** - Vollständige API-Referenz
-- **INDEX.md** - Dateistruktur
-- **ARCHITECTURE.md** - System-Architektur Details
+- **NAVIGATOR.md** - System Navigator with Roadmap
+- **ENDPOINTS.md** - Complete API Reference
+- **INDEX.md** - File Structure
+- **ARCHITECTURE.md** - System Architecture Details
 
 ---
 
-**Ende AUTO_ANALYSIS_GUIDE.md**
+**End AUTO_ANALYSIS_GUIDE.md**

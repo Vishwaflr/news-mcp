@@ -1,32 +1,32 @@
 # Developer Setup Guide
 
-## Übersicht
+## Overview
 
-Dieser Guide beschreibt die Einrichtung einer lokalen Entwicklungsumgebung für das News MCP System.
+This guide describes how to set up a local development environment for the News MCP System.
 
-## System Voraussetzungen
+## System Requirements
 
 ### Hardware
-- **RAM**: 8GB+ empfohlen
-- **Storage**: 10GB+ freier Speicherplatz
+- **RAM**: 8GB+ recommended
+- **Storage**: 10GB+ free disk space
 - **CPU**: 2+ Cores
 
 ### Software
-- **Python**: 3.9+ (empfohlen: 3.11)
-- **Git**: Für Versionskontrolle
-- **PostgreSQL**: 15+ (oder Docker)
-- **Editor**: VS Code, PyCharm, oder ähnlich
+- **Python**: 3.9+ (recommended: 3.11)
+- **Git**: For version control
+- **PostgreSQL**: 15+ (or Docker)
+- **Editor**: VS Code, PyCharm, or similar
 
 ## 1. Environment Setup
 
 ### Python Installation
 
-#### macOS (mit Homebrew)
+#### macOS (with Homebrew)
 ```bash
-# Homebrew installieren (falls nicht vorhanden)
+# Install Homebrew (if not already installed)
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-# Python installieren
+# Install Python
 brew install python@3.11
 brew install postgresql@15
 ```
@@ -38,24 +38,24 @@ sudo apt install -y python3.11 python3.11-venv python3.11-dev \
     postgresql postgresql-contrib libpq-dev git curl
 ```
 
-#### Windows (mit Chocolatey)
+#### Windows (with Chocolatey)
 ```powershell
-# Chocolatey installieren
+# Install Chocolatey
 Set-ExecutionPolicy Bypass -Scope Process -Force; iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
 
-# Dependencies installieren
+# Install Dependencies
 choco install python311 postgresql git
 ```
 
 ### Git Configuration
 ```bash
-# Git Konfiguration
-git config --global user.name "Dein Name"
-git config --global user.email "deine.email@example.com"
+# Git Configuration
+git config --global user.name "Your Name"
+git config --global user.email "your.email@example.com"
 git config --global init.defaultBranch main
 
-# SSH Key für GitHub (optional)
-ssh-keygen -t ed25519 -C "deine.email@example.com"
+# SSH Key for GitHub (optional)
+ssh-keygen -t ed25519 -C "your.email@example.com"
 eval "$(ssh-agent -s)"
 ssh-add ~/.ssh/id_ed25519
 ```
@@ -64,42 +64,42 @@ ssh-add ~/.ssh/id_ed25519
 
 ### Code Checkout
 ```bash
-# Repository klonen
+# Clone Repository
 git clone https://github.com/your-org/news-mcp.git
 cd news-mcp
 
-# Development Branch (falls vorhanden)
+# Development Branch (if available)
 git checkout develop
 ```
 
 ### Python Virtual Environment
 ```bash
-# Virtual Environment erstellen
+# Create Virtual Environment
 python3.11 -m venv venv
 
-# Aktivieren
+# Activate
 source venv/bin/activate  # Linux/macOS
-# oder: venv\Scripts\activate  # Windows
+# or: venv\Scripts\activate  # Windows
 
-# Pip upgraden
+# Upgrade Pip
 pip install --upgrade pip
 
-# Dependencies installieren
+# Install Dependencies
 pip install -r requirements.txt
 pip install -r requirements-dev.txt  # Development Dependencies
 ```
 
 ## 3. Database Setup
 
-### PostgreSQL Installation & Konfiguration
+### PostgreSQL Installation & Configuration
 
-#### Option 1: Lokale Installation
+#### Option 1: Local Installation
 ```bash
-# PostgreSQL starten
+# Start PostgreSQL
 sudo systemctl start postgresql  # Linux
 brew services start postgresql@15  # macOS
 
-# Database und User erstellen
+# Create Database and User
 sudo -u postgres psql
 ```
 
@@ -107,13 +107,13 @@ sudo -u postgres psql
 CREATE DATABASE news_db;
 CREATE USER news_user WITH PASSWORD 'news_password';
 GRANT ALL PRIVILEGES ON DATABASE news_db TO news_user;
-ALTER USER news_user CREATEDB;  -- Für Tests
+ALTER USER news_user CREATEDB;  -- For Tests
 \q
 ```
 
 #### Option 2: Docker
 ```bash
-# PostgreSQL Container starten
+# Start PostgreSQL Container
 docker run --name news-postgres \
     -e POSTGRES_DB=news_db \
     -e POSTGRES_USER=news_user \
@@ -121,27 +121,27 @@ docker run --name news-postgres \
     -p 5432:5432 \
     -d postgres:15
 
-# Container Status prüfen
+# Check Container Status
 docker ps
 ```
 
 ### Database Migrations
 ```bash
-# Environment Variables setzen
+# Set Environment Variables
 export DATABASE_URL="postgresql://news_user:news_password@localhost/news_db"
 export PGPASSWORD=news_password
 
-# Alembic Migrations ausführen
+# Run Alembic Migrations
 alembic upgrade head
 
-# Migrations Status prüfen
+# Check Migrations Status
 alembic current
 alembic history
 ```
 
 ## 4. Environment Configuration
 
-### .env Datei erstellen
+### Create .env File
 ```bash
 cp .env.example .env
 ```
@@ -151,7 +151,7 @@ cp .env.example .env
 # Database
 DATABASE_URL=postgresql://news_user:news_password@localhost/news_db
 
-# OpenAI (für AI Analysis)
+# OpenAI (for AI Analysis)
 OPENAI_API_KEY=your_openai_api_key_here
 
 # Environment
@@ -180,13 +180,13 @@ SELECTION_CACHE_SIZE=100
 
 ### Pre-commit Hooks
 ```bash
-# Pre-commit installieren
+# Install Pre-commit
 pip install pre-commit
 
-# Hooks einrichten
+# Setup Hooks
 pre-commit install
 
-# Hooks manuell ausführen
+# Run Hooks Manually
 pre-commit run --all-files
 ```
 
@@ -220,7 +220,7 @@ repos:
         additional_dependencies: [types-requests]
 ```
 
-### IDE Konfiguration
+### IDE Configuration
 
 #### VS Code
 ```json
@@ -250,7 +250,7 @@ repos:
 
 #### VS Code Extensions
 ```bash
-# Empfohlene Extensions
+# Recommended Extensions
 code --install-extension ms-python.python
 code --install-extension ms-python.black-formatter
 code --install-extension ms-python.isort
@@ -260,14 +260,14 @@ code --install-extension bradlc.vscode-tailwindcss
 code --install-extension formulahendry.auto-rename-tag
 ```
 
-## 6. Services starten
+## 6. Start Services
 
 ### Development Server
 ```bash
-# Alle Services gleichzeitig (empfohlen)
+# All Services Together (recommended)
 ./scripts/start-all-background.sh
 
-# Oder einzeln:
+# Or individually:
 ./scripts/start-web-server.sh      # Port 8001
 ./scripts/start-worker.sh          # Background Analysis Worker
 ./scripts/start-scheduler.sh       # Feed Scheduler
@@ -275,13 +275,13 @@ code --install-extension formulahendry.auto-rename-tag
 
 ### Service Management
 ```bash
-# Status prüfen
+# Check Status
 ./scripts/status.sh
 
-# Services stoppen
+# Stop Services
 ./scripts/stop-all.sh
 
-# Logs verfolgen
+# Follow Logs
 tail -f logs/web.log
 tail -f logs/worker.log
 tail -f logs/scheduler.log
@@ -291,30 +291,30 @@ tail -f logs/scheduler.log
 
 ### Test Setup
 ```bash
-# Test Database erstellen
+# Create Test Database
 export TEST_DATABASE_URL="postgresql://news_user:news_password@localhost/news_db_test"
 createdb news_db_test
 alembic -x data=test upgrade head
 ```
 
-### Tests ausführen
+### Run Tests
 ```bash
-# Alle Tests
+# All Tests
 pytest
 
-# Mit Coverage
+# With Coverage
 pytest --cov=app --cov-report=html
 
-# Spezifische Tests
+# Specific Tests
 pytest tests/test_analysis.py
 pytest tests/test_feeds.py -v
 
-# Tests mit Marks
-pytest -m "not slow"  # Schnelle Tests
+# Tests with Marks
+pytest -m "not slow"  # Fast Tests
 pytest -m "integration"  # Integration Tests
 ```
 
-### Test Konfiguration
+### Test Configuration
 
 #### pytest.ini
 ```ini
@@ -347,11 +347,11 @@ git checkout develop
 git pull origin develop
 git checkout -b feature/analysis-improvements
 
-# Entwicklung...
+# Development...
 git add .
 git commit -m "feat: improve analysis speed"
 
-# Push und Pull Request
+# Push and Pull Request
 git push origin feature/analysis-improvements
 ```
 
@@ -359,7 +359,7 @@ git push origin feature/analysis-improvements
 
 #### Python Code Standards
 ```python
-# Beispiel: Guter Python Code Style
+# Example: Good Python Code Style
 from typing import List, Optional
 import logging
 
@@ -441,21 +441,21 @@ async def create_feed(
 
 #### PDB Debugging
 ```python
-# In Code Breakpoint setzen
+# Set breakpoint in code
 import pdb; pdb.set_trace()
 
-# Oder mit ipdb (bessere Ausgabe)
+# Or with ipdb (better output)
 import ipdb; ipdb.set_trace()
 ```
 
 ## 9. Database Development
 
-### Migration Erstellung
+### Creating Migrations
 ```bash
-# Neue Migration erstellen
+# Create new migration
 alembic revision --autogenerate -m "Add feed categories table"
 
-# Migration manuell erstellen
+# Create migration manually
 alembic revision -m "Add custom index"
 ```
 
@@ -465,16 +465,16 @@ alembic revision -m "Add custom index"
 pip install pgadmin4
 
 # CLI Tools
-pip install pgcli  # Besseres psql
+pip install pgcli  # Better psql
 pgcli postgresql://news_user:news_password@localhost/news_db
 ```
 
 ### Sample Data
 ```bash
-# Test Data laden
+# Load Test Data
 python scripts/load_sample_data.py
 
-# Oder SQL direkt
+# Or SQL directly
 psql -h localhost -U news_user news_db < sample_data.sql
 ```
 
@@ -482,10 +482,10 @@ psql -h localhost -U news_user news_db < sample_data.sql
 
 ### FastAPI Development Server
 ```bash
-# Mit Auto-Reload
+# With Auto-Reload
 uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
 
-# Mit Debug Logging
+# With Debug Logging
 uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload --log-level debug
 ```
 
@@ -537,10 +537,10 @@ curl -X POST "http://localhost:8001/api/feeds" \
 
 ### HTMX Development
 ```html
-<!-- Live Reload für HTMX Development -->
+<!-- Live Reload for HTMX Development -->
 <script>
     if (window.location.hostname === 'localhost') {
-        // Auto-refresh bei Änderungen
+        // Auto-refresh on changes
         setInterval(() => {
             fetch('/health')
                 .catch(() => location.reload());
@@ -588,28 +588,28 @@ WHERE feed_id = 1
 ORDER BY published DESC
 LIMIT 10;
 
--- Slow Query Log aktivieren
+-- Enable Slow Query Log
 ALTER SYSTEM SET log_min_duration_statement = '1000ms';
 SELECT pg_reload_conf();
 ```
 
 ## 13. Troubleshooting
 
-### Häufige Probleme
+### Common Issues
 
 #### Import Errors
 ```bash
-# PYTHONPATH setzen
+# Set PYTHONPATH
 export PYTHONPATH="${PYTHONPATH}:$(pwd)"
 
-# Oder in Python
+# Or in Python
 import sys
 sys.path.append('.')
 ```
 
 #### Database Connection Issues
 ```bash
-# PostgreSQL Status prüfen
+# Check PostgreSQL Status
 brew services list | grep postgresql  # macOS
 systemctl status postgresql  # Linux
 
@@ -619,7 +619,7 @@ psql -h localhost -U news_user -d news_db -c "SELECT version();"
 
 #### Port Conflicts
 ```bash
-# Port Usage prüfen
+# Check Port Usage
 lsof -i :8001
 netstat -tulpn | grep :8001
 
@@ -646,22 +646,22 @@ def setup_development_logging():
 ## 14. Contributing
 
 ### Pull Request Process
-1. Feature Branch erstellen
-2. Code entwickeln + Tests schreiben
-3. Code Quality Tools ausführen
-4. Pull Request erstellen
-5. Code Review abwarten
-6. Merge nach Approval
+1. Create feature branch
+2. Develop code + write tests
+3. Run code quality tools
+4. Create pull request
+5. Wait for code review
+6. Merge after approval
 
 ### Code Review Checklist
-- [ ] Tests vorhanden und passing
-- [ ] Dokumentation aktualisiert
-- [ ] Code Style befolgt
-- [ ] Performance berücksichtigt
-- [ ] Security best practices befolgt
-- [ ] Breaking Changes dokumentiert
+- [ ] Tests present and passing
+- [ ] Documentation updated
+- [ ] Code style followed
+- [ ] Performance considered
+- [ ] Security best practices followed
+- [ ] Breaking changes documented
 
 ---
 
-**Letzte Aktualisierung:** September 2024
+**Last Updated:** September 2024
 **Developer Setup Version:** v2.1.0

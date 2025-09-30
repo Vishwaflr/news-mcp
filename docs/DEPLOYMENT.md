@@ -1,43 +1,43 @@
 # News MCP Deployment Guide
 
-## Übersicht
+## Overview
 
-Dieser Guide beschreibt verschiedene Deployment-Strategien für das News MCP System - von Development bis Production.
+This guide describes various deployment strategies for the News MCP System - from development to production.
 
-## Voraussetzungen
+## Prerequisites
 
 ### System Requirements
-- **OS**: Linux (Ubuntu 20.04+, CentOS 8+) oder macOS
-- **RAM**: 4GB+ (8GB+ für Production)
-- **Storage**: 20GB+ freier Speicherplatz
-- **Network**: Stabile Internetverbindung für RSS-Feeds
+- **OS**: Linux (Ubuntu 20.04+, CentOS 8+) or macOS
+- **RAM**: 4GB+ (8GB+ for production)
+- **Storage**: 20GB+ free disk space
+- **Network**: Stable internet connection for RSS feeds
 
 ### Software Dependencies
-- **Python**: 3.9+ (empfohlen: 3.11)
+- **Python**: 3.9+ (recommended: 3.11)
 - **PostgreSQL**: 15+
-- **Git**: Für Code-Deployment
-- **Nginx**: Für Production Reverse Proxy (optional)
-- **Systemd**: Für Service Management (Linux)
+- **Git**: For code deployment
+- **Nginx**: For production reverse proxy (optional)
+- **Systemd**: For service management (Linux)
 
 ## Development Deployment
 
 ### Quick Start
 ```bash
-# Repository klonen
+# Clone repository
 git clone https://github.com/your-org/news-mcp.git
 cd news-mcp
 
-# Environment Setup
+# Environment setup
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 
-# Database Setup
+# Database setup
 sudo -u postgres createdb news_db
 sudo -u postgres createuser news_user
 alembic upgrade head
 
-# Services starten
+# Start services
 ./scripts/start-web-server.sh
 ./scripts/start-worker.sh
 ./scripts/start-scheduler.sh
@@ -45,7 +45,7 @@ alembic upgrade head
 
 ### Environment Configuration
 ```bash
-# .env für Development
+# .env for development
 DATABASE_URL=postgresql://news_user:news_password@localhost/news_db
 OPENAI_API_KEY=your_api_key_here
 ENVIRONMENT=development
@@ -56,32 +56,32 @@ WEB_PORT=8001
 
 ## Production Deployment
 
-### 1. Server Vorbereitung
+### 1. Server Preparation
 
 #### Ubuntu/Debian
 ```bash
-# System Updates
+# System updates
 sudo apt update && sudo apt upgrade -y
 
-# Dependencies installieren
+# Install dependencies
 sudo apt install -y python3 python3-venv python3-pip \
     postgresql postgresql-contrib nginx git supervisor
 
-# News MCP User erstellen
+# Create News MCP user
 sudo useradd -m -s /bin/bash news-mcp
 sudo usermod -aG sudo news-mcp
 ```
 
 #### CentOS/RHEL
 ```bash
-# System Updates
+# System updates
 sudo dnf update -y
 
-# Dependencies installieren
+# Install dependencies
 sudo dnf install -y python3 python3-pip postgresql-server \
     postgresql-contrib nginx git supervisor
 
-# PostgreSQL initialisieren
+# Initialize PostgreSQL
 sudo postgresql-setup --initdb
 sudo systemctl enable postgresql
 sudo systemctl start postgresql
@@ -90,21 +90,21 @@ sudo systemctl start postgresql
 ### 2. Database Setup
 
 ```bash
-# PostgreSQL konfigurieren
+# Configure PostgreSQL
 sudo -u postgres psql
 CREATE DATABASE news_db;
 CREATE USER news_user WITH PASSWORD 'secure_production_password';
 GRANT ALL PRIVILEGES ON DATABASE news_db TO news_user;
-ALTER USER news_user CREATEDB;  -- Für Tests
+ALTER USER news_user CREATEDB;  -- For tests
 \q
 
-# PostgreSQL Tuning für Production
+# PostgreSQL tuning for production
 sudo nano /etc/postgresql/15/main/postgresql.conf
 ```
 
 **PostgreSQL Tuning:**
 ```conf
-# postgresql.conf für 8GB RAM Server
+# postgresql.conf for 8GB RAM server
 shared_buffers = 2GB
 effective_cache_size = 6GB
 maintenance_work_mem = 512MB
@@ -118,7 +118,7 @@ effective_io_concurrency = 200
 ### 3. Application Deployment
 
 ```bash
-# Als news-mcp User
+# As news-mcp user
 sudo su - news-mcp
 cd /home/news-mcp
 
@@ -126,20 +126,20 @@ cd /home/news-mcp
 git clone https://github.com/your-org/news-mcp.git
 cd news-mcp
 
-# Python Environment
+# Python environment
 python3 -m venv venv
 source venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
 
-# Production Environment
+# Production environment
 cp .env.example .env
-nano .env  # Production Konfiguration
+nano .env  # Production configuration
 ```
 
 **Production .env:**
 ```bash
-# Production Environment
+# Production environment
 DATABASE_URL=postgresql://news_user:secure_production_password@localhost/news_db
 OPENAI_API_KEY=your_production_api_key
 ENVIRONMENT=production
@@ -160,11 +160,11 @@ FEED_FETCH_TIMEOUT=30
 ### 4. Database Migrations
 
 ```bash
-# Migrations anwenden
+# Apply migrations
 source venv/bin/activate
 alembic upgrade head
 
-# Initial Data laden (optional)
+# Load initial data (optional)
 python scripts/setup_initial_data.py
 ```
 
@@ -255,14 +255,14 @@ StandardError=journal
 WantedBy=multi-user.target
 ```
 
-#### Services aktivieren
+#### Enable Services
 ```bash
-# Services registrieren und starten
+# Register and start services
 sudo systemctl daemon-reload
 sudo systemctl enable news-mcp-web news-mcp-worker news-mcp-scheduler
 sudo systemctl start news-mcp-web news-mcp-worker news-mcp-scheduler
 
-# Status prüfen
+# Check status
 sudo systemctl status news-mcp-web
 sudo systemctl status news-mcp-worker
 sudo systemctl status news-mcp-scheduler
@@ -282,8 +282,8 @@ server {
     # Security Headers
     add_header X-Frame-Options DENY;
     add_header X-Content-Type-Options nosniff;
-    add_header X-XSS-Protection \"1; mode=block\";
-    add_header Strict-Transport-Security \"max-age=31536000; includeSubDomains\" always;
+    add_header X-XSS-Protection "1; mode=block";
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 
     # Gzip Compression
     gzip on;
@@ -295,7 +295,7 @@ server {
     location /static/ {
         alias /home/news-mcp/news-mcp/static/;
         expires 30d;
-        add_header Cache-Control \"public, no-transform\";
+        add_header Cache-Control "public, no-transform";
     }
 
     # Health Check
@@ -319,7 +319,7 @@ server {
         # WebSocket Support
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection \"upgrade\";
+        proxy_set_header Connection "upgrade";
 
         # Timeouts
         proxy_connect_timeout 60s;
@@ -344,15 +344,15 @@ http {
 }
 ```
 
-#### SSL mit Let's Encrypt
+#### SSL with Let's Encrypt
 ```bash
-# Certbot installieren
+# Install Certbot
 sudo apt install certbot python3-certbot-nginx
 
-# SSL Zertifikat erstellen
+# Create SSL certificate
 sudo certbot --nginx -d your-domain.com -d www.your-domain.com
 
-# Auto-Renewal testen
+# Test auto-renewal
 sudo certbot renew --dry-run
 ```
 
@@ -385,7 +385,7 @@ nano /home/news-mcp/scripts/health-check.sh
 
 ```bash
 #!/bin/bash
-# Health Check Script für News MCP
+# Health Check Script for News MCP
 
 LOG_FILE="/var/log/news-mcp-health.log"
 ALERT_EMAIL="admin@your-domain.com"
@@ -424,7 +424,7 @@ check_disk_space() {
     fi
 }
 
-# Health Checks ausführen
+# Run health checks
 check_service "news-mcp-web"
 check_service "news-mcp-worker"
 check_service "news-mcp-scheduler"
@@ -434,7 +434,7 @@ check_disk_space
 echo "$(date): Health check completed" >> $LOG_FILE
 ```
 
-#### Cron Job für Health Checks
+#### Cron Job for Health Checks
 ```bash
 sudo crontab -e
 ```
@@ -477,7 +477,7 @@ EXPOSE 8001
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8001/health || exit 1
 
-CMD [\"uvicorn\", \"app.main:app\", \"--host\", \"0.0.0.0\", \"--port\", \"8001\"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001"]
 ```
 
 ### docker-compose.yml
@@ -488,7 +488,7 @@ services:
   web:
     build: .
     ports:
-      - \"8001:8001\"
+      - "8001:8001"
     environment:
       - DATABASE_URL=postgresql://news_user:news_password@db:5432/news_db
       - OPENAI_API_KEY=${OPENAI_API_KEY}
@@ -542,8 +542,8 @@ services:
   nginx:
     image: nginx:alpine
     ports:
-      - \"80:80\"
-      - \"443:443\"
+      - "80:80"
+      - "443:443"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf
       - ./ssl:/etc/nginx/ssl
@@ -557,17 +557,17 @@ volumes:
 
 ### Docker Deployment
 ```bash
-# Environment erstellen
+# Create environment
 cp .env.example .env
-nano .env  # Konfiguration anpassen
+nano .env  # Adjust configuration
 
-# Services starten
+# Start services
 docker-compose up -d
 
-# Migrations ausführen
+# Run migrations
 docker-compose exec web alembic upgrade head
 
-# Logs verfolgen
+# Follow logs
 docker-compose logs -f web worker scheduler
 ```
 
@@ -578,39 +578,39 @@ docker-compose logs -f web worker scheduler
 #!/bin/bash
 # /home/news-mcp/scripts/backup-db.sh
 
-BACKUP_DIR=\"/home/news-mcp/backups\"
+BACKUP_DIR="/home/news-mcp/backups"
 DATE=$(date +%Y%m%d_%H%M%S)
-DB_NAME=\"news_db\"
+DB_NAME="news_db"
 RETENTION_DAYS=30
 
 mkdir -p $BACKUP_DIR
 
-# Database Backup
+# Database backup
 pg_dump -h localhost -U news_user $DB_NAME \
     --no-owner --no-privileges \
     | gzip > $BACKUP_DIR/news_db_$DATE.sql.gz
 
-# Alte Backups löschen
-find $BACKUP_DIR -name \"news_db_*.sql.gz\" -mtime +$RETENTION_DAYS -delete
+# Delete old backups
+find $BACKUP_DIR -name "news_db_*.sql.gz" -mtime +$RETENTION_DAYS -delete
 
-echo \"Backup completed: news_db_$DATE.sql.gz\"
+echo "Backup completed: news_db_$DATE.sql.gz"
 ```
 
 ### Recovery Procedure
 ```bash
-# Service stoppen
+# Stop services
 sudo systemctl stop news-mcp-web news-mcp-worker news-mcp-scheduler
 
-# Database wiederherstellen
+# Restore database
 sudo -u postgres dropdb news_db
 sudo -u postgres createdb news_db
-sudo -u postgres psql -c \"GRANT ALL PRIVILEGES ON DATABASE news_db TO news_user;\"
+sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE news_db TO news_user;"
 
-# Backup einspielen
+# Load backup
 gunzip -c /home/news-mcp/backups/news_db_20240101_120000.sql.gz | \
     sudo -u news_user psql -h localhost news_db
 
-# Services starten
+# Start services
 sudo systemctl start news-mcp-web news-mcp-worker news-mcp-scheduler
 ```
 
@@ -618,14 +618,14 @@ sudo systemctl start news-mcp-web news-mcp-worker news-mcp-scheduler
 
 ### Database Optimization
 ```sql
--- Performance Monitoring
+-- Performance monitoring
 SELECT schemaname, tablename,
        pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) as size,
        n_tup_ins, n_tup_upd, n_tup_del
 FROM pg_stat_user_tables
 ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
 
--- Index Usage
+-- Index usage
 SELECT schemaname, tablename, indexname, idx_tup_read, idx_tup_fetch
 FROM pg_stat_user_indexes
 ORDER BY idx_tup_read DESC;
@@ -676,11 +676,11 @@ ssl_session_timeout 10m;
 
 ### Environment Security
 ```bash
-# Sichere Permissions
+# Secure permissions
 chmod 600 /home/news-mcp/news-mcp/.env
 chown news-mcp:news-mcp /home/news-mcp/news-mcp/.env
 
-# Log Files
+# Log files
 chmod 640 /home/news-mcp/news-mcp/logs/*.log
 chown news-mcp:adm /home/news-mcp/news-mcp/logs/*.log
 ```
@@ -689,14 +689,14 @@ chown news-mcp:adm /home/news-mcp/news-mcp/logs/*.log
 
 ### Common Issues
 
-#### Service startet nicht
+#### Service won't start
 ```bash
-# Logs prüfen
+# Check logs
 journalctl -u news-mcp-web -f
 journalctl -u news-mcp-worker -f
 journalctl -u news-mcp-scheduler -f
 
-# Service Status
+# Service status
 systemctl status news-mcp-web
 systemctl status news-mcp-worker
 systemctl status news-mcp-scheduler
@@ -704,27 +704,27 @@ systemctl status news-mcp-scheduler
 
 #### Database Connection Issues
 ```bash
-# PostgreSQL Status
+# PostgreSQL status
 sudo systemctl status postgresql
-sudo -u postgres psql -c \"SELECT version();\"
+sudo -u postgres psql -c "SELECT version();"
 
-# Connection Test
-sudo -u news-mcp psql -h localhost -d news_db -c \"SELECT 1;\"
+# Connection test
+sudo -u news-mcp psql -h localhost -d news_db -c "SELECT 1;"
 ```
 
 #### Performance Issues
 ```bash
-# System Resources
+# System resources
 htop
 iotop
 df -h
 free -m
 
-# Database Performance
-sudo -u postgres psql -d news_db -c \"SELECT * FROM pg_stat_activity;\"
+# Database performance
+sudo -u postgres psql -d news_db -c "SELECT * FROM pg_stat_activity;"
 ```
 
 ---
 
-**Letzte Aktualisierung:** September 2024
+**Last Updated:** September 2024
 **Deployment Version:** v2.1.0
