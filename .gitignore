@@ -202,6 +202,8 @@ docs/archive/REFACTORING_PLAN.md
 docs/archive/ANALYSIS_API_CONSOLIDATION.md
 docs/archive/README_QMAGENT.md
 docs/archive/TEST_REPORT_AUTO_ANALYSIS.md
+docs/archive/GO_LIVE_CHECKLIST*.md
+docs/archive/REPOSITORY_POLICY.md
 
 # Runtime files
 *.pid
