@@ -214,3 +214,4 @@ tests/manual/
 # Config directory (runtime state)
 config/mcp_server_config.json
 config/rollout_state.json
+.env.worker

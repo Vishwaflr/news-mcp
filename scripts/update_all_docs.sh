@@ -31,7 +31,8 @@ ENDPOINT_COUNT=$(curl -s http://localhost:8000/openapi.json 2>/dev/null | grep -
 echo "   Found $ENDPOINT_COUNT API endpoints"
 
 # Count database tables
-TABLE_COUNT=$(export PGPASSWORD=news_password && psql -h localhost -U news_user -d news_db -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" 2>/dev/null | tr -d ' ' || echo "28")
+# Note: Requires PGPASSWORD environment variable to be set
+TABLE_COUNT=$(psql -h localhost -U news_user -d news_db -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" 2>/dev/null | tr -d ' ' || echo "28")
 echo "   Found $TABLE_COUNT database tables"
 
 # Create documentation summary
