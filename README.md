@@ -1,11 +1,12 @@
-# News MCP - Enterprise RSS Aggregation with AI Analysis
+# News MCP - MCP-Native RSS Intelligence Platform
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg)](https://fastapi.tiangolo.com/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-blue.svg)](https://www.postgresql.org/)
+[![MCP](https://img.shields.io/badge/MCP-Enabled-orange.svg)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Enterprise-grade RSS aggregation system with integrated AI analysis. The system collects, processes, and analyzes news articles from various RSS feeds and provides a modern web interface for management and analysis.
+**Model Context Protocol (MCP) server for intelligent RSS aggregation and AI-powered news analysis.** Control your news feeds directly from Claude Desktop or any MCP-enabled LLM client with 20+ native tools. Enterprise-grade system with automatic feed management, sentiment analysis, and real-time monitoring.
 
 ## 🚀 Features
 
