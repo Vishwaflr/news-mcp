@@ -196,3 +196,21 @@ IMPLEMENTATION_PLAN*.md
 NAVIGATOR.md
 ENDPOINTS.md
 INDEX.md
+
+# Runtime files
+*.pid
+.*.pid
+
+# QMAgent temporary files
+.qmagent_*
+
+# Test and development files
+tests/manual/
+
+# Backup files
+*.backup*
+*.bak
+
+# Config directory (runtime state)
+config/mcp_server_config.json
+config/rollout_state.json

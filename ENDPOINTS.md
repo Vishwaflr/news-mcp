@@ -1,8 +1,8 @@
 # ENDPOINTS.md – News-MCP API-Gedächtnis
 
 **Zweck:** Komplette API-Referenz für News-MCP System (150+ Endpunkte strukturiert)
-**Version:** 3.1.0
-**Letzte Aktualisierung:** 2025-09-28
+**Version:** 3.2.0
+**Letzte Aktualisierung:** 2025-09-30
 
 ---
 
@@ -18,7 +18,7 @@
 | [Processors](#6-processors) | 6 | `/api/processors` | ✅ Aktiv |
 | [Statistics & Metrics](#7-statistics--metrics) | 12 | `/api/statistics`, `/api/metrics` | ✅ Aktiv |
 | [Health & System](#8-health--system) | 10 | `/api/health`, `/api/system` | ✅ Aktiv |
-| [HTMX Views](#9-htmx-views) | 25 | `/htmx/*` | ✅ Aktiv |
+| [HTMX Views](#9-htmx-views) | 30 | `/htmx/*` | ✅ Aktiv |
 | [WebSocket](#10-websocket) | 1 | `/ws/*` | ✅ Aktiv |
 | [Database Admin](#11-database-admin) | 4 | `/api/database` | ✅ Aktiv |
 | [Feature Flags](#12-feature-flags) | 12 | `/admin/feature-flags` | ✅ Aktiv |
@@ -26,7 +26,7 @@
 | [Scheduler](#14-scheduler) | 6 | `/api/scheduler` | ✅ Aktiv |
 | [Feed Limits](#15-feed-limits) | 9 | `/api/feed-limits` | ✅ Aktiv |
 
-**Total:** 167 Endpunkte
+**Total:** 172 Endpunkte
 
 ---
 
@@ -180,12 +180,12 @@ POST   /api/analysis-worker/test-deferred   # Test Deferred Analysis
 ```
 
 ### Kontext
-- 75 Analysis Runs im System
+- 75+ Analysis Runs im System
 - Job-based Preview System (neu)
 - Selection Cache für Performance
-- Centralized Run Manager
+- Centralized Run Manager (5 concurrent runs)
 - Worker Pool mit Status-Tracking
-- **Auto-Analysis für Feeds** → Phase 2 Sprint 4 (Production Rollout)
+- **Auto-Analysis für Feeds** → ✅ Phase 2 Sprint 4 ABGESCHLOSSEN (100% Rollout, 9 Feeds)
 
 ---
 
@@ -330,7 +330,7 @@ POST   /api/system/resume                   # Resume All
 
 ## 9. HTMX Views
 
-**Dateien:** `app/api/htmx.py`, `app/web/views/analysis/*.py`, `app/web/views/feed_views.py`, `app/web/views/item_views.py`, `app/web/views/system_views.py`, `app/web/views/auto_analysis_views.py`
+**Dateien:** `app/api/htmx.py`, `app/web/views/analysis/*.py`, `app/web/views/feed_views.py`, `app/web/views/item_views.py`, `app/web/views/system_views.py`, `app/web/views/auto_analysis_views.py`, `app/web/views/manager_views.py`
 **Beschreibung:** Progressive Enhancement UI Components
 
 ### Analysis Cockpit
@@ -374,13 +374,22 @@ GET    /htmx/reprocessing-status            # Reprocessing Status
 GET    /htmx/processor-health-details       # Processor Health
 ```
 
-### Auto-Analysis Views (Phase 2)
+### Auto-Analysis Views (Phase 2) ✅ PRODUKTIV
 ```http
 GET    /htmx/auto-analysis-dashboard        # Auto-Analysis Dashboard
 GET    /htmx/auto-analysis-queue            # Auto-Analysis Queue Status
 GET    /htmx/auto-analysis-history          # Auto-Analysis History
 GET    /htmx/auto-analysis-config           # Auto-Analysis Config Form
 POST   /htmx/auto-analysis-config           # Update Auto-Analysis Config
+```
+
+### Manager Views (NEW - Sprint 4) ✅ PRODUKTIV
+```http
+GET    /htmx/manager-status                 # System Status Component (5s polling)
+GET    /htmx/manager-queue                  # Queue Breakdown Component (5s polling)
+GET    /htmx/manager-daily-stats            # Daily/Hourly Stats (10s polling)
+GET    /htmx/manager-config                 # Configuration Display
+GET    /htmx/manager-active-runs            # Active Runs Table (3s polling)
 ```
 
 ### Kontext
@@ -546,6 +555,8 @@ GET    /admin/processors                    # Processor Management UI
 GET    /admin/statistics                    # Statistics Dashboard UI
 GET    /admin/database                      # Database Admin UI
 GET    /admin/analysis                      # Analysis Cockpit UI (v4)
+GET    /admin/auto-analysis                 # Auto-Analysis Monitoring UI
+GET    /admin/manager                       # Manager Control Center UI (NEW Sprint 4)
 GET    /admin/metrics                       # Metrics Dashboard UI
 ```
 

@@ -1,9 +1,9 @@
 # INDEX.md – News-MCP Datei-Map
 
 **Zweck:** Vollständige Dateistruktur-Übersicht für schnelle Navigation
-**Version:** 3.1.0
-**Stand:** 2025-09-28
-**Python-Dateien:** 132
+**Version:** 3.2.0
+**Stand:** 2025-09-30
+**Python-Dateien:** 133
 
 ---
 
@@ -28,7 +28,7 @@ news-mcp/
 ├── 📄 .ruff.toml                   # Ruff Linter Config
 ├── 📄 .pre-commit-config.yaml     # Pre-commit Hooks
 │
-├── 📁 app/                         # Application Code (132 .py Dateien)
+├── 📁 app/                         # Application Code (133 .py Dateien)
 ├── 📁 templates/                   # Jinja2 Templates
 ├── 📁 static/                      # Static Assets (CSS, JS, Images)
 ├── 📁 docs/                        # Dokumentation (28 Dateien)
@@ -143,6 +143,7 @@ app/web/
     ├── item_views.py               # Item Views
     ├── system_views.py             # System Views
     ├── auto_analysis_views.py      # ✅ Auto-Analysis Views (Phase 2 Sprint 4)
+    ├── manager_views.py            # ✅ Manager Dashboard Views (Phase 2 Sprint 4)
     │
     └── analysis/                   # Analysis Cockpit Views
         ├── __init__.py
@@ -246,7 +247,9 @@ app/jobs/
 ```
 templates/
 ├── index.html                      # Dashboard Home
+├── base.html                       # Base Template (Bootstrap Dark Mode, Navigation)
 ├── analysis_cockpit_v4.html        # Analysis Cockpit (Alpine.js v4)
+├── auto_analysis.html              # Auto-Analysis Monitoring UI
 │
 ├── admin/                          # Admin Pages
 │   ├── feeds.html                  # Feed Management UI
@@ -255,6 +258,7 @@ templates/
 │   ├── processors.html             # Processor Management
 │   ├── statistics.html             # Statistics Dashboard
 │   ├── database.html               # Database Admin
+│   ├── analysis_manager.html       # ✅ Manager Control Center (Phase 2 Sprint 4)
 │   └── metrics.html                # Metrics Dashboard
 │
 └── components/                     # Reusable Components
@@ -426,14 +430,16 @@ app/config.py                       # Configuration
 app/database.py                     # Database Setup
 ```
 
-### Analysis System (Aktueller Fokus)
+### Analysis System (Phase 2 Abgeschlossen ✅)
 ```
-app/services/auto_analysis_service.py           # ✅ Auto-Analysis Core (Phase 2 Sprint 4)
-app/services/pending_analysis_processor.py      # ✅ Queue Processor (Phase 2 Sprint 4)
-app/web/views/auto_analysis_views.py            # ✅ HTMX Views (Phase 2 Sprint 4)
+app/services/auto_analysis_service.py           # ✅ Auto-Analysis Core (100% Rollout)
+app/services/pending_analysis_processor.py      # ✅ Queue Processor (Produktiv)
+app/web/views/auto_analysis_views.py            # ✅ Auto-Analysis HTMX Views
+app/web/views/manager_views.py                  # ✅ Manager Dashboard Views
 app/api/analysis_management.py                  # Run Manager API
-app/services/analysis_run_manager.py            # Run Manager Service
+app/services/analysis_run_manager.py            # Run Manager Service (5 concurrent)
 app/worker/analysis_worker.py                   # Worker Process
+templates/admin/analysis_manager.html           # ✅ Manager UI (Bootstrap Dark Mode)
 ```
 
 ### Feed System
@@ -495,12 +501,13 @@ app/api/metrics.py                  # Metrics
 
 | Metrik | Wert |
 |--------|------|
-| Python-Dateien | 132 |
-| API-Endpunkte | 167 |
+| Python-Dateien | 133 |
+| API-Endpunkte | 172 |
 | Dokumentation | 28 Dateien |
 | Tabellen (DB) | 30 |
 | Services | 22 |
 | API Routes | 24 |
+| HTMX Views | 30 |
 | Tests | ~50+ |
 
 ---
