@@ -198,6 +198,9 @@ INDEX.md
 # Archived planning documents
 docs/archive/PROGRESS.md
 docs/archive/IMPLEMENTATION_PLAN*.md
+
+# Local archive for removed files
+.archive/
 docs/archive/REFACTORING_PLAN.md
 docs/archive/ANALYSIS_API_CONSOLIDATION.md
 docs/archive/README_QMAGENT.md
