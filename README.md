@@ -34,8 +34,22 @@ Enterprise-grade RSS aggregation system with integrated AI analysis. The system 
 - **Dark Mode UI**: Modern, responsive web interface
 - **Feature Flags**: Gradual rollout with circuit breaker and A/B testing
 
+## 📸 Screenshots
+
+Get a visual overview of the system's capabilities:
+
+- [Feed Management](docs/screenshots) - RSS feed monitoring with health status
+- [Articles Stream](docs/screenshots) - Real-time article feed with AI analysis
+- [Analysis Cockpit](docs/screenshots) - Manual analysis interface
+- [Auto-Analysis System](docs/screenshots) - Automated AI processing
+- [Statistics Dashboard](docs/screenshots) - Performance metrics and charts
+- [Database Browser](docs/screenshots) - Query interface with templates
+
+**[View all screenshots →](docs/screenshots/README.md)**
+
 ## 📋 Table of Contents
 
+- [Screenshots](#screenshots)
 - [Installation](#installation)
 - [Configuration](#configuration)
 - [Usage](#usage)
