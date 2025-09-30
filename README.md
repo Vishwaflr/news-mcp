@@ -11,11 +11,20 @@ Enterprise-grade RSS aggregation system with integrated AI analysis. The system 
 
 ### Core Functionality
 - **RSS Feed Management**: Automatic collection and processing of RSS feeds
-- **Auto-Analysis System**: Automatic AI analysis of new feed items (Phase 2)
+- **Auto-Analysis System**: Automatic AI analysis of new feed items (Phase 2 ✅)
 - **AI-Powered Analysis**: Sentiment analysis and categorization with OpenAI GPT
 - **Real-time Dashboard**: Live monitoring of feed status and analysis runs
 - **Advanced Analytics**: Detailed statistics and performance metrics
 - **Template System**: Dynamic feed templates for flexible configuration
+
+### MCP Integration (Model Context Protocol)
+- **🔌 20+ MCP Tools**: Complete system control via LLM-native interface
+- **Feed Management**: List, add, update, delete feeds via Claude Desktop/LLM clients
+- **Analytics Tools**: Dashboard stats, trending topics, article search
+- **Database Access**: Safe read-only SQL queries with predefined templates
+- **Health Monitoring**: System diagnostics, error analysis, scheduler status
+- **LAN Access Ready**: HTTP bridge for remote Claude Desktop integration
+- **See [MCP Documentation](MCP_SERVER_README.md) for full details**
 
 ### Technical Features
 - **Async Processing**: High-performance asynchronous processing
@@ -23,12 +32,14 @@ Enterprise-grade RSS aggregation system with integrated AI analysis. The system 
 - **Centralized Caching**: In-memory selection cache for optimized performance
 - **Modular Architecture**: Clean separation of API, services, and views
 - **Dark Mode UI**: Modern, responsive web interface
+- **Feature Flags**: Gradual rollout with circuit breaker and A/B testing
 
 ## 📋 Table of Contents
 
 - [Installation](#installation)
 - [Configuration](#configuration)
 - [Usage](#usage)
+- [MCP Integration](#mcp-integration-model-context-protocol)
 - [API Documentation](#api-documentation)
 - [Database Schema](#database-schema)
 - [Deployment](#deployment)
@@ -165,7 +176,147 @@ http://localhost:8000/admin/manager
 # Workers
 ./scripts/start-worker.sh            # Start analysis worker
 ./scripts/start-scheduler.sh         # Start feed scheduler
+
+# MCP Server
+./scripts/start_mcp_server.sh        # Start MCP server on port 8001
 ```
+
+## 🔌 MCP Integration (Model Context Protocol)
+
+News MCP provides a complete **Model Context Protocol** implementation, allowing LLMs like Claude to directly interact with your RSS system.
+
+### Quick Start with Claude Desktop
+
+1. **Start MCP Server**
+```bash
+./scripts/start_mcp_server.sh
+# Server runs on http://localhost:8001
+```
+
+2. **Configure Claude Desktop**
+
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+
+```json
+{
+  "mcpServers": {
+    "news-mcp": {
+      "command": "node",
+      "args": ["/path/to/news-mcp/mcp-http-bridge.js"],
+      "env": {
+        "NEWS_MCP_SERVER_URL": "http://localhost:8001"
+      }
+    }
+  }
+}
+```
+
+3. **Restart Claude Desktop** - The MCP tools will appear automatically
+
+### Available MCP Tools (20+)
+
+#### Feed Management
+```
+- list_feeds          # View all RSS feeds with status
+- add_feed            # Add new RSS feed
+- update_feed         # Update feed configuration
+- delete_feed         # Remove feed
+- test_feed           # Test feed URL
+- refresh_feed        # Manually trigger feed refresh
+```
+
+#### Analytics & Insights
+```
+- get_dashboard       # System overview with statistics
+- latest_articles     # Get recent articles with filters
+- search_articles     # Full-text article search
+- trending_topics     # Analyze trending keywords
+- feed_performance    # Performance metrics per feed
+- export_data         # Export articles as JSON/CSV
+```
+
+#### Health & Monitoring
+```
+- system_health       # Overall system status
+- feed_diagnostics    # Detailed feed health check
+- error_analysis      # System error patterns
+- scheduler_status    # Feed scheduler status
+```
+
+#### Database Access
+```
+- execute_query       # Safe read-only SQL queries
+- table_info          # Database schema information
+- quick_queries       # Predefined useful queries
+```
+
+#### Template Management
+```
+- list_templates      # View dynamic feed templates
+- template_performance # Template usage statistics
+- assign_template     # Assign template to feed
+```
+
+### Example Claude Interactions
+
+```
+You: "Show me all my RSS feeds"
+Claude: *uses list_feeds tool*
+        "You have 37 active feeds. Here are the details..."
+
+You: "What are the trending topics today?"
+Claude: *uses trending_topics tool*
+        "Based on 450 articles today, the top topics are..."
+
+You: "Add feed https://techcrunch.com/feed/"
+Claude: *uses add_feed tool*
+        "Added TechCrunch feed successfully..."
+
+You: "Which feeds are having problems?"
+Claude: *uses feed_diagnostics tool*
+        "2 feeds have issues: Feed #12 has 5 consecutive failures..."
+```
+
+### LAN Access (Remote Claude Desktop)
+
+For using Claude Desktop on a different machine:
+
+1. **Configure Bridge for LAN**
+```bash
+export NEWS_MCP_SERVER_URL=http://192.168.1.100:8001
+node mcp-http-bridge.js
+```
+
+2. **Update Claude Desktop Config**
+```json
+{
+  "mcpServers": {
+    "news-mcp": {
+      "command": "node",
+      "args": ["/path/to/mcp-http-bridge.js"],
+      "env": {
+        "NEWS_MCP_SERVER_URL": "http://192.168.1.100:8001"
+      }
+    }
+  }
+}
+```
+
+### MCP Architecture
+
+```
+Claude Desktop
+    │
+    ├─> mcp-http-bridge.js (stdio → HTTP)
+    │
+    └─> HTTP MCP Server (Port 8001)
+            │
+            └─> News MCP API (Port 8000)
+                    │
+                    └─> PostgreSQL Database
+```
+
+**Full MCP Documentation**: See [MCP_SERVER_README.md](MCP_SERVER_README.md) for complete setup guide, tool reference, and advanced configuration.
 
 ## 📡 API Documentation
 
