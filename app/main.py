@@ -7,9 +7,9 @@ from app.core.logging_config import get_logger
 
 from app.config import settings
 from app.database import create_db_and_tables, get_session
-from app.api import feeds, items, health, categories, sources, htmx, processors, statistics, database, analysis_control, user_settings, feature_flags_admin, templates as api_templates, scheduler, analysis_management, metrics, feed_limits, system, analysis_selection
+from app.api import feeds, items, health, categories, sources, htmx, processors, statistics, database, analysis_control, user_settings, feature_flags_admin, templates as api_templates, scheduler, analysis_management, metrics, feed_limits, system, analysis_selection, auto_analysis_monitoring
 from app.routes import templates as template_routes
-from app.web.views import analysis, auto_analysis_views
+from app.web.views import analysis, auto_analysis_views, manager_views
 
 # Import monitoring and error handling components
 from app.core.logging_config import setup_logging, get_logger
@@ -118,6 +118,7 @@ app.include_router(user_settings.router, prefix="/api")
 app.include_router(feature_flags_admin.router)
 app.include_router(analysis.router)
 app.include_router(auto_analysis_views.router, prefix="/htmx")
+app.include_router(manager_views.router)
 
 # Job-based analysis system
 from app.api import analysis_jobs, websocket_endpoint
@@ -132,6 +133,7 @@ app.include_router(metrics.router)
 app.include_router(feed_limits.router)
 app.include_router(system.router, prefix="/api")
 app.include_router(analysis_selection.router)
+app.include_router(auto_analysis_monitoring.router)
 
 # Include monitoring routers (schrittweise aktiviert)
 from app.core.health import create_health_router
@@ -200,6 +202,10 @@ async def admin_analysis(request: Request):
 @app.get("/admin/auto-analysis", response_class=HTMLResponse)
 async def admin_auto_analysis(request: Request):
     return templates.TemplateResponse("auto_analysis.html", {"request": request})
+
+@app.get("/admin/manager", response_class=HTMLResponse)
+async def admin_manager(request: Request):
+    return templates.TemplateResponse("admin/analysis_manager.html", {"request": request})
 
 @app.get("/admin/metrics", response_class=HTMLResponse)
 async def admin_metrics(request: Request):

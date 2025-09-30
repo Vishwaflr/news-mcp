@@ -13,6 +13,7 @@ from app.core.logging_config import get_logger
 from app.repositories.analysis_control import AnalysisControlRepo
 from app.domain.analysis.control import AnalysisRun, RunScope, RunParams, RunStatus
 from app.services.run_queue_manager import get_queue_manager, RunPriority
+from app.config import settings
 
 logger = get_logger(__name__)
 
@@ -28,11 +29,11 @@ class AnalysisRunManager:
     """
 
     def __init__(self):
-        # Configuration - these should be moved to database config later
-        self.max_concurrent_runs = 2
-        self.max_daily_runs = 100
-        self.max_daily_auto_runs = 50
-        self.max_hourly_runs = 10
+        # Configuration from settings - can be overridden via environment variables
+        self.max_concurrent_runs = settings.max_concurrent_runs
+        self.max_daily_runs = settings.max_daily_runs
+        self.max_daily_auto_runs = settings.max_daily_auto_runs
+        self.max_hourly_runs = settings.max_hourly_runs
 
         # Emergency brake
         self.emergency_stop = False

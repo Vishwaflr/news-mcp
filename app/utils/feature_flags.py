@@ -169,6 +169,18 @@ class FeatureFlagManager:
                 name="shadow_compare",
                 status=FeatureFlagStatus.CANARY,
                 rollout_percentage=10
+            ),
+            "auto_analysis_global": FeatureFlag(
+                name="auto_analysis_global",
+                status=FeatureFlagStatus.OFF,
+                rollout_percentage=10,  # Start with 10% of feeds
+                emergency_threshold=0.10,  # Higher threshold for auto-analysis
+                emergency_latency_multiplier=2.0  # More lenient for background jobs
+            ),
+            "auto_analysis_shadow": FeatureFlag(
+                name="auto_analysis_shadow",
+                status=FeatureFlagStatus.OFF,
+                rollout_percentage=100  # When enabled, shadow all auto-analysis
             )
         }
 

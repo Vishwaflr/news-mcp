@@ -45,6 +45,11 @@ class AnalysisRun(SQLModel, table=True):
     avg_processing_time: Optional[float] = None
     model_tag: Optional[str] = None
 
+    # NEW: Skip tracking fields
+    planned_count: int = Field(default=0)
+    skipped_count: int = Field(default=0)
+    skipped_items: Optional[list] = Field(default=[], sa_column=Column(JSON))
+
 
 class AnalysisRunItem(SQLModel, table=True):
     """Items processed in an analysis run."""
@@ -58,6 +63,10 @@ class AnalysisRunItem(SQLModel, table=True):
     processing_completed_at: Optional[datetime] = None
     error_message: Optional[str] = None
     retry_count: int = Field(default=0)
+
+    # NEW: Skip tracking fields
+    skip_reason: Optional[str] = Field(default=None, max_length=50)
+    skipped_at: Optional[datetime] = None
 
 
 class AnalysisPreset(SQLModel, table=True):

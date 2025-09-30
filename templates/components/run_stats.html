@@ -1,0 +1,166 @@
+<!-- Run Statistics Component with Skip Tracking -->
+<div class="run-stats-container" id="run-stats-{{ run.id }}">
+    <!-- Status Badge -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="mb-0">Analysis Run #{{ run.id }}</h5>
+        <span class="badge
+            {% if run.status == 'completed' %}bg-success
+            {% elif run.status == 'running' %}bg-primary
+            {% elif run.status == 'failed' %}bg-danger
+            {% elif run.status == 'cancelled' %}bg-secondary
+            {% else %}bg-warning{% endif %}">
+            {{ run.status|upper }}
+        </span>
+    </div>
+
+    <!-- Statistics Grid -->
+    <div class="row g-3 mb-3">
+        <div class="col-6 col-md-3">
+            <div class="stat-card text-center p-2 border rounded">
+                <div class="stat-label text-muted small">Geplant</div>
+                <div class="stat-value fs-4 fw-bold">{{ run.planned_count|default(run.queued_count, true) }}</div>
+            </div>
+        </div>
+
+        <div class="col-6 col-md-3">
+            <div class="stat-card text-center p-2 border rounded bg-success bg-opacity-10">
+                <div class="stat-label text-muted small">Verarbeitet</div>
+                <div class="stat-value fs-4 fw-bold text-success">{{ run.processed_count|default(0) }}</div>
+                {% if run.planned_count > 0 %}
+                <div class="stat-percent text-success small">
+                    {{ (run.processed_count / run.planned_count * 100)|round(1) }}%
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="col-6 col-md-3">
+            <div class="stat-card text-center p-2 border rounded bg-secondary bg-opacity-10">
+                <div class="stat-label text-muted small">Übersprungen</div>
+                <div class="stat-value fs-4 fw-bold text-secondary">{{ run.skipped_count|default(0) }}</div>
+                {% if run.skipped_count > 0 %}
+                <div class="stat-detail">
+                    <small class="text-muted">
+                        <i class="bi bi-fast-forward-fill"></i> Bereits analysiert
+                    </small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="col-6 col-md-3">
+            <div class="stat-card text-center p-2 border rounded {% if run.failed_count > 0 %}bg-danger bg-opacity-10{% endif %}">
+                <div class="stat-label text-muted small">Fehler</div>
+                <div class="stat-value fs-4 fw-bold {% if run.failed_count > 0 %}text-danger{% endif %}">
+                    {{ run.failed_count|default(0) }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Progress Bar with Skip Visualization -->
+    <div class="mb-3">
+        <div class="d-flex justify-content-between mb-1">
+            <small class="text-muted">Fortschritt</small>
+            <small class="text-muted">
+                {% set total_done = (run.processed_count|default(0) + run.skipped_count|default(0) + run.failed_count|default(0)) %}
+                {% set planned = run.planned_count|default(run.queued_count, true) %}
+                {{ total_done }} / {{ planned }}
+            </small>
+        </div>
+        <div class="progress" style="height: 25px;">
+            {% set planned = run.planned_count|default(run.queued_count, true) %}
+            {% if planned > 0 %}
+                <!-- Processed (Green) -->
+                <div class="progress-bar bg-success"
+                     role="progressbar"
+                     style="width: {{ (run.processed_count|default(0) / planned * 100) }}%"
+                     data-bs-toggle="tooltip"
+                     title="{{ run.processed_count|default(0) }} verarbeitet">
+                </div>
+
+                <!-- Skipped (Gray) -->
+                <div class="progress-bar bg-secondary"
+                     role="progressbar"
+                     style="width: {{ (run.skipped_count|default(0) / planned * 100) }}%"
+                     data-bs-toggle="tooltip"
+                     title="{{ run.skipped_count|default(0) }} übersprungen">
+                </div>
+
+                <!-- Failed (Red) -->
+                <div class="progress-bar bg-danger"
+                     role="progressbar"
+                     style="width: {{ (run.failed_count|default(0) / planned * 100) }}%"
+                     data-bs-toggle="tooltip"
+                     title="{{ run.failed_count|default(0) }} fehlgeschlagen">
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Efficiency Metrics -->
+    {% if run.status == 'completed' and run.skipped_count > 0 %}
+    <div class="alert alert-info py-2">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <i class="bi bi-lightning-charge-fill"></i>
+                <strong>Effizienz-Boost:</strong>
+                {{ run.skipped_count }} Items übersprungen
+            </div>
+            <div class="text-end">
+                <small class="text-muted">Ersparnis:</small>
+                <strong class="text-success">~${{ (run.skipped_count * 0.002)|round(3) }}</strong>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Time Information -->
+    <div class="small text-muted">
+        {% if run.started_at %}
+            <div>Gestartet: {{ run.started_at|date("H:i:s") }}</div>
+        {% endif %}
+        {% if run.completed_at %}
+            <div>Beendet: {{ run.completed_at|date("H:i:s") }}</div>
+            {% if run.started_at %}
+                {% set duration = (run.completed_at - run.started_at).total_seconds() %}
+                <div>Dauer: {{ (duration / 60)|round(1) }} Min</div>
+            {% endif %}
+        {% endif %}
+        {% if run.triggered_by %}
+            <div>Ausgelöst: <span class="badge bg-secondary">{{ run.triggered_by }}</span></div>
+        {% endif %}
+    </div>
+
+    <!-- Auto-refresh for running runs -->
+    {% if run.status in ['running', 'pending'] %}
+    <div hx-get="/htmx/analysis/run-stats/{{ run.id }}"
+         hx-trigger="every 2s"
+         hx-target="#run-stats-{{ run.id }}"
+         hx-swap="outerHTML">
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.stat-card {
+    transition: all 0.3s ease;
+}
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+.progress-bar {
+    transition: width 1s ease-in-out;
+}
+</style>
+
+<script>
+// Initialize tooltips
+document.addEventListener('DOMContentLoaded', function() {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+</script>

@@ -17,6 +17,13 @@ class Settings(BaseSettings):
     analysis_batch_limit: int = 200
     analysis_rps: float = 1.0
 
+    # Analysis Run Manager Configuration
+    max_concurrent_runs: int = 5
+    max_daily_runs: int = 100
+    max_daily_auto_runs: int = 500
+    max_hourly_runs: int = 10
+    auto_analysis_rate_per_second: float = 3.0
+
     # MCP v2 Configuration
     mcp_server_readonly: bool = False
     mcp_api_base_url: str = "http://localhost:8000"

@@ -17,13 +17,14 @@ logger = get_logger(__name__)
 
 @router.get("/runs/{run_id}")
 async def get_run_status(run_id: int, db: Session = Depends(get_session)) -> Dict[str, Any]:
-    """Get status of a specific analysis run"""
+    """Get status of a specific analysis run with skip statistics"""
     try:
         from sqlmodel import text
         query = text("""
             SELECT
                 id, status, created_at, updated_at, started_at, completed_at,
-                queued_count, processed_count, failed_count
+                queued_count, processed_count, failed_count,
+                planned_count, skipped_count, skipped_items, triggered_by
             FROM analysis_runs
             WHERE id = :run_id
         """)
@@ -34,6 +35,12 @@ async def get_run_status(run_id: int, db: Session = Depends(get_session)) -> Dic
         if not row:
             raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
 
+        # Calculate efficiency percentage
+        planned = row[9] if row[9] and row[9] > 0 else row[6]  # Use planned_count or fall back to queued_count
+        processed = row[7] or 0
+        skipped = row[10] or 0
+        efficiency = round((processed / planned * 100) if planned > 0 else 0, 1)
+
         return {
             "id": row[0],
             "status": row[1],
@@ -41,6 +48,16 @@ async def get_run_status(run_id: int, db: Session = Depends(get_session)) -> Dic
             "updated_at": row[3].isoformat() if row[3] else None,
             "started_at": row[4].isoformat() if row[4] else None,
             "completed_at": row[5].isoformat() if row[5] else None,
+            "stats": {
+                "planned": planned,
+                "processed": processed,
+                "skipped": skipped,
+                "failed": row[8] or 0,
+                "efficiency": efficiency,
+                "skip_rate": round((skipped / planned * 100) if planned > 0 else 0, 1)
+            },
+            "triggered_by": row[12],
+            # Legacy fields for backward compatibility
             "total_items": row[6],
             "processed_count": row[7],
             "error_count": row[8]
@@ -93,6 +110,100 @@ async def cancel_run(run_id: int, db: Session = Depends(get_session)) -> Dict[st
         raise
     except Exception as e:
         logger.error(f"Error cancelling run {run_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/runs/{run_id}/items")
+async def get_run_items(run_id: int, db: Session = Depends(get_session)) -> Dict[str, Any]:
+    """Get all items of a run including skipped ones with details"""
+    try:
+        from sqlmodel import text
+
+        # Get run info first
+        run_query = text("SELECT status FROM analysis_runs WHERE id = :run_id")
+        run_result = db.execute(run_query, {"run_id": run_id})
+        run_row = run_result.fetchone()
+
+        if not run_row:
+            raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
+
+        # Get items with skip info
+        items_query = text("""
+            SELECT
+                ari.item_id,
+                ari.state,
+                ari.skip_reason,
+                ari.skipped_at,
+                ari.started_at,
+                ari.completed_at,
+                i.title,
+                i.published,
+                i.feed_id
+            FROM analysis_run_items ari
+            JOIN items i ON ari.item_id = i.id
+            WHERE ari.run_id = :run_id
+            ORDER BY ari.created_at
+        """)
+
+        items_result = db.execute(items_query, {"run_id": run_id})
+        items = []
+
+        completed_items = []
+        skipped_items = []
+        failed_items = []
+        processing_items = []
+        queued_items = []
+
+        for row in items_result:
+            item_data = {
+                "item_id": row[0],
+                "state": row[1],
+                "skip_reason": row[2],
+                "skipped_at": row[3].isoformat() if row[3] else None,
+                "started_at": row[4].isoformat() if row[4] else None,
+                "completed_at": row[5].isoformat() if row[5] else None,
+                "title": row[6],
+                "published": row[7].isoformat() if row[7] else None,
+                "feed_id": row[8]
+            }
+
+            items.append(item_data)
+
+            # Categorize by status
+            if row[1] == 'completed':
+                completed_items.append(item_data)
+            elif row[1] == 'skipped':
+                skipped_items.append(item_data)
+            elif row[1] == 'failed':
+                failed_items.append(item_data)
+            elif row[1] == 'processing':
+                processing_items.append(item_data)
+            elif row[1] == 'queued':
+                queued_items.append(item_data)
+
+        return {
+            "run_id": run_id,
+            "run_status": run_row[0],
+            "total": len(items),
+            "summary": {
+                "completed": len(completed_items),
+                "skipped": len(skipped_items),
+                "failed": len(failed_items),
+                "processing": len(processing_items),
+                "queued": len(queued_items)
+            },
+            "by_status": {
+                "completed": completed_items,
+                "skipped": skipped_items,
+                "failed": failed_items,
+                "processing": processing_items,
+                "queued": queued_items
+            },
+            "items": items
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting items for run {run_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/manager/status")

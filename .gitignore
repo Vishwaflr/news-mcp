@@ -189,3 +189,10 @@ $RECYCLE.BIN/
 *.msm
 *.msp
 *.lnkCLAUDE.md
+
+# Internal Documentation (not for public repo)
+PROGRESS.md
+IMPLEMENTATION_PLAN*.md
+NAVIGATOR.md
+ENDPOINTS.md
+INDEX.md

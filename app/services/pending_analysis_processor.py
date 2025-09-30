@@ -26,10 +26,12 @@ class PendingAnalysisProcessor:
     def __init__(self):
         self.max_daily_auto_runs_per_feed = 10
         self.max_age_hours = 24
+        # NEW: Increased batch size for efficient processing with skip logic
+        self.batch_size = 50  # Was effectively 1 before (single job processing)
 
     async def process_pending_queue(self) -> int:
         """
-        Process all pending auto-analysis jobs.
+        Process pending auto-analysis jobs in batches.
 
         Returns:
             Number of jobs processed
@@ -38,26 +40,127 @@ class PendingAnalysisProcessor:
 
         try:
             with Session(engine) as session:
+                # Get pending jobs, limited to batch size
                 pending_jobs = session.exec(
                     select(PendingAutoAnalysis).where(
                         PendingAutoAnalysis.status == "pending"
-                    ).order_by(PendingAutoAnalysis.created_at)
+                    ).order_by(
+                        PendingAutoAnalysis.created_at
+                    ).limit(self.batch_size)  # NEW: Process in batches
                 ).all()
 
-                logger.info(f"Found {len(pending_jobs)} pending auto-analysis jobs")
+                if not pending_jobs:
+                    return 0
 
+                logger.info(f"Processing batch of {len(pending_jobs)} pending auto-analysis jobs")
+
+                # Group jobs by feed for better batching
+                jobs_by_feed = {}
                 for job in pending_jobs:
+                    if job.feed_id not in jobs_by_feed:
+                        jobs_by_feed[job.feed_id] = []
+                    jobs_by_feed[job.feed_id].append(job)
+
+                # Process each feed's batch
+                for feed_id, feed_jobs in jobs_by_feed.items():
                     try:
-                        if await self._process_job(job):
-                            processed_count += 1
+                        items_processed = await self._process_feed_batch(feed_id, feed_jobs)
+                        processed_count += items_processed
                     except Exception as e:
-                        logger.error(f"Error processing job {job.id}: {e}")
-                        self._mark_job_failed(job.id, str(e))
+                        logger.error(f"Error processing batch for feed {feed_id}: {e}")
+                        for job in feed_jobs:
+                            self._mark_job_failed(job.id, str(e))
 
         except Exception as e:
             logger.error(f"Error in process_pending_queue: {e}")
 
         return processed_count
+
+    async def _process_feed_batch(self, feed_id: int, jobs: list[PendingAutoAnalysis]) -> int:
+        """
+        Process a batch of jobs for a single feed.
+
+        This creates a single analysis run for all items, leveraging
+        the skip logic in the worker to avoid duplicate analysis.
+
+        Args:
+            feed_id: Feed ID
+            jobs: List of pending jobs for this feed
+
+        Returns:
+            Number of items successfully queued for analysis
+        """
+        with Session(engine) as session:
+            # Check feed status
+            feed = session.get(Feed, feed_id)
+            if not feed or not feed.auto_analyze_enabled:
+                logger.info(f"Feed {feed_id} not found or auto-analysis disabled")
+                for job in jobs:
+                    self._mark_job_failed(job.id, "Feed disabled or not found")
+                return 0
+
+            # Check daily limits once for the batch
+            if not self._check_daily_limits(session, feed_id):
+                logger.warning(f"Daily limit exceeded for feed {feed_id}")
+                for job in jobs:
+                    self._mark_job_failed(job.id, "Daily limit exceeded")
+                return 0
+
+            # Collect all item IDs from all jobs
+            all_item_ids = []
+            job_item_map = {}  # Track which items belong to which job
+
+            for job in jobs:
+                if not self._is_too_old(job):
+                    for item_id in job.item_ids:
+                        all_item_ids.append(item_id)
+                        if item_id not in job_item_map:
+                            job_item_map[item_id] = []
+                        job_item_map[item_id].append(job.id)
+                else:
+                    self._mark_job_failed(job.id, "Job expired")
+
+            if not all_item_ids:
+                logger.info(f"No valid items for feed {feed_id} batch")
+                return 0
+
+            # Validate and deduplicate items
+            valid_items = list(set(self._validate_items(session, all_item_ids)))
+
+            logger.info(f"Processing batch: {len(valid_items)} unique items from {len(jobs)} jobs for feed {feed_id}")
+
+            try:
+                # Create a single analysis run for all items
+                scope = RunScope(type="items", item_ids=valid_items)
+                params = RunParams(
+                    limit=len(valid_items),
+                    rate_per_second=2.0,  # Slightly higher rate for batch processing
+                    model_tag="gpt-4.1-nano",
+                    triggered_by="auto"
+                )
+
+                analysis_service = get_analysis_service()
+                result = await analysis_service.start_analysis_run(scope, params, "auto")
+
+                if result.success:
+                    run_data = result.data
+                    # Mark all jobs as completed
+                    for job in jobs:
+                        self._mark_job_completed(job.id, run_data.id)
+
+                    logger.info(f"Batch completed: Created run {run_data.id} with {len(valid_items)} items (will skip already analyzed)")
+                    return len(valid_items)
+                else:
+                    logger.error(f"Failed to start batch analysis for feed {feed_id}: {result.error}")
+                    for job in jobs:
+                        self._mark_job_failed(job.id, result.error)
+                    return 0
+
+            except Exception as e:
+                logger.error(f"Error in batch processing for feed {feed_id}: {e}")
+                for job in jobs:
+                    self._mark_job_failed(job.id, str(e))
+                return 0
 
     async def _process_job(self, job: PendingAutoAnalysis) -> bool:
         """

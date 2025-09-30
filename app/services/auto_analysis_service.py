@@ -14,6 +14,7 @@ from app.models.core import Feed, Item
 from app.domain.analysis.control import RunScope, RunParams
 from app.services.domain.analysis_service import AnalysisService
 from app.dependencies import get_analysis_service
+from app.utils.feature_flags import feature_flags, FeatureFlagStatus
 
 logger = get_logger(__name__)
 
@@ -38,6 +39,11 @@ class AutoAnalysisService:
         if not new_item_ids:
             return None
 
+        # Check global feature flag first
+        if not self._is_auto_analysis_enabled_for_feed(feed_id):
+            logger.debug(f"Auto-analysis not enabled globally or for feed {feed_id}")
+            return None
+
         with Session(engine) as session:
             # Check if feed has auto-analysis enabled
             feed = session.get(Feed, feed_id)
@@ -56,15 +62,31 @@ class AutoAnalysisService:
             if len(new_item_ids) > self.max_items_per_run:
                 logger.info(f"Limiting auto-analysis for feed {feed_id} to {self.max_items_per_run} items (had {len(new_item_ids)})")
 
+            # Check if we're in shadow mode
+            is_shadow = feature_flags.is_enabled("auto_analysis_shadow", str(feed_id))
+
             try:
                 # Create analysis run
                 scope = RunScope(type="items", item_ids=items_to_analyze)
                 params = RunParams(
                     limit=len(items_to_analyze),
-                    rate_per_second=1.0,
+                    rate_per_second=3.0,  # Increased for better throughput with 5 concurrent runs
                     model_tag="gpt-4.1-nano",  # Use cheaper model for auto-analysis
                     triggered_by="auto"  # Mark this as auto-triggered
                 )
+
+                if is_shadow:
+                    # Shadow mode: log but don't actually execute
+                    logger.info(f"[SHADOW MODE] Would start auto-analysis for feed {feed_id} with {len(items_to_analyze)} items")
+                    feature_flags.record_success("auto_analysis_shadow")
+
+                    return {
+                        "run_id": "shadow_run",
+                        "feed_id": feed_id,
+                        "items_count": len(items_to_analyze),
+                        "run_type": "auto_analysis_shadow",
+                        "shadow_mode": True
+                    }
 
                 # Get analysis service and start run
                 analysis_service = get_analysis_service()
@@ -74,6 +96,9 @@ class AutoAnalysisService:
                     run_data = result.data
                     logger.info(f"Started auto-analysis run {run_data.id} for feed {feed_id} with {len(items_to_analyze)} items")
 
+                    # Record success for feature flag metrics
+                    feature_flags.record_success("auto_analysis_global")
+
                     return {
                         "run_id": run_data.id,
                         "feed_id": feed_id,
@@ -82,10 +107,12 @@ class AutoAnalysisService:
                     }
                 else:
                     logger.error(f"Failed to start auto-analysis for feed {feed_id}: {result.error}")
+                    feature_flags.record_error("auto_analysis_global")
                     return None
 
             except Exception as e:
                 logger.error(f"Error triggering auto-analysis for feed {feed_id}: {e}")
+                feature_flags.record_error("auto_analysis_global")
                 return None
 
     def _check_daily_limits(self, session: Session, feed_id: int) -> bool:
@@ -146,6 +173,39 @@ class AutoAnalysisService:
             logger.error(f"Error checking daily limits for feed {feed_id}: {e}")
             # Err on the side of caution - don't allow if we can't check
             return False
+
+    def _is_auto_analysis_enabled_for_feed(self, feed_id: int) -> bool:
+        """
+        Check if auto-analysis is enabled for this feed via feature flag.
+        Implements gradual rollout based on feed ID.
+
+        Args:
+            feed_id: Feed ID to check
+
+        Returns:
+            True if auto-analysis is enabled for this feed
+        """
+        # Check global feature flag status
+        flag_status = feature_flags.get_flag_status("auto_analysis_global")
+        if not flag_status:
+            return False
+
+        status = FeatureFlagStatus(flag_status["status"])
+
+        # Emergency off or completely off
+        if status in [FeatureFlagStatus.EMERGENCY_OFF, FeatureFlagStatus.OFF]:
+            return False
+
+        # Fully on
+        if status == FeatureFlagStatus.ON:
+            return True
+
+        # Canary/gradual rollout
+        if status == FeatureFlagStatus.CANARY:
+            # Use feed ID for consistent rollout
+            return feature_flags.is_enabled("auto_analysis_global", str(feed_id))
+
+        return False
 
     def get_auto_analysis_stats(self, feed_id: int) -> dict:
         """

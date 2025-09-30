@@ -146,3 +146,75 @@ async def health_check() -> Dict[str, Any]:
         "shadow_comparison_active": shadow_comparer.sample_rate > 0,
         "metrics_collector_active": len(metrics_collector.metrics) > 0
     }
+
+
+@router.get("/auto-analysis/rollout-status")
+async def get_auto_analysis_rollout_status() -> Dict[str, Any]:
+    """Get detailed rollout status for auto-analysis feature."""
+    from app.database import engine
+    from sqlmodel import Session, select
+    from app.models.core import Feed
+
+    global_flag = feature_flags.get_flag_status("auto_analysis_global")
+    shadow_flag = feature_flags.get_flag_status("auto_analysis_shadow")
+
+    with Session(engine) as session:
+        # Get all feeds with auto_analyze_enabled
+        enabled_feeds = session.exec(
+            select(Feed).where(Feed.auto_analyze_enabled == True)
+        ).all()
+
+        total_feeds = session.exec(select(Feed)).all()
+
+        # Calculate which feeds are in rollout based on percentage
+        rolled_out_feeds = []
+        if global_flag:
+            for feed in enabled_feeds:
+                if feature_flags.is_enabled("auto_analysis_global", str(feed.id)):
+                    rolled_out_feeds.append({
+                        "id": feed.id,
+                        "title": feed.title,
+                        "status": feed.status
+                    })
+
+    return {
+        "global_flag": global_flag,
+        "shadow_flag": shadow_flag,
+        "total_feeds": len(total_feeds),
+        "feeds_with_auto_analyze_enabled": len(enabled_feeds),
+        "feeds_in_rollout": len(rolled_out_feeds),
+        "rollout_percentage_actual": (len(rolled_out_feeds) / len(enabled_feeds) * 100) if enabled_feeds else 0,
+        "rolled_out_feed_details": rolled_out_feeds[:10],  # Limit to first 10 for display
+        "recommendations": {
+            "next_rollout_percentage": min(global_flag["rollout_percentage"] * 2, 100) if global_flag else 10,
+            "ready_for_expansion": global_flag["error_count"] < 5 if global_flag else False
+        }
+    }
+
+
+@router.post("/auto-analysis/set-rollout")
+async def set_auto_analysis_rollout(percentage: int) -> Dict[str, Any]:
+    """Set the rollout percentage for auto-analysis.
+
+    Args:
+        percentage: Rollout percentage (0-100)
+    """
+    if percentage < 0 or percentage > 100:
+        raise HTTPException(status_code=400, detail="Percentage must be between 0 and 100")
+
+    # Determine status based on percentage
+    if percentage == 0:
+        status = FeatureFlagStatus.OFF
+    elif percentage == 100:
+        status = FeatureFlagStatus.ON
+    else:
+        status = FeatureFlagStatus.CANARY
+
+    feature_flags.set_flag_status("auto_analysis_global", status, percentage)
+
+    return {
+        "flag_name": "auto_analysis_global",
+        "status": status.value,
+        "rollout_percentage": percentage,
+        "message": f"Auto-analysis rollout set to {percentage}%"
+    }

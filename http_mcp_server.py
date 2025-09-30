@@ -31,10 +31,12 @@ from pathlib import Path
 from typing import Any, Dict, Optional, List, Union
 import typing
 
-from fastapi import FastAPI, Request, HTTPException, Body, APIRouter
+from fastapi import FastAPI, Request, HTTPException, Body, APIRouter, Query
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, create_model
+import jsonschema
+from jsonschema import ValidationError
 
 # Add the project root to the path
 project_root = Path(__file__).parent
@@ -69,6 +71,9 @@ app.add_middleware(
 
 # Global MCP server instance
 mcp_server_instance: Optional[ComprehensiveNewsServer] = None
+
+# Cache for dynamic tool schemas
+_tools_schema_cache: Optional[List[Dict[str, Any]]] = None
 
 
 class JSONRPCRequest(BaseModel):
@@ -156,12 +161,29 @@ class HTTPMCPServerWrapper:
                     result={
                         "serverInfo": {
                             "name": "news-mcp-http",
-                            "version": "1.0.0"
+                            "version": "1.0.0",
+                            "description": "News MCP System - RSS Feed Aggregator with AI Sentiment Analysis. Provides access to 37 news sources, 11,600+ articles with full-text search and sentiment filtering. Use GET /mcp/system/info for detailed system overview and common workflows."
                         },
                         "capabilities": {
-                            "tools": {}
+                            "tools": {
+                                "listChanged": True
+                            },
+                            "prompts": {},
+                            "resources": {}
                         }
                     }
+                )
+
+            elif request.method == "prompts/list":
+                return JSONRPCResponse(
+                    id=request.id,
+                    result={"prompts": []}
+                )
+
+            elif request.method == "resources/list":
+                return JSONRPCResponse(
+                    id=request.id,
+                    result={"resources": []}
                 )
 
             else:
@@ -187,38 +209,12 @@ class HTTPMCPServerWrapper:
     async def _get_tools_list(self) -> list:
         """Get list of available tools from MCP server"""
         try:
-            # Access the server's tool registry directly
-            tools = []
-            server = self.mcp_server.server
+            global _tools_schema_cache
 
-            # Use the list_tools handler if available
-            if hasattr(server, '_list_tools_handler') and server._list_tools_handler:
-                try:
-                    tool_list = await server._list_tools_handler()
-                    if tool_list:
-                        for tool in tool_list:
-                            tools.append({
-                                "name": tool.name,
-                                "description": tool.description,
-                                "inputSchema": tool.inputSchema
-                            })
-                        return tools
-                except Exception as e:
-                    logger.warning(f"Could not get tools from list_tools handler: {e}")
+            if _tools_schema_cache is not None:
+                return _tools_schema_cache
 
-            # Fallback: Get tool handlers from the server
-            for tool_name, handler in server._tool_handlers.items():
-                tool_info = {
-                    "name": tool_name,
-                    "description": f"MCP tool: {tool_name}",
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": {},
-                        "required": []
-                    }
-                }
-                tools.append(tool_info)
-
+            tools = await get_dynamic_tools_from_mcp()
             return tools
 
         except Exception as e:
@@ -293,10 +289,36 @@ class HTTPMCPServerWrapper:
             }
 
 
+def validate_tool_params(tool_name: str, params: Dict[str, Any], input_schema: Dict[str, Any]) -> Optional[List[str]]:
+    """
+    Validate tool parameters against JSON Schema (inputSchema)
+
+    Returns:
+        None if validation succeeds
+        List of error messages if validation fails
+    """
+    if not input_schema:
+        return None
+
+    try:
+        jsonschema.validate(instance=params, schema=input_schema)
+        return None
+    except ValidationError as e:
+        error_path = ".".join(str(p) for p in e.path) if e.path else "root"
+        error_msg = f"Validation error at '{error_path}': {e.message}"
+        return [error_msg]
+    except jsonschema.SchemaError as e:
+        logger.error(f"Invalid schema for tool {tool_name}: {e}")
+        return [f"Internal error: Invalid schema for tool {tool_name}"]
+    except Exception as e:
+        logger.error(f"Unexpected validation error for tool {tool_name}: {e}")
+        return [f"Validation error: {str(e)}"]
+
+
 # Common Tool Dispatch Function
 async def tool_dispatch(tool_name: str, params: Dict[str, Any]) -> BaseResponse:
     """Common function to dispatch tool calls - used by both /tools/* and compatibility routes"""
-    global mcp_server_instance
+    global mcp_server_instance, _tools_schema_cache
 
     if mcp_server_instance is None:
         return BaseResponse(
@@ -307,10 +329,10 @@ async def tool_dispatch(tool_name: str, params: Dict[str, Any]) -> BaseResponse:
         )
 
     try:
-        # Get tool registry and method
-        tools_registry = get_mcp_tools_registry()
+        # Get method directly
+        method = get_tool_method(tool_name)
 
-        if tool_name not in tools_registry:
+        if method is None:
             return BaseResponse(
                 ok=False,
                 data={},
@@ -318,13 +340,23 @@ async def tool_dispatch(tool_name: str, params: Dict[str, Any]) -> BaseResponse:
                 errors=[f"Tool not found: {tool_name}"]
             )
 
-        tool_info = tools_registry[tool_name]
+        # Validate parameters against inputSchema
+        if _tools_schema_cache:
+            tool_schema = next((t for t in _tools_schema_cache if t['name'] == tool_name), None)
+            if tool_schema and 'inputSchema' in tool_schema:
+                validation_errors = validate_tool_params(tool_name, params, tool_schema['inputSchema'])
+                if validation_errors:
+                    return BaseResponse(
+                        ok=False,
+                        data={},
+                        meta={"tool": tool_name, "validation": "failed"},
+                        errors=validation_errors
+                    )
 
         # Filter out None values to let MCP method use its defaults
         params_dict = {k: v for k, v in params.items() if v is not None}
 
         # Call the MCP tool method directly
-        method = tool_info["method"]
         result = await method(**params_dict)
 
         # Format result as MCP-style response
@@ -527,60 +559,83 @@ def register_compatibility_routes():
 
 
 # Dynamic MCP Tool Registry and Route Generator
-def get_mcp_tools_registry() -> Dict[str, Dict[str, Any]]:
-    """Get all available MCP tools with their parameter schemas"""
+def get_tool_method(tool_name: str):
+    """Get method reference for a tool name"""
     global mcp_server_instance
+
+    if mcp_server_instance is None:
+        return None
+
+    # Map dotted tool names to method names
+    # E.g., "feeds.list" -> "_list_feeds", "system.ping" -> "_system_ping"
+    method_name_map = {
+        "system.ping": "_system_ping",
+        "system.health": "_system_health",
+        "feeds.list": "_list_feeds",
+        "feeds.add": "_add_feed",
+        "feeds.update": "_update_feed",
+        "feeds.delete": "_delete_feed",
+        "feeds.test": "_test_feed",
+        "feeds.refresh": "_refresh_feed",
+        "feeds.performance": "_feed_performance",
+        "feeds.diagnostics": "_feed_diagnostics",
+        "articles.latest": "_latest_articles",
+        "articles.search": "_search_articles",
+        "templates.assign": "_assign_template",
+        "data.export": "_export_data",
+    }
+
+    # Check if it's a mapped name
+    if tool_name in method_name_map:
+        method_name = method_name_map[tool_name]
+        return getattr(mcp_server_instance, method_name, None)
+
+    # Try direct attribute access (for tools like "categories_list")
+    method_name = f"_{tool_name}"
+    if hasattr(mcp_server_instance, method_name):
+        return getattr(mcp_server_instance, method_name)
+
+    # Try v2_handlers for newer tools
+    if hasattr(mcp_server_instance, 'v2_handlers'):
+        v2_method = getattr(mcp_server_instance.v2_handlers, tool_name, None)
+        if v2_method:
+            return v2_method
+
+    return None
+
+
+def get_mcp_tools_registry() -> Dict[str, Dict[str, Any]]:
+    """Get all available MCP tools with their parameter schemas (legacy compatibility)"""
+    global mcp_server_instance, _tools_schema_cache
 
     if mcp_server_instance is None:
         return {}
 
-    # Extract tools from the comprehensive server's method mapping
-    tool_methods = {
-        "system.ping": {"method": mcp_server_instance._system_ping, "params": [], "description": "Health check ping for connectivity testing"},
-        "system.health": {"method": mcp_server_instance._system_health, "params": [], "description": "Overall system health status and diagnostics"},
-        "feeds.list": {"method": mcp_server_instance._list_feeds, "params": ["status", "include_health", "include_stats", "limit"], "description": "List all RSS feed sources (NYT, Guardian, etc.) with status, metrics and health info"},
-        "feeds.add": {"method": mcp_server_instance._add_feed, "params": ["url", "title", "fetch_interval_minutes", "auto_assign_template"], "description": "Add new RSS feed source with automatic template detection"},
-        "feeds.update": {"method": mcp_server_instance._update_feed, "params": ["feed_id", "title", "fetch_interval_minutes", "status"], "description": "Update feed source configuration (title, interval, status)"},
-        "feeds.delete": {"method": mcp_server_instance._delete_feed, "params": ["feed_id", "confirm"], "description": "Delete a feed source and all its articles"},
-        "feeds.test": {"method": mcp_server_instance._test_feed, "params": ["url", "show_items"], "description": "Test RSS feed URL and preview items without adding"},
-        "feeds.refresh": {"method": mcp_server_instance._refresh_feed, "params": ["feed_id"], "description": "Manually trigger immediate feed update to fetch new articles"},
-        "feeds.performance": {"method": mcp_server_instance._feed_performance, "params": ["days", "limit"], "description": "Analyze feed source performance and efficiency metrics"},
-        "feeds.diagnostics": {"method": mcp_server_instance._feed_diagnostics, "params": ["feed_id", "include_logs"], "description": "Detailed feed health analysis and error diagnostics"},
-        "articles.latest": {"method": mcp_server_instance._latest_articles, "params": ["limit", "feed_id", "category_filter"], "description": "Get latest news articles from all feeds, sorted by publication date"},
-        "articles.search": {"method": mcp_server_instance._search_articles, "params": ["query", "limit", "feed_id", "date_filter"], "description": "Full-text search across all news articles"},
-        "templates.assign": {"method": mcp_server_instance._assign_template, "params": ["feed_id", "template_id", "auto_assign"], "description": "Assign content extraction template to a feed"},
-        "data.export": {"method": mcp_server_instance._export_data, "params": ["format", "table", "limit"], "description": "Export data to JSON or CSV format"},
-        # Categories Management
-        "categories_list": {"method": mcp_server_instance._categories_list, "params": ["include_feeds", "include_stats"], "description": "List all article categories with feed assignments and statistics"},
-        "categories_add": {"method": mcp_server_instance._categories_add, "params": ["name", "description", "color"], "description": "Create new category for organizing feeds"},
-        "categories_update": {"method": mcp_server_instance._categories_update, "params": ["category_id", "name", "description", "color"], "description": "Update category properties (name, description, color)"},
-        "categories_delete": {"method": mcp_server_instance._categories_delete, "params": ["category_id", "confirm"], "description": "Delete category (requires confirmation)"},
-        "categories_assign": {"method": mcp_server_instance._categories_assign, "params": ["feed_id", "category_ids", "replace"], "description": "Assign categories to a specific feed"},
-        # Sources Management
-        "sources_list": {"method": mcp_server_instance._sources_list, "params": ["include_feeds", "include_stats"], "description": "List news publisher sources with trust ratings and metrics"},
-        "sources_add": {"method": mcp_server_instance._sources_add, "params": ["name", "description", "url", "contact_email"], "description": "Add new news publisher source"},
-        "sources_update": {"method": mcp_server_instance._sources_update, "params": ["source_id", "name", "description", "url", "contact_email"], "description": "Update news publisher source properties"},
-        "sources_delete": {"method": mcp_server_instance._sources_delete, "params": ["source_id", "confirm"], "description": "Delete news publisher source (requires confirmation)"},
-        # Extended Templates Management
-        "list_templates": {"method": mcp_server_instance._list_templates, "params": ["include_performance", "include_assignments", "status_filter"], "description": "List content extraction templates with usage statistics"},
-        "template_performance": {"method": mcp_server_instance._template_performance, "params": ["days", "template_id"], "description": "Analyze template extraction success rates and performance"},
-        "templates_create": {"method": mcp_server_instance.v2_handlers.templates_create, "params": ["name", "description", "patterns", "processing_rules", "category_assignments"], "description": "Create new content extraction template with rules"},
-        "templates_test": {"method": mcp_server_instance.v2_handlers.templates_test, "params": ["template_id", "test_feeds", "sample_size"], "description": "Test template against sample feeds to verify extraction rules"},
-        "templates_assign": {"method": mcp_server_instance.v2_handlers.templates_assign, "params": ["template_id", "feed_id", "auto_assign"], "description": "Assign template to feed with optional auto-detection"},
-        # AI Analysis Control
-        "analysis_preview": {"method": mcp_server_instance.v2_handlers.analysis_preview, "params": ["selector", "model", "cost_estimate"], "description": "Preview AI sentiment analysis scope and cost estimate"},
-        "analysis_run": {"method": mcp_server_instance.v2_handlers.analysis_run, "params": ["selector", "model", "limit", "dry_run"], "description": "Run AI sentiment analysis on selected articles"},
-        "analysis_history": {"method": mcp_server_instance.v2_handlers.analysis_history, "params": ["limit", "offset", "status"], "description": "Get history of AI analysis runs with results"},
-        "analysis_results": {"method": mcp_server_instance.v2_handlers.analysis_results, "params": ["run_id", "limit"], "description": "Get detailed sentiment results (scores, labels, topics) for a completed analysis run"},
-        # Auto-Analysis Management
-        "auto_analysis_status": {"method": mcp_server_instance._auto_analysis_status, "params": [], "description": "Get automatic sentiment analysis system status"},
-        "auto_analysis_toggle": {"method": mcp_server_instance._auto_analysis_toggle, "params": ["feed_id", "enabled"], "description": "Enable or disable automatic analysis for a feed"},
-        "auto_analysis_queue": {"method": mcp_server_instance._auto_analysis_queue, "params": ["limit"], "description": "View pending articles in automatic analysis queue"},
-        "auto_analysis_history": {"method": mcp_server_instance._auto_analysis_history, "params": ["days", "limit"], "description": "Get automatic analysis processing history and results"},
-        "auto_analysis_config": {"method": mcp_server_instance._auto_analysis_config, "params": ["max_runs_per_day", "max_items_per_run", "ai_model"], "description": "View or update automatic analysis system configuration"},
-        "auto_analysis_stats": {"method": mcp_server_instance._auto_analysis_stats, "params": ["feed_id"], "description": "Get comprehensive automatic analysis statistics and metrics"},
-        "tools.list": {"method": None, "params": [], "description": "List all available MCP tools with descriptions"}  # Special handler for listing tools
-    }
+    # Use cached dynamic tools if available
+    dynamic_tools = _tools_schema_cache if _tools_schema_cache else []
+
+    # Build registry from dynamic tools
+    tool_methods = {}
+
+    for tool in dynamic_tools:
+        tool_name = tool['name']
+        tool_desc = tool.get('description', f"MCP tool: {tool_name}")
+
+        # Get method reference
+        method = get_tool_method(tool_name)
+
+        # Extract params from inputSchema
+        params = []
+        if 'inputSchema' in tool and tool['inputSchema']:
+            schema = tool['inputSchema']
+            if 'properties' in schema:
+                params = list(schema['properties'].keys())
+
+        tool_methods[tool_name] = {
+            "method": method,
+            "params": params,
+            "description": tool_desc
+        }
 
     return tool_methods
 
@@ -650,37 +705,423 @@ def register_dynamic_tool_routes():
 
         logger.info(f"Registered dynamic route: POST /tools/{tool_name}")
 
+        # Also register under /mcp/tools/ for Open WebUI compatibility
+        endpoint_func2, _ = create_dynamic_tool_endpoint(tool_name, tool_info)
+        app.post(
+            f"/mcp/tools/{tool_name}",
+            response_model=BaseResponse,
+            tags=["mcp-tools", namespace],
+            summary=tool_description,
+            description=f"{tool_description}\n\nParameters: {params_list}",
+            operation_id=f"tool_endpoint_mcp_tools_{tool_name.replace('.', '_')}_post"
+        )(endpoint_func2)
+
+        logger.info(f"Registered MCP compatibility route: POST /mcp/tools/{tool_name}")
+
+
+async def get_dynamic_tools_from_mcp() -> List[Dict[str, Any]]:
+    """Get tools dynamically from MCP server with full inputSchemas"""
+    global mcp_server_instance, _tools_schema_cache
+
+    if mcp_server_instance is None:
+        logger.warning("MCP server not initialized, returning empty tools list")
+        return []
+
+    # Return cached tools if available
+    if _tools_schema_cache is not None:
+        return _tools_schema_cache
+
+    try:
+        from mcp.types import ListToolsRequest
+
+        # Access MCP server's request handlers
+        server = mcp_server_instance.server
+        handlers = server.request_handlers
+
+        # Get the ListToolsRequest handler
+        if ListToolsRequest in handlers:
+            handler = handlers[ListToolsRequest]
+            request = ListToolsRequest()
+
+            # Call the handler
+            result = await handler(request)
+
+            # Extract tools from the result
+            if hasattr(result, 'model_dump'):
+                result_dict = result.model_dump()
+                if 'tools' in result_dict:
+                    tools_data = result_dict['tools']
+
+                    # Convert to our format
+                    tools = []
+                    for tool in tools_data:
+                        tools.append({
+                            "name": tool['name'],
+                            "description": tool['description'],
+                            "inputSchema": tool['inputSchema']
+                        })
+
+                    # Cache the results
+                    _tools_schema_cache = tools
+                    logger.info(f"Loaded {len(tools)} tools from MCP server with full schemas")
+                    return tools
+
+        logger.warning("MCP server ListToolsRequest handler not available")
+        return []
+
+    except Exception as e:
+        logger.error(f"Error getting dynamic tools from MCP: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return []
+
+
+def convert_json_schema_to_openapi_params(json_schema: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Convert JSON Schema (MCP inputSchema) to OpenAPI 3.0 parameter schema
+
+    JSON Schema (MCP format):
+    {
+        "type": "object",
+        "properties": {
+            "feed_id": {"type": "string", "description": "Feed ID"}
+        },
+        "required": ["feed_id"]
+    }
+
+    OpenAPI format:
+    {
+        "feed_id": {
+            "type": "string",
+            "description": "Feed ID",
+            "required": true
+        }
+    }
+    """
+    if not json_schema or not isinstance(json_schema, dict):
+        return {}
+
+    properties = json_schema.get("properties", {})
+    required_fields = json_schema.get("required", [])
+
+    openapi_params = {}
+
+    for param_name, param_schema in properties.items():
+        openapi_param = dict(param_schema)  # Copy original schema
+        openapi_param["required"] = param_name in required_fields
+        openapi_params[param_name] = openapi_param
+
+    return openapi_params
+
 
 @app.get("/tools", response_model=List[Dict[str, Any]], tags=["tools"])
-async def list_tools():
-    """List all available MCP tools with their parameters"""
-    tools_registry = get_mcp_tools_registry()
+async def list_tools(format: Optional[str] = Query(None, description="Output format: 'openapi' or default (json-schema)")):
+    """
+    List all available MCP tools with their full schemas
 
-    tools_list = []
-    for tool_name, tool_info in tools_registry.items():
-        tools_list.append({
-            "name": tool_name,
-            "params": tool_info["params"],
-            "description": f"MCP tool: {tool_name}"
-        })
+    - Default format: Returns tools with JSON Schema inputSchema (MCP native format)
+    - format=openapi: Returns tools with OpenAPI 3.0 compatible parameters
+    """
+    # Get tools dynamically from MCP server
+    tools = await get_dynamic_tools_from_mcp()
 
-    return tools_list
+    if not tools:
+        # Fallback to registry if dynamic discovery fails
+        logger.warning("Falling back to hardcoded registry")
+        tools_registry = get_mcp_tools_registry()
+
+        tools_list = []
+        for tool_name, tool_info in tools_registry.items():
+            tools_list.append({
+                "name": tool_name,
+                "params": tool_info["params"],
+                "description": tool_info.get("description", f"MCP tool: {tool_name}")
+            })
+        tools = tools_list
+
+    # Convert to OpenAPI format if requested
+    if format == "openapi":
+        openapi_tools = []
+        for tool in tools:
+            openapi_tool = {
+                "name": tool["name"],
+                "description": tool.get("description", f"MCP tool: {tool['name']}"),
+            }
+
+            # Convert inputSchema to OpenAPI parameters
+            if "inputSchema" in tool:
+                openapi_tool["parameters"] = convert_json_schema_to_openapi_params(tool["inputSchema"])
+            elif "params" in tool:
+                # Legacy fallback for old format
+                openapi_tool["parameters"] = {p: {"type": "any", "required": False} for p in tool["params"]}
+            else:
+                openapi_tool["parameters"] = {}
+
+            openapi_tools.append(openapi_tool)
+
+        return openapi_tools
+
+    # Default: return JSON Schema format
+    return tools
+
+
+def generate_mcp_openapi_spec() -> Dict[str, Any]:
+    """
+    Generate OpenAPI 3.0 specification from MCP tools
+
+    Returns complete OpenAPI spec with paths for all MCP tools
+    """
+    global _tools_schema_cache
+
+    tools = _tools_schema_cache if _tools_schema_cache else []
+
+    # Base OpenAPI 3.0 structure
+    spec = {
+        "openapi": "3.0.0",
+        "info": {
+            "title": "News MCP - MCP Tools API",
+            "description": """News MCP System - RSS Feed Aggregator with AI-Powered Sentiment Analysis
+
+SYSTEM OVERVIEW:
+News MCP is an intelligent RSS feed aggregation system that collects, analyzes, and provides access to news articles from major global sources. The system includes AI-powered sentiment analysis to help you filter and discover news based on emotional tone and impact.
+
+CURRENT DATA (Live):
+• 37 active RSS feeds from major news sources
+• 11,600+ articles in database
+• 3,300+ articles with AI sentiment analysis
+• 700+ new articles daily
+• Real-time updates every 30-120 minutes
+
+TOP NEWS SOURCES:
+The Guardian, The Independent, South China Morning Post, Bloomberg, Al Jazeera, NBC News, Japan Times, New York Times, Axios, TechMeme, BBC, CNN, Reuters, and more.
+
+KEY FEATURES:
+1. RSS Feed Management - Add, update, monitor feed health
+2. Article Retrieval - Get latest articles with advanced filtering
+3. Full-Text Search - Search across all articles and sources
+4. Sentiment Analysis - Filter by positive/negative/neutral sentiment
+5. Real-Time Updates - Fresh content from all sources
+6. Template System - Create dynamic feed filters
+
+COMMON WORKFLOWS:
+1. Discover News Sources:
+   → Use 'list_feeds' to see all 37 available sources
+   → Check feed health and article counts
+
+2. Get Latest News:
+   → Use 'latest_articles' with limit=10 for top stories
+   → Add 'since_hours=24' for last 24 hours only
+   → Use 'keywords' to filter by topic
+
+3. Find Positive/Negative News:
+   → Use 'latest_articles' with 'min_sentiment=0.5' for positive news
+   → Use 'max_sentiment=-0.3' for negative/critical news
+   → Sort by 'sort_by=sentiment_score' for most positive first
+
+4. Search Specific Topics:
+   → Use 'search_articles' with query='climate change'
+   → Combine with sentiment filters for opinion analysis
+
+5. Get System Status:
+   → Use 'get_dashboard' for overview of feeds and articles
+   → Use 'system_health' for system diagnostics
+
+SENTIMENT ANALYSIS:
+• Sentiment Score: -1.0 (very negative) to +1.0 (very positive)
+• Impact Score: 0.0 (low impact) to 1.0 (high impact)
+• Available on 28% of articles (automatically analyzing new content)
+• Use filters: min_sentiment, max_sentiment, sort_by=sentiment_score
+
+DATA FRESHNESS:
+• Articles updated every 30-120 minutes per feed
+• Sentiment analysis runs automatically on new articles
+• Last update: Real-time (check last_article_time in responses)
+
+API DESIGN:
+All MCP tools are exposed as REST endpoints at /tools/{tool_name}
+Use base URL http://localhost:8001/mcp when configuring clients like Open WebUI
+Responses follow BaseResponse format: {ok, data, meta, errors}""",
+            "version": "1.0.0",
+            "contact": {
+                "name": "News MCP API Support"
+            }
+        },
+        "servers": [
+            {
+                "url": "http://localhost:8001",
+                "description": "Local development server"
+            }
+        ],
+        "paths": {},
+        "components": {
+            "schemas": {
+                "BaseResponse": {
+                    "type": "object",
+                    "required": ["ok", "data", "meta", "errors"],
+                    "properties": {
+                        "ok": {
+                            "type": "boolean",
+                            "description": "Success status"
+                        },
+                        "data": {
+                            "type": "object",
+                            "description": "Response data"
+                        },
+                        "meta": {
+                            "type": "object",
+                            "description": "Metadata about the response"
+                        },
+                        "errors": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Error messages (empty on success)"
+                        }
+                    }
+                }
+            }
+        },
+        "tags": []
+    }
+
+    # Track unique tags
+    tags_set = set()
+
+    # Generate paths for each tool
+    for tool in tools:
+        tool_name = tool["name"]
+        description = tool.get("description", f"MCP tool: {tool_name}")
+        input_schema = tool.get("inputSchema", {})
+
+        # Extract tag from tool name (e.g., "feeds.list" -> "feeds")
+        tag = tool_name.split(".")[0] if "." in tool_name else tool_name.split("_")[0]
+        tags_set.add(tag)
+
+        # Build request body schema from inputSchema
+        request_body = None
+        if input_schema and input_schema.get("properties"):
+            request_body = {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": input_schema
+                    }
+                }
+            }
+
+        # Create path for this tool (relative path, will be combined with base URL by clients)
+        path = f"/tools/{tool_name}"
+        spec["paths"][path] = {
+            "post": {
+                "summary": description.split(".")[0] if "." in description else description[:100],
+                "description": description,
+                "operationId": f"call_tool_{tool_name.replace('.', '_')}",
+                "tags": [tag],
+                "responses": {
+                    "200": {
+                        "description": "Successful tool execution",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/BaseResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Validation error or bad request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/BaseResponse"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/BaseResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        # Add request body if tool has parameters
+        if request_body:
+            spec["paths"][path]["post"]["requestBody"] = request_body
+
+    # Add tags with descriptions
+    # Tag descriptions mapping
+    tag_descriptions = {
+        "add": "Add new resources: feeds, sources, categories. Use these to expand your news collection.",
+        "analysis": "AI sentiment analysis tools: preview costs, run analysis, view history. Analyze articles for sentiment, impact, and urgency scores.",
+        "assign": "Assign relationships: templates to feeds, categories to sources. Manage data associations.",
+        "categories": "Manage article categories: list, add, update, delete categories for organizing news topics.",
+        "delete": "Delete resources: remove feeds, sources, or categories. Destructive operations requiring confirmation.",
+        "error": "Error diagnostics: analyze system errors, failed fetches, and troubleshoot issues.",
+        "execute": "Execute database queries: run custom SQL queries for advanced data access.",
+        "export": "Data export tools: export articles, feeds, and analysis results in various formats.",
+        "feed": "Individual feed operations: get specific feed details, update settings, test feed URLs.",
+        "feeds": "Feed management: list all RSS feeds (37 sources), monitor health, manage fetch intervals. Start here to discover news sources.",
+        "get": "Retrieve system information: dashboards, statistics, and overview data.",
+        "items": "Article operations: access recent items, search articles by content and metadata.",
+        "latest": "Get latest content: most recent articles with optional filtering by time, keywords, and sentiment.",
+        "list": "List resources: browse all feeds, templates, categories, and sources in the system.",
+        "log": "System logs: analyze application logs, debug issues, monitor system activity.",
+        "maintenance": "System maintenance: cleanup tasks, database optimization, cache management.",
+        "quick": "Quick queries: pre-defined database queries for common data access patterns.",
+        "refresh": "Refresh data: manually trigger feed updates, force re-fetch articles.",
+        "scheduler": "Scheduler control: manage feed fetch intervals, check scheduler status, set heartbeat.",
+        "search": "Full-text search: search across all 11,600+ articles by title, description, and content.",
+        "sources": "News source management: manage RSS source metadata, track source statistics.",
+        "system": "System diagnostics: health checks, ping, status monitoring, system-wide statistics.",
+        "table": "Database table operations: get table info, inspect schema, analyze data structure.",
+        "template": "Template operations: work with individual dynamic feed templates.",
+        "templates": "Dynamic feed templates: create custom feed filters, test templates, view performance.",
+        "test": "Testing tools: test feed URLs before adding, validate templates, dry-run operations.",
+        "trending": "Trending topics: discover popular topics and keywords across all articles.",
+        "update": "Update resources: modify existing feeds, sources, categories, and settings.",
+        "usage": "Usage statistics: track API usage, analyze system utilization, monitor resource consumption."
+    }
+
+    # Build tags list with descriptions
+    spec["tags"] = [
+        {
+            "name": tag,
+            "description": tag_descriptions.get(tag, f"{tag.title()} related tools")
+        }
+        for tag in sorted(tags_set)
+    ]
+
+    return spec
 
 
 @app.on_event("startup")
 async def startup_event():
     """Initialize the MCP server on startup"""
-    global mcp_server_instance
+    global mcp_server_instance, _tools_schema_cache
 
     logger.info("Starting News MCP HTTP Server...")
 
     # Set environment variables
     os.environ["PYTHONPATH"] = str(project_root)
 
+    # Clear tools cache on startup
+    _tools_schema_cache = None
+
     try:
         # Create MCP server instance
         mcp_server_instance = ComprehensiveNewsServer()
         logger.info("MCP server instance created successfully")
+
+        # Pre-load tools into cache
+        tools = await get_dynamic_tools_from_mcp()
+        logger.info(f"Pre-loaded {len(tools)} tools with schemas")
 
         # Register dynamic tool routes after MCP server is ready
         register_dynamic_tool_routes()
@@ -746,8 +1187,169 @@ async def mcp_openapi_json():
     """
     OpenAPI specification endpoint at /mcp/openapi.json
     Open WebUI expects this specific path when configured with http://host:port/mcp
+
+    Returns complete OpenAPI 3.0 spec with all MCP tools as REST endpoints
     """
-    return app.openapi()
+    return generate_mcp_openapi_spec()
+
+
+@app.get("/mcp/system/info", tags=["system"])
+async def mcp_system_info():
+    """
+    System Information Endpoint
+
+    Provides comprehensive overview of the News MCP system including:
+    - Live statistics (feeds, articles, analysis coverage)
+    - System capabilities and features
+    - Top news sources
+    - Common workflows and usage examples
+    - Data freshness and update intervals
+
+    This endpoint is designed to give AI clients context about the system
+    before they start making tool calls.
+    """
+    from sqlmodel import Session
+    from app.database import engine
+
+    try:
+        with Session(engine) as session:
+            # Get live statistics
+            from sqlalchemy import text
+
+            stats_query = text("""
+                SELECT
+                    (SELECT COUNT(*) FROM feeds WHERE status = 'ACTIVE') as active_feeds,
+                    (SELECT COUNT(*) FROM feeds) as total_feeds,
+                    (SELECT COUNT(*) FROM items) as total_articles,
+                    (SELECT COUNT(*) FROM item_analysis) as analyzed_articles,
+                    (SELECT COUNT(DISTINCT feed_id) FROM items WHERE created_at > NOW() - INTERVAL '24 hours') as active_last_24h,
+                    (SELECT COUNT(*) FROM items WHERE created_at > NOW() - INTERVAL '24 hours') as articles_last_24h,
+                    (SELECT MAX(created_at) FROM items) as last_article_time
+            """)
+
+            result = session.execute(stats_query).fetchone()
+
+            # Get top sources
+            top_sources_query = text("""
+                SELECT feeds.title, COUNT(items.id) as article_count
+                FROM feeds
+                LEFT JOIN items ON feeds.id = items.feed_id
+                WHERE feeds.status = 'ACTIVE'
+                GROUP BY feeds.id, feeds.title
+                ORDER BY article_count DESC
+                LIMIT 10
+            """)
+
+            top_sources = session.execute(top_sources_query).fetchall()
+
+            # Build response
+            return {
+                "system": "News MCP",
+                "version": "1.0.0",
+                "type": "RSS Aggregator with AI Sentiment Analysis",
+                "description": "Intelligent news aggregation system with 37 RSS feeds and AI-powered sentiment analysis",
+
+                "capabilities": [
+                    "RSS feed aggregation from 37 major news sources",
+                    "Full-text article search across 11,600+ articles",
+                    "AI sentiment analysis (positive/negative/neutral scoring)",
+                    "Real-time feed health monitoring",
+                    "Dynamic feed templates for custom filtering",
+                    "Advanced article filtering (time, keywords, sentiment)",
+                    "Historical analysis data and trending topics"
+                ],
+
+                "statistics": {
+                    "active_feeds": result.active_feeds,
+                    "total_feeds": result.total_feeds,
+                    "total_articles": result.total_articles,
+                    "analyzed_articles": result.analyzed_articles,
+                    "analysis_coverage": f"{round(100 * result.analyzed_articles / result.total_articles, 1)}%",
+                    "active_last_24h": result.active_last_24h,
+                    "articles_last_24h": result.articles_last_24h,
+                    "last_article_time": result.last_article_time.isoformat() if result.last_article_time else None
+                },
+
+                "top_sources": [
+                    {"name": row.title, "article_count": row.article_count}
+                    for row in top_sources
+                ],
+
+                "common_workflows": [
+                    {
+                        "name": "Discover News Sources",
+                        "description": "See all available news sources and their status",
+                        "steps": ["Call 'list_feeds' to get all 37 sources", "Check 'status' and article counts per feed"],
+                        "example_tool": "list_feeds"
+                    },
+                    {
+                        "name": "Get Latest News",
+                        "description": "Retrieve most recent articles with optional filtering",
+                        "steps": ["Call 'latest_articles' with limit=10", "Add filters: since_hours=24, keywords=['climate']"],
+                        "example_tool": "latest_articles",
+                        "example_params": {"limit": 10, "since_hours": 24}
+                    },
+                    {
+                        "name": "Find Positive News",
+                        "description": "Filter articles by positive sentiment",
+                        "steps": ["Call 'latest_articles' with min_sentiment=0.5", "Sort by sentiment_score for most positive first"],
+                        "example_tool": "latest_articles",
+                        "example_params": {"limit": 20, "min_sentiment": 0.5, "sort_by": "sentiment_score"}
+                    },
+                    {
+                        "name": "Find Negative/Critical News",
+                        "description": "Filter articles by negative sentiment",
+                        "steps": ["Call 'latest_articles' with max_sentiment=-0.3"],
+                        "example_tool": "latest_articles",
+                        "example_params": {"limit": 20, "max_sentiment": -0.3}
+                    },
+                    {
+                        "name": "Search Specific Topics",
+                        "description": "Full-text search across all articles",
+                        "steps": ["Call 'search_articles' with query='climate change'", "Combine with sentiment filters for opinion analysis"],
+                        "example_tool": "search_articles",
+                        "example_params": {"query": "artificial intelligence", "limit": 20}
+                    },
+                    {
+                        "name": "Get System Status",
+                        "description": "Check overall system health and metrics",
+                        "steps": ["Call 'get_dashboard' for overview", "Call 'system_health' for diagnostics"],
+                        "example_tool": "get_dashboard"
+                    }
+                ],
+
+                "sentiment_analysis": {
+                    "description": "AI-powered sentiment analysis using GPT-4",
+                    "sentiment_score_range": {"min": -1.0, "max": 1.0, "description": "Negative to Positive"},
+                    "impact_score_range": {"min": 0.0, "max": 1.0, "description": "Low to High Impact"},
+                    "coverage": f"{result.analyzed_articles} of {result.total_articles} articles analyzed",
+                    "filters_available": ["min_sentiment", "max_sentiment", "sort_by sentiment_score/impact_score"]
+                },
+
+                "data_freshness": {
+                    "update_interval": "30-120 minutes per feed",
+                    "auto_analysis": "New articles analyzed automatically",
+                    "last_article_time": result.last_article_time.isoformat() if result.last_article_time else None,
+                    "articles_last_24h": result.articles_last_24h
+                },
+
+                "api_info": {
+                    "base_url": "http://localhost:8001",
+                    "openapi_spec": "http://localhost:8001/mcp/openapi.json",
+                    "tool_endpoint_pattern": "/mcp/tools/{tool_name}",
+                    "response_format": "BaseResponse: {ok, data, meta, errors}",
+                    "total_tools": len(_tools_schema_cache) if _tools_schema_cache else 0
+                }
+            }
+
+    except Exception as e:
+        logger.error(f"Error in system info endpoint: {e}")
+        return {
+            "system": "News MCP",
+            "version": "1.0.0",
+            "error": str(e),
+            "message": "Unable to fetch live statistics"
+        }
 
 
 @app.get("/openapi")
@@ -904,6 +1506,198 @@ async def analysis_preview_rest(request: AnalysisPreviewIn):
             meta={},
             errors=[str(e)]
         )
+
+
+# =============================================================================
+# Debug Endpoints
+# =============================================================================
+
+@app.get("/debug/tools/schema", tags=["debug"])
+async def debug_tool_schema(tool_name: str = Query(..., description="Tool name to inspect")):
+    """
+    Debug endpoint: Get detailed schema information for a specific tool
+
+    Returns:
+    - Full JSON Schema (inputSchema)
+    - OpenAPI parameter format
+    - Validation constraints
+    - Required fields
+    """
+    global _tools_schema_cache
+
+    if not _tools_schema_cache:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "Tool cache not initialized"}
+        )
+
+    tool = next((t for t in _tools_schema_cache if t["name"] == tool_name), None)
+
+    if not tool:
+        available_tools = [t["name"] for t in _tools_schema_cache]
+        return JSONResponse(
+            status_code=404,
+            content={
+                "error": f"Tool '{tool_name}' not found",
+                "available_tools": available_tools
+            }
+        )
+
+    input_schema = tool.get("inputSchema", {})
+
+    debug_info = {
+        "tool_name": tool_name,
+        "description": tool.get("description"),
+        "json_schema": {
+            "full": input_schema,
+            "properties": input_schema.get("properties", {}),
+            "required": input_schema.get("required", []),
+            "type": input_schema.get("type")
+        },
+        "openapi_format": convert_json_schema_to_openapi_params(input_schema),
+        "validation_info": {
+            "required_fields": input_schema.get("required", []),
+            "optional_fields": [
+                prop for prop in input_schema.get("properties", {}).keys()
+                if prop not in input_schema.get("required", [])
+            ],
+            "total_parameters": len(input_schema.get("properties", {}))
+        }
+    }
+
+    return debug_info
+
+
+@app.post("/debug/tools/diff", tags=["debug"])
+async def debug_tool_diff(
+    tool1: str = Query(..., description="First tool name"),
+    tool2: str = Query(..., description="Second tool name")
+):
+    """
+    Debug endpoint: Compare schemas of two tools
+
+    Useful for:
+    - Understanding schema differences
+    - Debugging schema changes
+    - Finding common patterns
+    """
+    global _tools_schema_cache
+
+    if not _tools_schema_cache:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "Tool cache not initialized"}
+        )
+
+    t1 = next((t for t in _tools_schema_cache if t["name"] == tool1), None)
+    t2 = next((t for t in _tools_schema_cache if t["name"] == tool2), None)
+
+    if not t1 or not t2:
+        return JSONResponse(
+            status_code=404,
+            content={
+                "error": f"One or both tools not found: {tool1}, {tool2}",
+                "available_tools": [t["name"] for t in _tools_schema_cache]
+            }
+        )
+
+    s1 = t1.get("inputSchema", {})
+    s2 = t2.get("inputSchema", {})
+
+    props1 = set(s1.get("properties", {}).keys())
+    props2 = set(s2.get("properties", {}).keys())
+
+    required1 = set(s1.get("required", []))
+    required2 = set(s2.get("required", []))
+
+    diff = {
+        "tool1": tool1,
+        "tool2": tool2,
+        "properties": {
+            "common": sorted(props1 & props2),
+            "only_in_tool1": sorted(props1 - props2),
+            "only_in_tool2": sorted(props2 - props1),
+            "total_tool1": len(props1),
+            "total_tool2": len(props2)
+        },
+        "required_fields": {
+            "common": sorted(required1 & required2),
+            "only_in_tool1": sorted(required1 - required2),
+            "only_in_tool2": sorted(required2 - required1)
+        },
+        "descriptions": {
+            "tool1": t1.get("description"),
+            "tool2": t2.get("description")
+        }
+    }
+
+    return diff
+
+
+@app.post("/debug/validate-call", tags=["debug"])
+async def debug_validate_call(
+    tool_name: str = Query(..., description="Tool to validate against"),
+    params: Dict[str, Any] = Body(..., description="Parameters to validate")
+):
+    """
+    Debug endpoint: Validate a tool call without executing it
+
+    Tests:
+    - Parameter validation against inputSchema
+    - Required fields check
+    - Type validation
+    - Constraint validation
+
+    Returns validation result with detailed error messages
+    """
+    global _tools_schema_cache
+
+    if not _tools_schema_cache:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "Tool cache not initialized"}
+        )
+
+    tool = next((t for t in _tools_schema_cache if t["name"] == tool_name), None)
+
+    if not tool:
+        return JSONResponse(
+            status_code=404,
+            content={
+                "error": f"Tool '{tool_name}' not found",
+                "available_tools": [t["name"] for t in _tools_schema_cache]
+            }
+        )
+
+    input_schema = tool.get("inputSchema", {})
+
+    if not input_schema:
+        return {
+            "valid": True,
+            "message": "No schema validation required (tool has no inputSchema)",
+            "tool_name": tool_name,
+            "params_provided": params
+        }
+
+    # Validate using the same function as tool_dispatch
+    validation_errors = validate_tool_params(tool_name, params, input_schema)
+
+    if validation_errors:
+        return {
+            "valid": False,
+            "tool_name": tool_name,
+            "errors": validation_errors,
+            "params_provided": params,
+            "schema": input_schema,
+            "hint": "Fix the errors above to make the call valid"
+        }
+
+    return {
+        "valid": True,
+        "tool_name": tool_name,
+        "params_provided": params,
+        "message": "Validation passed - call would be accepted by tool_dispatch"
+    }
 
 
 if __name__ == "__main__":

@@ -1,17 +1,19 @@
 """HTMX views for auto-analysis monitoring and statistics"""
 
-from fastapi import APIRouter, Depends, Form
+from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse
-from sqlmodel import Session
+from fastapi.templating import Jinja2Templates
+from sqlmodel import Session, text
 from app.core.logging_config import get_logger
 from datetime import datetime, timedelta
 
-from app.database import get_session
+from app.database import get_session, engine
 from app.models import Feed, PendingAutoAnalysis
 from app.services.pending_analysis_processor import PendingAnalysisProcessor
 
 router = APIRouter(tags=["htmx-auto-analysis"])
 logger = get_logger(__name__)
+templates = Jinja2Templates(directory="templates")
 
 auto_analysis_config = {
     "max_runs_per_day": 10,
@@ -257,3 +259,59 @@ def get_auto_analysis_config():
         "ai_model": auto_analysis_config["ai_model"],
         "check_interval": auto_analysis_config["check_interval"]
     }
+
+
+@router.get("/analysis/run-stats/{run_id}")
+async def get_run_stats(run_id: int, request: Request):
+    """Get run statistics with skip tracking for display"""
+    try:
+        with Session(engine) as session:
+            query = text("""
+                SELECT
+                    id, status, created_at, updated_at, started_at, completed_at,
+                    queued_count, processed_count, failed_count,
+                    planned_count, skipped_count, triggered_by
+                FROM analysis_runs
+                WHERE id = :run_id
+            """)
+
+            result = session.execute(query, {"run_id": run_id})
+            row = result.fetchone()
+
+            if not row:
+                return HTMLResponse(f"""
+                    <div class="alert alert-warning">
+                        Run #{run_id} not found
+                    </div>
+                """)
+
+            run = {
+                "id": row[0],
+                "status": row[1],
+                "created_at": row[2],
+                "updated_at": row[3],
+                "started_at": row[4],
+                "completed_at": row[5],
+                "queued_count": row[6],
+                "processed_count": row[7] or 0,
+                "failed_count": row[8] or 0,
+                "planned_count": row[9] or row[6],  # Fallback to queued_count
+                "skipped_count": row[10] or 0,
+                "triggered_by": row[11] or "manual"
+            }
+
+            return templates.TemplateResponse(
+                "components/run_stats.html",
+                {
+                    "request": request,
+                    "run": run
+                }
+            )
+
+    except Exception as e:
+        logger.error(f"Error getting run stats for {run_id}: {e}")
+        return HTMLResponse(f"""
+            <div class="alert alert-danger">
+                Error loading run statistics: {str(e)}
+            </div>
+        """)

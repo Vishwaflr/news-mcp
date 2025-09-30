@@ -1,0 +1,13 @@
+{
+  "current_phase": 0,
+  "phase_started_at": "2025-09-30T04:33:09.761154",
+  "rollback_count": 0,
+  "history": [
+    {
+      "timestamp": "2025-09-30T04:33:09.761174",
+      "action": "start",
+      "phase": 0,
+      "percentage": 10
+    }
+  ]
+}

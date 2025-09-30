@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}Analysis Manager - News MCP{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <h1 class="h3 mb-4">Analysis Manager Control Center</h1>
+
+    <!-- Status Cards -->
+    <div class="row g-4 mb-4">
+        <!-- Current Status -->
+        <div class="col-lg-4">
+            <div class="card h-100"
+                 hx-get="/htmx/manager-status"
+                 hx-trigger="load, every 5s"
+                 hx-swap="innerHTML">
+                <div class="card-body">
+                    <div class="text-muted">Loading status...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Queue Status -->
+        <div class="col-lg-4">
+            <div class="card h-100"
+                 hx-get="/htmx/manager-queue"
+                 hx-trigger="load, every 5s"
+                 hx-swap="innerHTML">
+                <div class="card-body">
+                    <div class="text-muted">Loading queue...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Daily Stats -->
+        <div class="col-lg-4">
+            <div class="card h-100"
+                 hx-get="/htmx/manager-daily-stats"
+                 hx-trigger="load, every 10s"
+                 hx-swap="innerHTML">
+                <div class="card-body">
+                    <div class="text-muted">Loading stats...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Configuration Section -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Configuration Settings</h5>
+        </div>
+        <div class="card-body"
+             id="config-section"
+             hx-get="/htmx/manager-config"
+             hx-trigger="load"
+             hx-swap="innerHTML">
+            <div class="text-muted">Loading configuration...</div>
+        </div>
+    </div>
+
+    <!-- Control Buttons -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">System Controls</h5>
+        </div>
+        <div class="card-body">
+            <div class="d-flex flex-wrap gap-2">
+                <button class="btn btn-danger"
+                        hx-post="/api/analysis/manager/emergency-stop"
+                        hx-confirm="Are you sure you want to emergency stop all runs?">
+                    <i class="fas fa-stop-circle"></i> Emergency Stop
+                </button>
+                <button class="btn btn-success"
+                        hx-post="/api/analysis/manager/resume">
+                    <i class="fas fa-play"></i> Resume Operations
+                </button>
+                <button class="btn btn-primary"
+                        hx-post="/api/analysis/manager/queue/process">
+                    <i class="fas fa-sync"></i> Process Queue
+                </button>
+                <button class="btn btn-secondary"
+                        onclick="location.reload()">
+                    <i class="fas fa-redo"></i> Refresh Page
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Runs Table -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Active Runs</h5>
+        </div>
+        <div class="card-body"
+             id="active-runs"
+             hx-get="/htmx/manager-active-runs"
+             hx-trigger="load, every 3s"
+             hx-swap="innerHTML">
+            <div class="text-muted">Loading active runs...</div>
+        </div>
+    </div>
+</div>
+{% endblock %}

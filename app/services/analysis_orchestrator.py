@@ -65,12 +65,23 @@ class AnalysisOrchestrator:
         )
 
         processed_count = 0
+        skipped_count = 0
 
         for item_info in claimed_items:
             queue_id = item_info["queue_id"]
             item_id = item_info["item_id"]
 
             try:
+                # NEW: Check if item was already analyzed
+                is_analyzed, previous_run = self.check_already_analyzed(item_id, days=7)
+
+                if is_analyzed:
+                    # Mark as skipped
+                    self._mark_item_skipped(queue_id, f"already_analyzed_in_{previous_run}")
+                    skipped_count += 1
+                    logger.info(f"Skipped item {item_id} - already analyzed in {previous_run}")
+                    continue
+
                 # Get item content
                 item_content = self.queue_repo.get_item_content(item_id)
                 if not item_content:
@@ -89,9 +100,14 @@ class AnalysisOrchestrator:
                 logger.error(f"Failed to process item {item_id}: {e}")
                 self._mark_item_failed(queue_id, "EUNKNOWN", str(e))
 
+        # Update run statistics
+        if skipped_count > 0:
+            self._update_run_skip_stats(run_id, skipped_count)
+
         # Update run heartbeat
         self.queue_repo.heartbeat_run(run_id)
 
+        logger.info(f"Run {run_id}: Processed {processed_count}, Skipped {skipped_count}")
         return processed_count
 
     def _process_item_analysis(self, queue_id: int, item_content: Dict[str, Any],
@@ -185,6 +201,47 @@ class AnalysisOrchestrator:
         self.queue_repo.update_item_state(queue_id, "failed", f"{error_code}: {error_message}")
         logger.error(f"Item failed with {error_code}: {error_message}")
 
+    def _mark_item_skipped(self, queue_id: int, skip_reason: str) -> None:
+        """Mark an item as skipped"""
+        from sqlmodel import Session, text
+        from app.database import engine
+        from datetime import datetime
+
+        query = text("""
+            UPDATE analysis_run_items
+            SET state = 'skipped',
+                skip_reason = :reason,
+                skipped_at = :now,
+                completed_at = :now
+            WHERE id = :queue_id
+        """)
+
+        with Session(engine) as session:
+            session.execute(query, {
+                "queue_id": queue_id,
+                "reason": skip_reason[:50],  # Truncate to field limit
+                "now": datetime.utcnow()
+            })
+            session.commit()
+            logger.info(f"Item {queue_id} marked as skipped: {skip_reason}")
+
+    def _update_run_skip_stats(self, run_id: int, skipped_count: int) -> None:
+        """Update run skip statistics"""
+        from sqlmodel import Session, text
+        from app.database import engine
+
+        query = text("""
+            UPDATE analysis_runs
+            SET skipped_count = skipped_count + :count,
+                updated_at = NOW()
+            WHERE id = :run_id
+        """)
+
+        with Session(engine) as session:
+            session.execute(query, {"run_id": run_id, "count": skipped_count})
+            session.commit()
+            logger.debug(f"Updated run {run_id} skip stats: +{skipped_count}")
+
     def _classify_error(self, error: Exception) -> str:
         """Classify error into standard error codes"""
         error_str = str(error).lower()
@@ -216,6 +273,31 @@ class AnalysisOrchestrator:
             time.sleep(sleep_time)
 
         self.last_request_time = time.time()
+
+    def check_already_analyzed(self, item_id: int, days: int = 7) -> tuple[bool, Optional[str]]:
+        """
+        Check if item was recently analyzed
+        Returns: (is_analyzed, previous_run_id)
+        """
+        from sqlmodel import Session, text
+        from app.database import engine
+
+        query = text("""
+            SELECT ar.id, ari.completed_at
+            FROM analysis_run_items ari
+            JOIN analysis_runs ar ON ari.run_id = ar.id
+            WHERE ari.item_id = :item_id
+            AND ari.state = 'completed'
+            AND ari.completed_at > NOW() - INTERVAL :days DAY
+            ORDER BY ari.completed_at DESC
+            LIMIT 1
+        """)
+
+        with Session(engine) as session:
+            result = session.execute(query, {"item_id": item_id, "days": f"{days}"}).first()
+            if result:
+                return True, f"run_{result[0]}"
+            return False, None
 
     def check_run_completion(self, run: Dict[str, Any]) -> bool:
         """Check if a run is completed and update status accordingly"""

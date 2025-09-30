@@ -58,7 +58,7 @@ class ComprehensiveNewsServer:
                 # Feed Management
                 Tool(
                     name="list_feeds",
-                    description="List all RSS feeds with status, metrics and health info",
+                    description="List all RSS feeds with status, metrics and health info. Use this to get an overview of all configured feeds, their health status, and article counts. Example: Get all active feeds with health metrics to identify which feeds need attention.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -70,7 +70,7 @@ class ComprehensiveNewsServer:
                 ),
                 Tool(
                     name="add_feed",
-                    description="Add new RSS feed with automatic template detection",
+                    description="Add new RSS feed with automatic template detection. Validates the feed URL and performs initial fetch. Templates are auto-assigned based on feed domain matching. Example: Add 'https://techcrunch.com/feed/' to start tracking TechCrunch articles with default 15-minute refresh interval.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -84,7 +84,7 @@ class ComprehensiveNewsServer:
                 ),
                 Tool(
                     name="update_feed",
-                    description="Update feed configuration",
+                    description="Update feed configuration (title, interval, status). Use this to pause problematic feeds or adjust fetch frequency. Example: Set feed_id=5 to status='PAUSED' to temporarily disable fetching without deleting historical data.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -98,7 +98,7 @@ class ComprehensiveNewsServer:
                 ),
                 Tool(
                     name="delete_feed",
-                    description="Delete a feed and all its articles",
+                    description="Delete a feed and all its articles (CASCADE deletion). WARNING: This permanently removes all articles from this feed. Requires explicit confirmation=true. Example: Remove feed_id=10 if it's no longer relevant or producing spam.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -110,7 +110,7 @@ class ComprehensiveNewsServer:
                 ),
                 Tool(
                     name="test_feed",
-                    description="Test feed URL and show preview without adding",
+                    description="Test feed URL and show preview without adding to database. Use this before add_feed to validate RSS/Atom format and inspect article structure. Example: Test 'https://example.com/rss' to see 5 sample articles before committing.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -122,7 +122,7 @@ class ComprehensiveNewsServer:
                 ),
                 Tool(
                     name="refresh_feed",
-                    description="Manually trigger immediate feed update",
+                    description="Manually trigger immediate feed update (bypasses scheduler). Use when you need fresh articles immediately or testing feed changes. Example: After fixing a feed URL, call refresh_feed with force=true to skip rate limiting.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -136,12 +136,12 @@ class ComprehensiveNewsServer:
                 # Analytics & Statistics Tools
                 Tool(
                     name="get_dashboard",
-                    description="Get comprehensive dashboard statistics",
+                    description="Get comprehensive dashboard statistics (feeds count, articles count, health overview, recent activity). Use as starting point to understand system state. No parameters needed.",
                     inputSchema={"type": "object", "properties": {}}
                 ),
                 Tool(
                     name="feed_performance",
-                    description="Analyze feed performance and efficiency",
+                    description="Analyze feed performance and efficiency (fetch success rate, avg items per fetch, response times). Use to identify slow or unreliable feeds. Example: Analyze feed_id=12 over last 30 days to diagnose frequent timeouts.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -152,7 +152,7 @@ class ComprehensiveNewsServer:
                 ),
                 Tool(
                     name="latest_articles",
-                    description="Get latest articles with advanced filtering",
+                    description="Get latest articles with advanced filtering including sentiment analysis. Supports time-based, keyword, and sentiment filters with multiple sort options. Example: Get top 10 positive articles (min_sentiment=0.5, sort_by='sentiment_score') from last 24 hours. Note: Sentiment filters require analyzed articles (see analysis tools).",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -160,13 +160,16 @@ class ComprehensiveNewsServer:
                             "feed_id": {"type": "integer", "description": "Filter by specific feed"},
                             "since_hours": {"type": "integer", "default": 24, "description": "Articles from last N hours"},
                             "keywords": {"type": "array", "items": {"type": "string"}, "description": "Filter by keywords in title"},
-                            "exclude_keywords": {"type": "array", "items": {"type": "string"}, "description": "Exclude articles with these keywords"}
+                            "exclude_keywords": {"type": "array", "items": {"type": "string"}, "description": "Exclude articles with these keywords"},
+                            "min_sentiment": {"type": "number", "minimum": -1, "maximum": 1, "description": "Minimum sentiment score (-1 to 1, requires analyzed articles)"},
+                            "max_sentiment": {"type": "number", "minimum": -1, "maximum": 1, "description": "Maximum sentiment score (-1 to 1, requires analyzed articles)"},
+                            "sort_by": {"type": "string", "enum": ["created_at", "published", "sentiment_score", "impact_score"], "default": "created_at", "description": "Sort order (sentiment_score and impact_score require analyzed articles)"}
                         }
                     }
                 ),
                 Tool(
                     name="search_articles",
-                    description="Full-text search across all articles",
+                    description="Full-text search across all articles (title + description). Supports date range filtering and feed-specific search. Example: Search query='AI regulation' with date_from='2025-09-01' to find recent regulatory news. More powerful than keyword filtering in latest_articles.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -181,7 +184,7 @@ class ComprehensiveNewsServer:
                 ),
                 Tool(
                     name="trending_topics",
-                    description="Analyze trending keywords and topics",
+                    description="Analyze trending keywords and topics by frequency analysis. Use to discover emerging themes across all feeds. Example: Get top 20 keywords from last 48 hours with min_frequency=5 to filter noise. Great for content discovery.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -193,7 +196,7 @@ class ComprehensiveNewsServer:
                 ),
                 Tool(
                     name="export_data",
-                    description="Export articles and statistics in various formats",
+                    description="Export articles, feeds, or statistics in JSON/CSV/XML format. Use for backups, external analysis, or data migration. Example: Export last 7 days of articles from feed_id=25 as CSV with limit=5000 for spreadsheet analysis.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -209,7 +212,7 @@ class ComprehensiveNewsServer:
                 # Template Management Tools
                 Tool(
                     name="list_templates",
-                    description="List all processing templates with assignments",
+                    description="List all processing templates with assignments. Templates control how articles are processed (filtering, transformations, etc.). Use to see which templates are assigned to which feeds. Example: Get active templates with assignments to audit processing configuration.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -220,7 +223,7 @@ class ComprehensiveNewsServer:
                 ),
                 Tool(
                     name="template_performance",
-                    description="Analyze template processing efficiency",
+                    description="Analyze template processing efficiency (processing times, success rates, error patterns). Use to identify slow or problematic templates. Example: Check template_id=3 performance over 14 days to optimize rules.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -231,7 +234,7 @@ class ComprehensiveNewsServer:
                 ),
                 Tool(
                     name="assign_template",
-                    description="Assign template to feed",
+                    description="Assign processing template to feed. Templates define how articles from this feed are processed. Example: Assign template_id=5 (tech-news-filter) to feed_id=12 (TechCrunch) for specialized processing.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -245,7 +248,7 @@ class ComprehensiveNewsServer:
                 # Database Query Tools
                 Tool(
                     name="execute_query",
-                    description="Execute safe read-only SQL queries",
+                    description="Execute safe read-only SQL queries for advanced data exploration. WARNING: Only SELECT queries allowed, no modifications. Example: SELECT feed_id, COUNT(*) FROM items WHERE created_at > NOW() - INTERVAL '7 days' GROUP BY feed_id. Use with caution.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -257,7 +260,7 @@ class ComprehensiveNewsServer:
                 ),
                 Tool(
                     name="table_info",
-                    description="Get database schema and table information",
+                    description="Get database schema and table information (columns, types, indexes). Use before execute_query to understand data structure. Example: Get table_info for 'items' with sample data to see article schema.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -268,7 +271,7 @@ class ComprehensiveNewsServer:
                 ),
                 Tool(
                     name="quick_queries",
-                    description="Execute predefined useful database queries",
+                    description="Execute predefined useful database queries (feed_overview, recent_activity, error_analysis, performance_stats, template_usage). Safer than execute_query, use for common reporting needs. Example: Run 'error_analysis' to get recent failures.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -285,12 +288,12 @@ class ComprehensiveNewsServer:
                 # Health & Monitoring Tools
                 Tool(
                     name="system_health",
-                    description="Get comprehensive system health status",
+                    description="Get comprehensive system health status (database, scheduler, disk space, memory). Use as first diagnostic step when investigating issues. No parameters needed - returns full health check.",
                     inputSchema={"type": "object", "properties": {}}
                 ),
                 Tool(
                     name="feed_diagnostics",
-                    description="Detailed diagnostics for specific feed",
+                    description="Detailed diagnostics for specific feed (fetch history, errors, performance, health trends). Use when a single feed has issues. Example: Diagnose feed_id=8 if it stopped fetching articles.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -301,7 +304,7 @@ class ComprehensiveNewsServer:
                 ),
                 Tool(
                     name="error_analysis",
-                    description="Analyze recent errors and provide solutions",
+                    description="Analyze recent errors and provide solutions (error patterns, affected feeds, suggested fixes). Use to troubleshoot system-wide issues. Example: Analyze last 48 hours to identify common error causes.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -312,7 +315,7 @@ class ComprehensiveNewsServer:
                 ),
                 Tool(
                     name="scheduler_status",
-                    description="Check dynamic scheduler status and control",
+                    description="Check dynamic scheduler status and control (next scheduled runs, active jobs, scheduler health). Use to monitor feed scheduling system. Example: Check status to see next 10 scheduled fetches.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -324,7 +327,7 @@ class ComprehensiveNewsServer:
                 # Administration Tools
                 Tool(
                     name="maintenance_tasks",
-                    description="Execute system maintenance tasks",
+                    description="Execute system maintenance tasks (cleanup_old_items, vacuum_database, update_statistics, rebuild_indexes). WARNING: Can be resource-intensive. Use dry_run=true first to preview. Example: cleanup_old_items with dry_run to see what would be deleted.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -340,7 +343,7 @@ class ComprehensiveNewsServer:
                 ),
                 Tool(
                     name="log_analysis",
-                    description="Analyze system logs for patterns and issues",
+                    description="Analyze system logs for patterns and issues (error frequency, component health, common failure modes). Use for root cause analysis. Example: Analyze scheduler logs at ERROR level from last 48 hours.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -352,7 +355,7 @@ class ComprehensiveNewsServer:
                 ),
                 Tool(
                     name="usage_stats",
-                    description="Get system usage statistics and metrics",
+                    description="Get system usage statistics and metrics (articles/day, API calls, processing times, resource utilization). Use for capacity planning. Example: Get detailed weekly stats to identify traffic patterns.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -365,7 +368,7 @@ class ComprehensiveNewsServer:
                 # System ping tool
                 Tool(
                     name="system_ping",
-                    description="System ping test for MCP connection",
+                    description="System ping test for MCP connection. Use to verify MCP server is responsive. Returns simple pong response. No parameters needed - useful for health checks.",
                     inputSchema={
                         "type": "object",
                         "properties": {},
@@ -376,7 +379,7 @@ class ComprehensiveNewsServer:
                 # MCP v2 Tools - Dynamic Templates
                 Tool(
                     name="templates_create",
-                    description="Create new dynamic feed template",
+                    description="Create new dynamic feed template with URL matching and extraction rules. Advanced feature for custom content processing. Example: Create template with match_rules for techcrunch.com and custom extraction_config.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -391,7 +394,7 @@ class ComprehensiveNewsServer:
                 ),
                 Tool(
                     name="templates_test",
-                    description="Test template against sample URL or HTML content",
+                    description="Test template against sample URL or HTML content. Use before templates_assign to validate extraction rules work correctly. Example: Test template_id=5 with sample_url='https://example.com/article' to preview extracted data.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -404,7 +407,7 @@ class ComprehensiveNewsServer:
                 ),
                 Tool(
                     name="templates_assign",
-                    description="Assign template to feed",
+                    description="Assign template to feed with optional priority and custom overrides. Higher priority templates match first. Example: Assign template_id=8 to feed_id=15 with priority=200 for primary processing.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -420,7 +423,7 @@ class ComprehensiveNewsServer:
                 # MCP v2 Tools - Analysis Control
                 Tool(
                     name="analysis_preview",
-                    description="Preview analysis run with cost estimation",
+                    description="Preview analysis run with cost estimation (token counts, estimated cost, article selection). Always use before analysis_run to avoid unexpected OpenAI costs. Example: Preview {latest: 100} articles with gpt-4o-mini to check cost before running.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -441,7 +444,7 @@ class ComprehensiveNewsServer:
                 ),
                 Tool(
                     name="analysis_run",
-                    description="Start analysis run with persistence",
+                    description="Start analysis run with persistence (sentiment, impact, urgency scores). Use after analysis_preview confirms costs acceptable. Results saved to item_analysis table. Example: Run {latest: 50} with persist=true and tags=['daily-batch'].",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -463,7 +466,7 @@ class ComprehensiveNewsServer:
                 ),
                 Tool(
                     name="analysis_history",
-                    description="Get analysis run history and results",
+                    description="Get analysis run history and results (past runs, costs, success rates, article counts). Use to track analysis usage and costs over time. Example: Get last 100 runs to calculate monthly OpenAI spending.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -477,7 +480,7 @@ class ComprehensiveNewsServer:
                 # MCP v2 Tools - Scheduler Control
                 Tool(
                     name="scheduler_set_interval",
-                    description="Set global or feed-specific fetch interval",
+                    description="Set global or feed-specific fetch interval (how often feeds are refreshed). Use to adjust fetch frequency based on feed update patterns. Example: Set minutes=30 for slow-updating feed or minutes=5 for breaking news feed.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -489,7 +492,7 @@ class ComprehensiveNewsServer:
                 ),
                 Tool(
                     name="scheduler_heartbeat",
-                    description="Get detailed scheduler health and activity metrics",
+                    description="Get detailed scheduler health and activity metrics (active jobs, queue depth, next scheduled runs, last heartbeat). Use to monitor scheduler responsiveness. No parameters - returns full scheduler state.",
                     inputSchema={
                         "type": "object",
                         "properties": {}
@@ -499,7 +502,7 @@ class ComprehensiveNewsServer:
                 # MCP v2 Tools - Enhanced Feeds
                 Tool(
                     name="feeds_search",
-                    description="Search feeds with health and status filtering",
+                    description="Search feeds with health and status filtering (by query, category, health status). More powerful than list_feeds for finding specific feeds. Example: Search q='tech' with health='warn' to find tech feeds with issues.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -513,7 +516,7 @@ class ComprehensiveNewsServer:
                 ),
                 Tool(
                     name="feeds_health",
-                    description="Get detailed health metrics for feed(s)",
+                    description="Get detailed health metrics for feed(s) (success rate, latency, error patterns, uptime). Use for deep health analysis. Example: Check all feeds to generate health report or specific feed_id for troubleshooting.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -525,7 +528,7 @@ class ComprehensiveNewsServer:
                 # MCP v2 Tools - Enhanced Items
                 Tool(
                     name="items_recent",
-                    description="Get recent items with deduplication",
+                    description="Get recent items with deduplication (removes duplicate content by hash). Faster than latest_articles for simple recency queries. Example: Get last 50 items since='2025-09-28T00:00:00Z' with dedupe=true to avoid repeated content.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -539,7 +542,7 @@ class ComprehensiveNewsServer:
                 ),
                 Tool(
                     name="items_search",
-                    description="Search items with advanced filtering",
+                    description="Search items with advanced filtering (query, time_range, pagination, sorting). More flexible than search_articles. Example: Search q='blockchain' with time_range for date-bounded search and offset for pagination.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -564,7 +567,7 @@ class ComprehensiveNewsServer:
                 # Categories Management Tools
                 Tool(
                     name="categories_list",
-                    description="List all categories with feed assignments",
+                    description="List all categories with feed assignments (category taxonomy, feed counts, article volumes). Use to understand content organization. Example: Get all categories with stats to see content distribution.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -575,7 +578,7 @@ class ComprehensiveNewsServer:
                 ),
                 Tool(
                     name="categories_add",
-                    description="Create a new category",
+                    description="Create a new category for organizing feeds (e.g., 'Technology', 'Finance', 'Politics'). Example: Add name='Crypto' with description='Cryptocurrency and blockchain news' to create new taxonomy node.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -588,7 +591,7 @@ class ComprehensiveNewsServer:
                 ),
                 Tool(
                     name="categories_update",
-                    description="Update category information",
+                    description="Update category information (name, description, color metadata). Example: Update category_id=3 with name='Web3' and color='#00FF00' to rebrand category.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -602,7 +605,7 @@ class ComprehensiveNewsServer:
                 ),
                 Tool(
                     name="categories_delete",
-                    description="Delete a category",
+                    description="Delete a category (unassigns from all feeds first). Requires explicit confirmation=true. Example: Remove obsolete category_id=9 after migrating feeds to new taxonomy.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -614,7 +617,7 @@ class ComprehensiveNewsServer:
                 ),
                 Tool(
                     name="categories_assign",
-                    description="Assign category to feed",
+                    description="Assign category to feed for content organization. Feeds can have multiple categories (M:N relationship). Example: Assign category_id=5 ('Finance') to feed_id=20 (Bloomberg) for proper classification.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -628,7 +631,7 @@ class ComprehensiveNewsServer:
                 # Sources Management Tools
                 Tool(
                     name="sources_list",
-                    description="List all sources with statistics",
+                    description="List all sources with statistics (source metadata, feed counts, reliability scores). Sources represent publishers/organizations. Example: Get all sources with stats to identify most active publishers.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -639,7 +642,7 @@ class ComprehensiveNewsServer:
                 ),
                 Tool(
                     name="sources_add",
-                    description="Add a new source",
+                    description="Add a new source (publisher/organization with trust level). Sources group related feeds. Example: Add name='Reuters' url='https://reuters.com' trust_level=5 for high-quality news source.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -653,7 +656,7 @@ class ComprehensiveNewsServer:
                 ),
                 Tool(
                     name="sources_update",
-                    description="Update source information",
+                    description="Update source information (name, URL, description, trust level 1-5). Example: Adjust source_id=12 trust_level=2 if source quality declined.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -668,7 +671,7 @@ class ComprehensiveNewsServer:
                 ),
                 Tool(
                     name="sources_delete",
-                    description="Delete a source",
+                    description="Delete a source (orphans associated feeds). Requires explicit confirmation=true. WARNING: Feeds lose source association. Example: Remove source_id=8 if publisher shut down.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -680,7 +683,7 @@ class ComprehensiveNewsServer:
                 ),
                 Tool(
                     name="sources_stats",
-                    description="Get detailed source statistics",
+                    description="Get detailed source statistics (article volume, quality metrics, feed health). Use for source performance analysis. Example: Check source_id=15 stats over 90 days to evaluate publisher reliability.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -937,47 +940,110 @@ class ComprehensiveNewsServer:
 
     async def _latest_articles(self, limit: int = 20, feed_id: Optional[int] = None,
                              since_hours: int = 24, keywords: Optional[List[str]] = None,
-                             exclude_keywords: Optional[List[str]] = None) -> List[TextContent]:
-        """Get latest articles with filtering"""
+                             exclude_keywords: Optional[List[str]] = None,
+                             min_sentiment: Optional[float] = None,
+                             max_sentiment: Optional[float] = None,
+                             sort_by: str = "created_at") -> List[TextContent]:
+        """Get latest articles with filtering including sentiment analysis"""
         with Session(engine) as session:
-            query = select(Item, Feed).join(Feed)
+            from sqlalchemy import text as sql_text
+
+            # Build SQL query with JSONB support for item_analysis table
+            # Note: item_analysis uses JSONB columns (sentiment_json, impact_json), not separate columns
+
+            where_clauses = []
+            params = {}
 
             # Time filter
             since_time = datetime.utcnow() - timedelta(hours=since_hours)
-            query = query.where(Item.created_at > since_time)
+            where_clauses.append("i.created_at > :since_time")
+            params["since_time"] = since_time
 
             # Feed filter
             if feed_id:
-                query = query.where(Item.feed_id == feed_id)
+                where_clauses.append("i.feed_id = :feed_id")
+                params["feed_id"] = feed_id
 
             # Keyword filters
             if keywords:
-                keyword_conditions = [Item.title.ilike(f"%{keyword}%") for keyword in keywords]
-                query = query.where(or_(*keyword_conditions))
+                keyword_conds = " OR ".join([f"i.title ILIKE :keyword_{idx}" for idx in range(len(keywords))])
+                where_clauses.append(f"({keyword_conds})")
+                for idx, keyword in enumerate(keywords):
+                    params[f"keyword_{idx}"] = f"%{keyword}%"
 
             if exclude_keywords:
-                exclude_conditions = [~Item.title.ilike(f"%{keyword}%") for keyword in exclude_keywords]
-                query = query.where(and_(*exclude_conditions))
+                for idx, keyword in enumerate(exclude_keywords):
+                    where_clauses.append(f"i.title NOT ILIKE :exclude_keyword_{idx}")
+                    params[f"exclude_keyword_{idx}"] = f"%{keyword}%"
 
-            query = query.order_by(Item.created_at.desc()).limit(limit)
+            # Sentiment filters (JSONB path: sentiment_json->'overall'->>'score')
+            if min_sentiment is not None:
+                where_clauses.append("(ia.sentiment_json->'overall'->>'score')::numeric >= :min_sentiment")
+                params["min_sentiment"] = min_sentiment
 
-            results = session.exec(query).all()
+            if max_sentiment is not None:
+                where_clauses.append("(ia.sentiment_json->'overall'->>'score')::numeric <= :max_sentiment")
+                params["max_sentiment"] = max_sentiment
+
+            # Sort order
+            if sort_by == "sentiment_score":
+                order_clause = "(ia.sentiment_json->'overall'->>'score')::numeric DESC NULLS LAST"
+            elif sort_by == "impact_score":
+                order_clause = "(ia.impact_json->>'overall')::numeric DESC NULLS LAST"
+            elif sort_by == "published":
+                order_clause = "i.published DESC NULLS LAST"
+            else:  # default: created_at
+                order_clause = "i.created_at DESC"
+
+            where_sql = " AND ".join(where_clauses) if where_clauses else "TRUE"
+
+            query_sql = f"""
+            SELECT
+                i.id, i.title, i.description, i.link, i.published, i.created_at,
+                f.id as feed_id, f.title as feed_title, f.url as feed_url,
+                ia.sentiment_json, ia.impact_json
+            FROM items i
+            JOIN feeds f ON f.id = i.feed_id
+            LEFT OUTER JOIN item_analysis ia ON i.id = ia.item_id
+            WHERE {where_sql}
+            ORDER BY {order_clause}
+            LIMIT :limit
+            """
+
+            params["limit"] = limit
+
+            result = session.execute(sql_text(query_sql), params)
+            rows = result.fetchall()
 
             articles = []
-            for item, feed in results:
-                articles.append({
-                    "id": item.id,
-                    "title": item.title,
-                    "description": item.description[:200] + "..." if item.description and len(item.description) > 200 else item.description,
-                    "url": item.link,
-                    "published": str(item.published) if item.published else None,
-                    "created_at": str(item.created_at),
+            for row in rows:
+                article_data = {
+                    "id": row.id,
+                    "title": row.title,
+                    "description": row.description[:200] + "..." if row.description and len(row.description) > 200 else row.description,
+                    "url": row.link,
+                    "published": str(row.published) if row.published else None,
+                    "created_at": str(row.created_at),
                     "feed": {
-                        "id": feed.id,
-                        "title": feed.title,
-                        "url": feed.url
+                        "id": row.feed_id,
+                        "title": row.feed_title,
+                        "url": row.feed_url
                     }
-                })
+                }
+
+                # Add analysis data if available
+                if row.sentiment_json and row.impact_json:
+                    sentiment_data = row.sentiment_json
+                    impact_data = row.impact_json
+
+                    article_data["analysis"] = {
+                        "sentiment_score": sentiment_data.get("overall", {}).get("score") if isinstance(sentiment_data, dict) else None,
+                        "sentiment_label": sentiment_data.get("overall", {}).get("label") if isinstance(sentiment_data, dict) else None,
+                        "impact_score": impact_data.get("overall") if isinstance(impact_data, dict) else None,
+                        "urgency_score": sentiment_data.get("urgency") if isinstance(sentiment_data, dict) else None
+                    }
+
+                articles.append(article_data)
 
             return [TextContent(type="text", text=safe_json_dumps(articles, indent=2))]
 
