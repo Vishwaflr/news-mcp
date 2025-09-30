@@ -191,11 +191,15 @@ $RECYCLE.BIN/
 *.lnkCLAUDE.md
 
 # Internal Documentation (not for public repo)
-PROGRESS.md
-IMPLEMENTATION_PLAN*.md
 NAVIGATOR.md
 ENDPOINTS.md
 INDEX.md
+
+# Archived planning documents
+docs/archive/PROGRESS.md
+docs/archive/IMPLEMENTATION_PLAN*.md
+docs/archive/REFACTORING_PLAN.md
+docs/archive/ANALYSIS_API_CONSOLIDATION.md
 
 # Runtime files
 *.pid
