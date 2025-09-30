@@ -200,6 +200,8 @@ docs/archive/PROGRESS.md
 docs/archive/IMPLEMENTATION_PLAN*.md
 docs/archive/REFACTORING_PLAN.md
 docs/archive/ANALYSIS_API_CONSOLIDATION.md
+docs/archive/README_QMAGENT.md
+docs/archive/TEST_REPORT_AUTO_ANALYSIS.md
 
 # Runtime files
 *.pid
