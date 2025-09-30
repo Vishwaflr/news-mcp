@@ -46,6 +46,24 @@ Enterprise-grade RSS aggregation system with integrated AI analysis. The system 
 - [Development](#development)
 - [Architecture](#architecture)
 
+## 🏗️ Architecture
+
+The system follows a modern, modular architecture with clear separation of concerns:
+
+- **Repository Pattern**: Type-safe data access with SQLModel
+- **Service Layer**: Business logic and orchestration
+- **API Layer**: RESTful endpoints with FastAPI
+- **Worker System**: Background processing with rate limiting
+- **UI Layer**: HTMX + Alpine.js for progressive enhancement
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed documentation.
+
+### Recent Refactoring (v3.0.0)
+- Modularized 765-line monolithic repository into focused modules
+- Improved error handling and recovery mechanisms
+- Enhanced performance with skip tracking
+- Fixed scope limit handling for proper item selection
+
 ## 🛠 Installation
 
 ### Prerequisites

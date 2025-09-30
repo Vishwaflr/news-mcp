@@ -35,17 +35,25 @@ class AnalysisRun(SQLModel, table=True):
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     status: str = Field(index=True)
-    scope_hash: Optional[str] = Field(index=True)
+    scope_hash: str = Field(default="", index=True)
     triggered_by: str = Field(default="manual")  # manual, auto, scheduled
-    filters: Optional[dict] = Field(sa_column=Column(JSON))
-    total_items: Optional[int] = None
-    processed_items: Optional[int] = None
-    failed_items: Optional[int] = None
-    error_message: Optional[str] = None
-    avg_processing_time: Optional[float] = None
-    model_tag: Optional[str] = None
 
-    # NEW: Skip tracking fields
+    # Fields that exist in DB
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    scope_json: dict = Field(default={}, sa_column=Column(JSON))
+    params_json: dict = Field(default={}, sa_column=Column(JSON))
+    queued_count: int = Field(default=0)
+    processed_count: int = Field(default=0)
+    failed_count: int = Field(default=0)
+    cost_estimate: Optional[float] = None
+    actual_cost: Optional[float] = None
+    error_rate: Optional[float] = None
+    items_per_min: Optional[float] = None
+    eta_seconds: Optional[int] = None
+    coverage_10m: Optional[float] = None
+    coverage_60m: Optional[float] = None
+    last_error: Optional[str] = None
+    job_id: Optional[str] = None
     planned_count: int = Field(default=0)
     skipped_count: int = Field(default=0)
     skipped_items: Optional[list] = Field(default=[], sa_column=Column(JSON))
@@ -59,12 +67,14 @@ class AnalysisRunItem(SQLModel, table=True):
     run_id: int = Field(foreign_key="analysis_runs.id", index=True)
     item_id: int = Field(foreign_key="items.id", index=True)
     state: str = Field(index=True)
-    processing_started_at: Optional[datetime] = None
-    processing_completed_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
     error_message: Optional[str] = None
-    retry_count: int = Field(default=0)
+    tokens_used: Optional[int] = None
+    cost_usd: Optional[float] = None
 
-    # NEW: Skip tracking fields
+    # Skip tracking fields
     skip_reason: Optional[str] = Field(default=None, max_length=50)
     skipped_at: Optional[datetime] = None
 

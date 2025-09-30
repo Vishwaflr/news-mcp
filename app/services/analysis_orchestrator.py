@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from app.repositories.analysis_queue import AnalysisQueueRepo
 from app.repositories.analysis import AnalysisRepo
 from app.services.llm_client import LLMClient
+from app.services.error_recovery import get_error_recovery_service, CircuitBreakerConfig
 from app.domain.analysis.schema import AnalysisResult, Overall, Market, SentimentPayload, ImpactPayload
 from app.domain.analysis.control import MODEL_PRICING, AVG_TOKENS_PER_ITEM
 
@@ -19,6 +20,14 @@ class AnalysisOrchestrator:
         self.min_request_interval = min_request_interval
         self.last_request_time = 0.0
         self.queue_repo = AnalysisQueueRepo()
+        self.error_recovery = get_error_recovery_service()
+
+        # Configure circuit breakers for critical services
+        self.openai_breaker_config = CircuitBreakerConfig(
+            failure_threshold=3,  # Open after 3 failures
+            success_threshold=2,   # Close after 2 successes
+            timeout_seconds=60,    # Try recovery after 60s
+        )
 
     def get_available_runs(self) -> List[Dict[str, Any]]:
         """Get runs that can be processed (pending or running, not paused/cancelled)"""
@@ -43,6 +52,9 @@ class AnalysisOrchestrator:
         """Process a batch of items for a run"""
         run_id = run["id"]
         params = run["params"]
+
+        # Mark run as started if this is the first processing
+        self._mark_run_started(run_id)
 
         # Apply rate limiting
         self._throttle_requests(params.get("rate_per_second", 1.0))
@@ -104,11 +116,47 @@ class AnalysisOrchestrator:
         if skipped_count > 0:
             self._update_run_skip_stats(run_id, skipped_count)
 
+        # Update processed count in analysis_runs table
+        self._update_run_processed_count(run_id)
+
         # Update run heartbeat
         self.queue_repo.heartbeat_run(run_id)
 
         logger.info(f"Run {run_id}: Processed {processed_count}, Skipped {skipped_count}")
         return processed_count
+
+    async def _process_item_analysis_with_recovery(self, queue_id: int, item_content: Dict[str, Any],
+                                                llm_client: LLMClient, model_tag: str) -> None:
+        """Process analysis with error recovery"""
+        item_id = item_content["id"]
+
+        async def analyze():
+            return llm_client.classify(
+                item_content["title"] or "",
+                item_content["content"][:1200] if item_content.get("content") else ""
+            )
+
+        # Use circuit breaker and retry for OpenAI calls
+        circuit_breaker = self.error_recovery.get_circuit_breaker(
+            f"openai_{model_tag}",
+            self.openai_breaker_config
+        )
+
+        try:
+            llm_data = await self.error_recovery.execute_with_recovery(
+                analyze,
+                service_name=f"openai_{model_tag}",
+                max_retries=3,
+                circuit_breaker=True
+            )
+
+            # Process successful result
+            self._save_analysis_result(queue_id, item_id, llm_data, model_tag)
+
+        except Exception as e:
+            error_code = self._classify_error(e)
+            self._mark_item_failed(queue_id, error_code, str(e))
+            logger.error(f"Failed to analyze item {item_id} after recovery attempts: {e}")
 
     def _process_item_analysis(self, queue_id: int, item_content: Dict[str, Any],
                               llm_client: LLMClient, model_tag: str) -> None:
@@ -127,8 +175,8 @@ class AnalysisOrchestrator:
 
             logger.debug(f"Analyzing item {item_id}: {title[:50]}...")
 
-            # Call LLM for classification
-            llm_data = llm_client.classify(title, summary_text)
+            # Call LLM for classification with retry
+            llm_data = self._call_llm_with_retry(llm_client, title, summary_text, model_tag)
 
             # Build analysis result
             sentiment = SentimentPayload(
@@ -241,6 +289,140 @@ class AnalysisOrchestrator:
             session.execute(query, {"run_id": run_id, "count": skipped_count})
             session.commit()
             logger.debug(f"Updated run {run_id} skip stats: +{skipped_count}")
+
+    def _mark_run_started(self, run_id: int) -> None:
+        """Mark run as started and set started_at if not already set"""
+        from sqlmodel import Session, text
+        from app.database import engine
+
+        query = text("""
+            UPDATE analysis_runs
+            SET started_at = COALESCE(started_at, NOW()),
+                status = CASE WHEN status = 'pending' THEN 'running' ELSE status END,
+                updated_at = NOW()
+            WHERE id = :run_id
+        """)
+
+        with Session(engine) as session:
+            session.execute(query, {"run_id": run_id})
+            session.commit()
+            logger.debug(f"Marked run {run_id} as started")
+
+    def _update_run_processed_count(self, run_id: int) -> None:
+        """Update processed count based on completed items"""
+        from sqlmodel import Session, text
+        from app.database import engine
+
+        query = text("""
+            UPDATE analysis_runs ar
+            SET processed_count = (
+                    SELECT COUNT(*)
+                    FROM analysis_run_items
+                    WHERE run_id = ar.id AND state = 'completed'
+                ),
+                failed_count = (
+                    SELECT COUNT(*)
+                    FROM analysis_run_items
+                    WHERE run_id = ar.id AND state = 'failed'
+                ),
+                updated_at = NOW()
+            WHERE ar.id = :run_id
+        """)
+
+        with Session(engine) as session:
+            session.execute(query, {"run_id": run_id})
+            session.commit()
+            logger.debug(f"Updated processed count for run {run_id}")
+
+    def _call_llm_with_retry(self, llm_client: LLMClient, title: str, summary_text: str, model_tag: str) -> Dict:
+        """Call LLM with retry logic and circuit breaker"""
+        max_retries = 3
+        retry_delay = 1.0
+
+        for attempt in range(max_retries):
+            try:
+                # Get circuit breaker for this model
+                circuit_breaker = self.error_recovery.get_circuit_breaker(
+                    f"openai_{model_tag}",
+                    self.openai_breaker_config
+                )
+
+                # Execute with circuit breaker
+                return circuit_breaker.call(llm_client.classify, title, summary_text)
+
+            except Exception as e:
+                error_type = self._classify_error(e)
+
+                # Handle specific error types
+                if error_type == "E429":  # Rate limit
+                    # Exponential backoff for rate limits
+                    wait_time = retry_delay * (2 ** attempt)
+                    logger.warning(f"Rate limited, waiting {wait_time}s before retry {attempt + 1}/{max_retries}")
+                    time.sleep(wait_time)
+
+                elif error_type == "E5xx":  # Server errors
+                    # Longer wait for server recovery
+                    wait_time = 10 * (attempt + 1)
+                    logger.warning(f"Server error, waiting {wait_time}s before retry {attempt + 1}/{max_retries}")
+                    time.sleep(wait_time)
+
+                elif error_type == "ETIMEOUT":  # Timeout
+                    # Quick retry for timeouts
+                    wait_time = 2
+                    logger.warning(f"Timeout, retrying in {wait_time}s (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(wait_time)
+
+                elif attempt < max_retries - 1:
+                    # Generic retry with backoff
+                    wait_time = retry_delay * (attempt + 1)
+                    logger.warning(f"Error {error_type}, retrying in {wait_time}s (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(wait_time)
+                else:
+                    # Final attempt failed
+                    logger.error(f"All {max_retries} attempts failed for LLM call")
+                    raise
+
+        raise Exception(f"Failed after {max_retries} attempts")
+
+    def _save_analysis_result(self, queue_id: int, item_id: int, llm_data: Dict, model_tag: str) -> None:
+        """Save successful analysis result"""
+        try:
+            # Build analysis result
+            sentiment = SentimentPayload(
+                overall=Overall(**llm_data["overall"]),
+                market=Market(**llm_data["market"]),
+                urgency=float(llm_data["urgency"]),
+                themes=llm_data.get("themes", [])[:6]
+            )
+
+            impact = ImpactPayload(**llm_data["impact"])
+
+            result = AnalysisResult(
+                sentiment=sentiment,
+                impact=impact,
+                model_tag=model_tag
+            )
+
+            # Save analysis result
+            AnalysisRepo.upsert(item_id, result)
+
+            # Calculate cost
+            tokens_used = AVG_TOKENS_PER_ITEM  # Estimate for now
+            model_pricing = MODEL_PRICING.get(model_tag, MODEL_PRICING["gpt-4.1-nano"])
+            cost_usd = (tokens_used * model_pricing["input"]) / 1_000_000
+
+            # Mark item as completed
+            self.queue_repo.update_item_state(
+                queue_id, "completed",
+                tokens_used=tokens_used,
+                cost_usd=cost_usd
+            )
+
+            logger.info(f"✓ Analyzed item {item_id}: {sentiment.overall.label} sentiment, {impact.overall:.2f} impact")
+
+        except Exception as e:
+            logger.error(f"Failed to save analysis result for item {item_id}: {e}")
+            raise
 
     def _classify_error(self, error: Exception) -> str:
         """Classify error into standard error codes"""

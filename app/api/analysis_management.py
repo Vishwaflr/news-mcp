@@ -5,7 +5,7 @@ Provides endpoints for monitoring and controlling analysis runs.
 """
 
 from fastapi import APIRouter, Depends, HTTPException
-from typing import Dict, Any
+from typing import Dict, Any, List
 from sqlmodel import Session, select
 from app.core.logging_config import get_logger
 from app.services.analysis_run_manager import get_run_manager
@@ -15,9 +15,60 @@ from app.models import AnalysisRun
 router = APIRouter(prefix="/api/analysis", tags=["analysis-management"])
 logger = get_logger(__name__)
 
+# Log deprecation warning
+logger.warning(
+    "DEPRECATED: /api/analysis/* endpoints are deprecated. "
+    "Please migrate to /api/v1/analysis/* endpoints. "
+    "These old endpoints will be removed in 2 weeks (2025-10-14)."
+)
+
+def log_deprecation(endpoint: str, new_endpoint: str):
+    """Log deprecation warning for old endpoints"""
+    logger.warning(
+        f"DEPRECATED API CALL: {endpoint} -> Use {new_endpoint} instead. "
+        f"Old endpoint will be removed on 2025-10-14"
+    )
+
+@router.get("/runs")
+async def list_analysis_runs(
+    limit: int = 20,
+    offset: int = 0,
+    db: Session = Depends(get_session)
+) -> List[Dict[str, Any]]:
+    """Get list of recent analysis runs"""
+    log_deprecation("/api/analysis/runs", "/api/v1/analysis/runs")
+    try:
+        from app.repositories.analysis_run_repo import AnalysisRunRepo
+        runs = AnalysisRunRepo.get_recent_runs(limit=limit, offset=offset)
+
+        # Convert to response format
+        result = []
+        for run in runs:
+            result.append({
+                "id": run.id,
+                "status": run.status,
+                "scope": run.scope_json,
+                "params": run.params_json,
+                "created_at": run.created_at.isoformat() if run.created_at else None,
+                "started_at": run.started_at.isoformat() if run.started_at else None,
+                "completed_at": run.completed_at.isoformat() if run.completed_at else None,
+                "queued_count": run.queued_count,
+                "processed_count": run.processed_count,
+                "failed_count": run.failed_count,
+                "planned_count": run.planned_count,
+                "skipped_count": run.skipped_count,
+                "triggered_by": run.triggered_by
+            })
+
+        return result
+    except Exception as e:
+        logger.error(f"Error listing runs: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/runs/{run_id}")
 async def get_run_status(run_id: int, db: Session = Depends(get_session)) -> Dict[str, Any]:
     """Get status of a specific analysis run with skip statistics"""
+    log_deprecation("/api/analysis/runs/{run_id}", "/api/v1/analysis/runs/{run_id}")
     try:
         from sqlmodel import text
         query = text("""

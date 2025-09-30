@@ -64,7 +64,8 @@ async def templates_list(request: Request, session: Session = Depends(get_sessio
         # Parse JSON fields
         try:
             url_patterns = json.loads(template_row[4]) if template_row[4] else []
-        except:
+        except (json.JSONDecodeError, TypeError) as e:
+            logger.debug(f"Error parsing url_patterns for template {template_row[0]}: {e}")
             url_patterns = []
 
         # Create a dict with template data plus assignment info

@@ -24,6 +24,7 @@ from app.services.queue_processor import get_queue_processor
 from app.services.pending_analysis_processor import PendingAnalysisProcessor
 from app.domain.analysis.control import MODEL_PRICING
 from app.utils.feature_flags import feature_flags
+from app.services.error_recovery import get_error_recovery_service, CircuitBreakerConfig
 
 # Configure structured logging
 setup_logging(log_level="INFO")
@@ -39,6 +40,18 @@ class AnalysisWorker:
         self.pending_processor = None
         self.use_repository = False
         self.last_feature_flag_check = 0
+        self.error_recovery = get_error_recovery_service()
+
+        # Configure circuit breakers for different operations
+        self.db_breaker = self.error_recovery.get_circuit_breaker(
+            "worker_db",
+            CircuitBreakerConfig(
+                failure_threshold=10,
+                success_threshold=3,
+                timeout_seconds=30
+            )
+        )
+
         self._setup_signal_handlers()
         self._load_config()
 
@@ -189,13 +202,19 @@ class AnalysisWorker:
         logger.debug(f"Processing run {run_id} with status {status}")
 
         try:
-            # Start pending runs
+            # Start pending runs with error recovery
             if status == "pending":
-                if self.orchestrator.start_run(run):
-                    logger.info(f"Started run {run_id}")
-                    run["status"] = "running"  # Update local status
-                else:
-                    logger.warning(f"Failed to start run {run_id}")
+                try:
+                    # Use circuit breaker for database operations
+                    started = self.db_breaker.call(self.orchestrator.start_run, run)
+                    if started:
+                        logger.info(f"Started run {run_id}")
+                        run["status"] = "running"  # Update local status
+                    else:
+                        logger.warning(f"Failed to start run {run_id}")
+                        return False
+                except Exception as e:
+                    logger.error(f"Circuit breaker blocked or failed starting run {run_id}: {e}")
                     return False
 
             # Process items for running runs

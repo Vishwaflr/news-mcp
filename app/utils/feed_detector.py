@@ -137,16 +137,4 @@ class FeedTypeDetector:
         }
 
 # Test function for development
-if __name__ == "__main__":
-    # Test URL detection
-    test_urls = [
-        "https://www.heise.de/rss/heise-atom.xml",
-        "https://cointelegraph.com/rss",
-        "https://feeds.content.dowjones.io/public/rss/RSSMarketsMain",
-        "https://techcrunch.com/feed/",
-        "https://some-blog.medium.com/feed"
-    ]
-
-    for url in test_urls:
-        detected = FeedTypeDetector.detect_feed_type(url)
-        print(f"{url} -> {detected}")
+# Test code removed - use unit tests in tests/ directory instead

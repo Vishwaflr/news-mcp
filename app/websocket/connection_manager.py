@@ -156,7 +156,8 @@ class ConnectionManager:
                     client_id
                 )
                 return True
-            except:
+            except (ConnectionError, RuntimeError, AttributeError) as e:
+                logger.debug(f"Error sending heartbeat to client {client_id}: {e}")
                 self.disconnect(client_id)
                 return False
         return False

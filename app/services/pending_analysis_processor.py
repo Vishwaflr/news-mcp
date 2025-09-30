@@ -16,6 +16,7 @@ from app.models import PendingAutoAnalysis, Feed, Item
 from app.domain.analysis.control import RunScope, RunParams
 from app.services.domain.analysis_service import AnalysisService
 from app.dependencies import get_analysis_service
+from app.services.auto_analysis_config import auto_analysis_config
 
 logger = get_logger(__name__)
 
@@ -24,10 +25,11 @@ class PendingAnalysisProcessor:
     """Processes pending auto-analysis jobs from the queue"""
 
     def __init__(self):
-        self.max_daily_auto_runs_per_feed = 10
+        # Load from centralized config
+        self.max_daily_auto_runs_per_feed = auto_analysis_config.max_daily_runs
         self.max_age_hours = 24
         # NEW: Increased batch size for efficient processing with skip logic
-        self.batch_size = 50  # Was effectively 1 before (single job processing)
+        self.batch_size = auto_analysis_config.max_items_per_run
 
     async def process_pending_queue(self) -> int:
         """
@@ -134,8 +136,8 @@ class PendingAnalysisProcessor:
                 scope = RunScope(type="items", item_ids=valid_items)
                 params = RunParams(
                     limit=len(valid_items),
-                    rate_per_second=2.0,  # Slightly higher rate for batch processing
-                    model_tag="gpt-4.1-nano",
+                    rate_per_second=auto_analysis_config.rate_per_second,  # From config
+                    model_tag=auto_analysis_config.ai_model,  # From config
                     triggered_by="auto"
                 )
 

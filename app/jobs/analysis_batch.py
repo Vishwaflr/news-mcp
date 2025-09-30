@@ -164,19 +164,19 @@ def main():
         result = run_analysis_batch(limit=args.limit, dry_run=args.dry_run)
 
         if result["status"] == "success":
-            print(f"✓ Batch completed successfully:")
-            print(f"  Processed: {result['processed']}/{result['total_items']}")
-            print(f"  Errors: {result['errors']}")
-            print(f"  Duration: {result['duration_seconds']:.1f}s")
+            logger.info(f"✓ Batch completed successfully:")
+            logger.info(f"  Processed: {result['processed']}/{result['total_items']}")
+            logger.info(f"  Errors: {result['errors']}")
+            logger.info(f"  Duration: {result['duration_seconds']:.1f}s")
         else:
-            print(f"✗ Batch failed: {result.get('error', 'Unknown error')}")
+            logger.error(f"✗ Batch failed: {result.get('error', 'Unknown error')}")
             exit(1)
 
     except KeyboardInterrupt:
-        print("\n⚠ Batch interrupted by user")
+        logger.warning("\n⚠ Batch interrupted by user")
         exit(1)
     except Exception as e:
-        print(f"✗ Fatal error: {e}")
+        logger.error(f"✗ Fatal error: {e}")
         exit(1)
 
 if __name__ == "__main__":

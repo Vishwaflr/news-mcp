@@ -1,0 +1,1 @@
+"""API v1 Module - Consolidated and standardized API endpoints"""

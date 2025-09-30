@@ -100,7 +100,8 @@ class AutoAnalysisMonitor:
                     scope_data = json.loads(run.scope_json) if isinstance(run.scope_json, str) else run.scope_json
                     items = scope_data.get("item_ids", [])
                     metrics.items_analyzed_today += len(items)
-                except:
+                except (json.JSONDecodeError, KeyError, TypeError) as e:
+                    logger.debug(f"Error parsing run scope for metrics: {e}")
                     pass
 
                 # Calculate duration
@@ -182,7 +183,8 @@ class AutoAnalysisMonitor:
 
                         if run.completed_at and run.started_at:
                             total_duration += (run.completed_at - run.started_at).total_seconds()
-                except:
+                except (json.JSONDecodeError, KeyError, TypeError, AttributeError) as e:
+                    logger.debug(f"Error processing run for feed metrics: {e}")
                     continue
 
             last_run = max(feed_runs, key=lambda r: r.created_at) if feed_runs else None

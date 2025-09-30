@@ -185,8 +185,19 @@ class AnalysisRunManager:
             # Cancel all queued runs
             self._run_queue.clear()
 
-            # TODO: Signal running processes to stop gracefully
-            # This would require worker integration
+            # Signal running processes to stop gracefully
+            try:
+                active_runs = AnalysisControlRepo.get_active_runs()
+                for run in active_runs:
+                    # Update status to CANCELLED for all active runs
+                    AnalysisControlRepo.update_run_status(
+                        run.id,
+                        RunStatus.CANCELLED,
+                        error=f"Emergency stop: {reason}"
+                    )
+                    logger.info(f"Cancelled run {run.id} due to emergency stop")
+            except Exception as e:
+                logger.error(f"Error cancelling active runs: {e}")
 
             return {"success": True, "message": f"Emergency stop activated: {reason}"}
 

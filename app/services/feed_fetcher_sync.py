@@ -11,11 +11,25 @@ from sqlmodel import Session, select
 from app.models import Feed, Item, FetchLog, FeedHealth, FeedStatus, PendingAutoAnalysis
 from app.processors.manager import ContentProcessingManager
 from app.services.dynamic_template_manager import get_dynamic_template_manager
+from app.services.error_recovery import get_error_recovery_service, CircuitBreakerConfig
+import asyncio
 
 logger = get_logger(__name__)
 
 class SyncFeedFetcher:
     """Synchronous version of FeedFetcher for immediate fetch operations"""
+
+    def __init__(self):
+        self.error_recovery = get_error_recovery_service()
+        # Configure circuit breaker for feed fetching
+        self.fetch_breaker = self.error_recovery.get_circuit_breaker(
+            "feed_fetch",
+            CircuitBreakerConfig(
+                failure_threshold=5,  # Open after 5 failures
+                success_threshold=2,   # Close after 2 successes
+                timeout_seconds=120    # Try recovery after 2 minutes
+            )
+        )
 
     def fetch_feed_sync(self, feed_id: int) -> tuple[bool, int]:
         """
@@ -27,6 +41,15 @@ class SyncFeedFetcher:
         Returns:
             Tuple of (success: bool, items_count: int)
         """
+        try:
+            # Use circuit breaker for feed fetch
+            return self.fetch_breaker.call(self._fetch_feed_internal, feed_id)
+        except Exception as e:
+            logger.error(f"Feed fetch blocked by circuit breaker or failed: {e}")
+            return False, 0
+
+    def _fetch_feed_internal(self, feed_id: int) -> tuple[bool, int]:
+        """Internal fetch logic wrapped by circuit breaker"""
         try:
             from app.database import engine
 

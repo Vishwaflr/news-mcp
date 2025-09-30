@@ -26,24 +26,24 @@
                         <div class="col-md-4">
                             <h6>Daily Limits</h6>
                             <ul class="small">
-                                <li><span id="view-max-runs">10</span> Auto-Runs pro Feed/Tag</li>
-                                <li>Max <span id="view-max-items">50</span> Items pro Run</li>
+                                <li><span id="view-max-runs">{{ config.max_runs_per_day if config else 50 }}</span> Auto-Runs pro Feed/Tag</li>
+                                <li>Max <span id="view-max-items">{{ config.max_items_per_run if config else 100 }}</span> Items pro Run</li>
                                 <li>Job Expiry: 24 Stunden</li>
                             </ul>
                         </div>
                         <div class="col-md-4">
                             <h6>Model</h6>
                             <ul class="small">
-                                <li>Default: <span id="view-model">gpt-4.1-nano</span></li>
+                                <li>Default: <span id="view-model">{{ config.ai_model if config else 'gpt-4.1-nano' }}</span></li>
                                 <li>Cost-optimiert für Auto-Analyse</li>
-                                <li>Rate: 1.0 req/s</li>
+                                <li>Rate: {{ config.rate_per_second if config else 2.0 }} req/s</li>
                             </ul>
                         </div>
                         <div class="col-md-4">
                             <h6>Queue Processing</h6>
                             <ul class="small">
                                 <li>Worker: Analysis Worker</li>
-                                <li>Check Interval: <span id="view-interval">60</span>s</li>
+                                <li>Check Interval: <span id="view-interval">{{ config.check_interval if config else 60 }}</span>s</li>
                                 <li>Async Processing</li>
                             </ul>
                         </div>
@@ -56,11 +56,11 @@
                             <div class="col-md-4">
                                 <div class="mb-3">
                                     <label class="form-label small">Max Auto-Runs pro Feed/Tag</label>
-                                    <input type="number" class="form-control form-control-sm" name="max_runs_per_day" value="10" min="1" max="100">
+                                    <input type="number" class="form-control form-control-sm" name="max_runs_per_day" value="{{ config.max_runs_per_day if config else 50 }}" min="1" max="500">
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label small">Max Items pro Run</label>
-                                    <input type="number" class="form-control form-control-sm" name="max_items_per_run" value="50" min="10" max="500">
+                                    <input type="number" class="form-control form-control-sm" name="max_items_per_run" value="{{ config.max_items_per_run if config else 100 }}" min="10" max="500">
                                 </div>
                             </div>
                             <div class="col-md-4">
@@ -76,7 +76,7 @@
                             <div class="col-md-4">
                                 <div class="mb-3">
                                     <label class="form-label small">Check Interval (Sekunden)</label>
-                                    <input type="number" class="form-control form-control-sm" name="check_interval" value="60" min="30" max="300">
+                                    <input type="number" class="form-control form-control-sm" name="check_interval" value="{{ config.check_interval if config else 60 }}" min="30" max="300">
                                 </div>
                             </div>
                         </div>

@@ -3,18 +3,29 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from sqlmodel import Session
-from app.core.logging_config import get_logger
 
 from app.config import settings
 from app.database import create_db_and_tables, get_session
-from app.api import feeds, items, health, categories, sources, htmx, processors, statistics, database, analysis_control, user_settings, feature_flags_admin, templates as api_templates, scheduler, analysis_management, metrics, feed_limits, system, analysis_selection, auto_analysis_monitoring
+
+# API imports
+from app.api import (
+    feeds, items, health, categories, sources, htmx, processors,
+    statistics, database, analysis_control, user_settings,
+    feature_flags_admin, templates as api_templates, scheduler,
+    analysis_management, metrics, feed_limits, system,
+    analysis_selection, auto_analysis_monitoring,
+    feeds_simple, analysis_jobs, websocket_endpoint
+)
+from app.api.v1 import analysis as analysis_v1, health as health_v1
+
+# View imports
 from app.routes import templates as template_routes
 from app.web.views import analysis, auto_analysis_views, manager_views
 
-# Import monitoring and error handling components
+# Core imports
 from app.core.logging_config import setup_logging, get_logger
 from app.core.error_handlers import register_exception_handlers
-from app.core.health import register_default_health_checks
+from app.core.health import create_health_router, register_default_health_checks
 
 # Setup structured logging
 setup_logging(log_level=settings.log_level)
@@ -99,11 +110,12 @@ register_exception_handlers(app)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
+# Include new v1 API first (takes precedence)
+app.include_router(analysis_v1.router)
+app.include_router(health_v1.router)
+
 app.include_router(feeds.router, prefix="/api")
 app.include_router(items.router, prefix="/api")
-
-# Simple feeds endpoint for UI
-from app.api import feeds_simple
 app.include_router(feeds_simple.router)
 app.include_router(health.router, prefix="/api")
 app.include_router(categories.router, prefix="/api")
@@ -120,10 +132,7 @@ app.include_router(analysis.router)
 app.include_router(auto_analysis_views.router, prefix="/htmx")
 app.include_router(manager_views.router)
 
-# Job-based analysis system
-from app.api import analysis_jobs, websocket_endpoint
 app.include_router(analysis_jobs.router, prefix="/api")
-# WebSocket endpoint for real-time updates
 app.include_router(websocket_endpoint.router)
 # MCP v2 API endpoints
 app.include_router(api_templates.router, prefix="/api")
@@ -135,8 +144,6 @@ app.include_router(system.router, prefix="/api")
 app.include_router(analysis_selection.router)
 app.include_router(auto_analysis_monitoring.router)
 
-# Include monitoring routers (schrittweise aktiviert)
-from app.core.health import create_health_router
 app.include_router(create_health_router())
 # app.include_router(create_metrics_router())  # Als nächstes
 # app.include_router(create_tracing_router())
@@ -201,7 +208,12 @@ async def admin_analysis(request: Request):
 
 @app.get("/admin/auto-analysis", response_class=HTMLResponse)
 async def admin_auto_analysis(request: Request):
-    return templates.TemplateResponse("auto_analysis.html", {"request": request})
+    from app.services.auto_analysis_config import auto_analysis_config
+    config = auto_analysis_config.get_all()
+    return templates.TemplateResponse("auto_analysis.html", {
+        "request": request,
+        "config": config
+    })
 
 @app.get("/admin/manager", response_class=HTMLResponse)
 async def admin_manager(request: Request):

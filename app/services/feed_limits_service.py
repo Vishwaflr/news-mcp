@@ -11,7 +11,6 @@ from app.core.logging_config import get_logger
 from app.database import engine
 from app.models.feed_limits import FeedLimit, FeedViolation
 from app.models.feed_metrics import FeedMetrics
-# from app.models.analysis import AnalysisRun  # TODO: Re-enable when feed_id field is added
 
 logger = get_logger(__name__)
 
@@ -165,49 +164,59 @@ class FeedLimitsService:
                         )
                         return False, f"Daily analysis limit reached ({limits.max_analyses_per_day})"
 
-                # Check hourly analysis limit
-                # NOTE: Temporarily disabled - AnalysisRun doesn't have feed_id field
-                # TODO: Implement via FeedMetrics or join with items
-                # if limits.max_analyses_per_hour:
-                #     hour_ago = now - timedelta(hours=1)
-                #     recent_analyses = session.exec(
-                #         select(func.count(AnalysisRun.id)).where(
-                #             AnalysisRun.feed_id == feed_id,
-                #             AnalysisRun.created_at >= hour_ago
-                #         )
-                #     ).first()
-                #
-                #     if recent_analyses and recent_analyses >= limits.max_analyses_per_hour:
-                #         self._record_violation(
-                #             feed_id,
-                #             ViolationType.FREQUENCY_LIMIT,
-                #             limits.max_analyses_per_hour,
-                #             recent_analyses + 1,
-                #             ActionType.QUEUE_BLOCKED
-                #         )
-                #         return False, f"Hourly analysis limit reached ({limits.max_analyses_per_hour})"
+                # Check hourly analysis limit using join with items
+                if limits.max_analyses_per_hour:
+                    from app.models.analysis import AnalysisRun, AnalysisRunItem
+                    from app.models.core import Item
 
-                # Check minimum interval
-                # NOTE: Temporarily disabled - AnalysisRun doesn't have feed_id field
-                # TODO: Implement via FeedMetrics or join with items
-                # if limits.min_interval_minutes:
-                #     interval_ago = now - timedelta(minutes=limits.min_interval_minutes)
-                #     recent_analysis = session.exec(
-                #         select(AnalysisRun).where(
-                #             AnalysisRun.feed_id == feed_id,
-                #             AnalysisRun.created_at >= interval_ago
-                #         ).order_by(AnalysisRun.created_at.desc())
-                #     ).first()
-                #
-                #     if recent_analysis:
-                #         self._record_violation(
-                #             feed_id,
-                #             ViolationType.INTERVAL_LIMIT,
-                #             limits.min_interval_minutes,
-                #             (now - recent_analysis.created_at).total_seconds() / 60,
-                #             ActionType.QUEUE_BLOCKED
-                #         )
-                #         return False, f"Minimum interval not met ({limits.min_interval_minutes} minutes)"
+                    hour_ago = now - timedelta(hours=1)
+                    recent_analyses = session.exec(
+                        select(func.count(func.distinct(AnalysisRun.id)))
+                        .select_from(AnalysisRun)
+                        .join(AnalysisRunItem, AnalysisRunItem.run_id == AnalysisRun.id)
+                        .join(Item, Item.id == AnalysisRunItem.item_id)
+                        .where(
+                            Item.feed_id == feed_id,
+                            AnalysisRun.created_at >= hour_ago
+                        )
+                    ).first()
+
+                    if recent_analyses and recent_analyses >= limits.max_analyses_per_hour:
+                        self._record_violation(
+                            feed_id,
+                            ViolationType.FREQUENCY_LIMIT,
+                            limits.max_analyses_per_hour,
+                            recent_analyses + 1,
+                            ActionType.QUEUE_BLOCKED
+                        )
+                        return False, f"Hourly analysis limit reached ({limits.max_analyses_per_hour})"
+
+                # Check minimum interval using join with items
+                if limits.min_interval_minutes:
+                    from app.models.analysis import AnalysisRun, AnalysisRunItem
+                    from app.models.core import Item
+
+                    interval_ago = now - timedelta(minutes=limits.min_interval_minutes)
+                    recent_analysis = session.exec(
+                        select(AnalysisRun)
+                        .join(AnalysisRunItem, AnalysisRunItem.run_id == AnalysisRun.id)
+                        .join(Item, Item.id == AnalysisRunItem.item_id)
+                        .where(
+                            Item.feed_id == feed_id,
+                            AnalysisRun.created_at >= interval_ago
+                        )
+                        .order_by(AnalysisRun.created_at.desc())
+                    ).first()
+
+                    if recent_analysis:
+                        self._record_violation(
+                            feed_id,
+                            ViolationType.INTERVAL_LIMIT,
+                            limits.min_interval_minutes,
+                            (now - recent_analysis.created_at).total_seconds() / 60,
+                            ActionType.QUEUE_BLOCKED
+                        )
+                        return False, f"Minimum interval not met (requires {limits.min_interval_minutes} minutes)"
 
                 # Check items per analysis limit
                 if limits.max_items_per_analysis and items_count > limits.max_items_per_analysis:

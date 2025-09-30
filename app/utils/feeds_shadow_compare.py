@@ -331,7 +331,7 @@ class FeedsShadowComparer:
                         # Allow 1 second difference for datetime fields
                         if abs((legacy_dt - repo_dt).total_seconds()) > 1:
                             differences.append(f"Field {field}: legacy={legacy_val}, repo={repo_val}")
-                    except:
+                    except (ValueError, AttributeError, TypeError) as e:
                         # If datetime parsing fails, compare as strings
                         if str(legacy_val) != str(repo_val):
                             differences.append(f"Field {field}: legacy={legacy_val}, repo={repo_val}")

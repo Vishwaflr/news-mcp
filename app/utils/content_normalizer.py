@@ -331,15 +331,4 @@ class ContentNormalizer:
             return 'en'  # Default to English
 
 # Test function
-if __name__ == "__main__":
-    # Test normalization
-    test_text = "&quot;Hello&quot; &amp; welcome to the &#8220;test&#8221; ... it&#39;s great!"
-    normalized = ContentNormalizer.normalize_text(test_text)
-    print(f"Original: {test_text}")
-    print(f"Normalized: {normalized}")
-
-    # Test URL normalization
-    test_url = "https://example.com/article?utm_source=google&utm_campaign=test&id=123#section"
-    normalized_url = ContentNormalizer.normalize_url(test_url)
-    print(f"URL Original: {test_url}")
-    print(f"URL Normalized: {normalized_url}")
+# Test code removed - use unit tests in tests/ directory instead

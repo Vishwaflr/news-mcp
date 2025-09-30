@@ -15,6 +15,7 @@ from app.domain.analysis.control import RunScope, RunParams
 from app.services.domain.analysis_service import AnalysisService
 from app.dependencies import get_analysis_service
 from app.utils.feature_flags import feature_flags, FeatureFlagStatus
+from app.services.auto_analysis_config import auto_analysis_config
 
 logger = get_logger(__name__)
 
@@ -22,8 +23,9 @@ class AutoAnalysisService:
     """Service for handling automatic analysis triggering"""
 
     def __init__(self):
-        self.max_items_per_run = 50  # Limit to prevent excessive costs
-        self.max_daily_auto_runs_per_feed = 10  # Daily limit per feed
+        # Load from centralized config
+        self.max_items_per_run = auto_analysis_config.max_items_per_run
+        self.max_daily_auto_runs_per_feed = auto_analysis_config.max_daily_runs
 
     async def trigger_feed_auto_analysis(self, feed_id: int, new_item_ids: List[int]) -> Optional[dict]:
         """
@@ -70,8 +72,8 @@ class AutoAnalysisService:
                 scope = RunScope(type="items", item_ids=items_to_analyze)
                 params = RunParams(
                     limit=len(items_to_analyze),
-                    rate_per_second=3.0,  # Increased for better throughput with 5 concurrent runs
-                    model_tag="gpt-4.1-nano",  # Use cheaper model for auto-analysis
+                    rate_per_second=auto_analysis_config.rate_per_second,  # From config
+                    model_tag=auto_analysis_config.ai_model,  # From config
                     triggered_by="auto"  # Mark this as auto-triggered
                 )
 
@@ -161,7 +163,8 @@ class AutoAnalysisService:
                     run_item_ids = set(scope_data.get('item_ids', []))
                     if run_item_ids.intersection(feed_item_ids):
                         feed_auto_runs.append(run)
-                except:
+                except (json.JSONDecodeError, KeyError, TypeError) as e:
+                    logger.debug(f"Error parsing run scope for run {run.id}: {e}")
                     continue
 
             runs_count = len(feed_auto_runs)
@@ -251,7 +254,8 @@ class AutoAnalysisService:
                         run_item_ids = set(scope_data.get('item_ids', []))
                         if run_item_ids.intersection(feed_item_ids):
                             feed_runs.append(run)
-                    except:
+                    except (json.JSONDecodeError, KeyError, TypeError) as e:
+                        logger.debug(f"Error parsing run scope for stats: {e}")
                         continue
 
                 return {

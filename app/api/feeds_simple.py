@@ -4,8 +4,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from app.database import get_session
 from app.models.core import Feed
+from app.core.logging_config import get_logger
 
 router = APIRouter(prefix="/api/feeds-simple", tags=["feeds-simple"])
+logger = get_logger(__name__)
 
 @router.get("/list")
 async def get_feeds_list(db: Session = Depends(get_session)):
@@ -26,6 +28,6 @@ async def get_feeds_list(db: Session = Depends(get_session)):
             for feed in feeds
         ]
     except Exception as e:
-        print(f"Error loading feeds: {e}")
+        logger.error(f"Error loading feeds: {e}")
         # Return empty array on error
         return []

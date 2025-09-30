@@ -246,7 +246,7 @@ function analysisControl() {
                 console.log('Making API call with:', { scope, params });
 
                 // Call the preview API
-                const response = await fetch('/api/analysis/preview', {
+                const response = await fetch('/api/v1/analysis/preview', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -486,7 +486,7 @@ function analysisControl() {
 
                 // Show loading state
                 this.loading = true;
-                const response = await fetch('/api/analysis/start', {
+                const response = await fetch('/api/v1/analysis/runs', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -521,7 +521,7 @@ function analysisControl() {
 
         async loadDefaultParams() {
             try {
-                const response = await fetch('/api/analysis/presets?default=true');
+                const response = await fetch('/api/v1/analysis/presets?default=true');
                 if (response.ok) {
                     const presets = await response.json();
                     const defaultPreset = presets.find(p => p.is_default);
@@ -545,7 +545,7 @@ function analysisControl() {
                     is_default: true
                 };
 
-                const response = await fetch('/api/analysis/presets', {
+                const response = await fetch('/api/v1/analysis/presets', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(preset)
@@ -564,7 +564,7 @@ function analysisControl() {
 
         async refreshActiveRuns() {
             try {
-                const response = await fetch('/api/analysis/runs?active_only=true');
+                const response = await fetch('/api/v1/analysis/runs?active_only=true');
                 if (response.ok) {
                     const activeRuns = await response.json();
                     // Update active runs display via HTMX - only if element exists

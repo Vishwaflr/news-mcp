@@ -103,6 +103,26 @@ class CostEstimatorService:
             }
         }
 
+    def estimate_cost(self, item_count: int, model_tag: str = "gpt-4.1-nano") -> float:
+        """Simple cost estimation method for compatibility"""
+        # Average tokens per item (simplified)
+        avg_tokens_per_item = 500
+        total_tokens = item_count * avg_tokens_per_item
+
+        # Use simplified pricing (input tokens primarily)
+        if model_tag in self.MODEL_PRICING:
+            pricing = self.MODEL_PRICING[model_tag]
+            # Estimate 80% input, 20% output for typical analysis
+            input_tokens = int(total_tokens * 0.8)
+            output_tokens = int(total_tokens * 0.2)
+
+            input_cost = (input_tokens / 1000) * pricing["input"]
+            output_cost = (output_tokens / 1000) * pricing["output"]
+            return round(input_cost + output_cost, 4)
+        else:
+            # Fallback pricing for unknown models
+            return round(item_count * 0.001, 4)  # $0.001 per item default
+
     def estimate_analysis_cost(self, model: str, article_count: int,
                               avg_article_length: int = 1000) -> Dict[str, Any]:
         """Estimate total cost for analyzing a batch of articles"""

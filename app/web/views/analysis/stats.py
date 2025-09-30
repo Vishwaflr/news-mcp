@@ -18,22 +18,26 @@ async def get_stats_horizontal(db: Session = Depends(get_session)):
     try:
         try:
             total_items = db.execute(text("SELECT COUNT(*) FROM items")).scalar() or 0
-        except:
+        except Exception as e:
+            logger.warning(f"Error getting total items count: {e}")
             total_items = 0
 
         try:
             analyzed_items = db.execute(text("SELECT COUNT(DISTINCT item_id) FROM item_analysis WHERE item_id IS NOT NULL")).scalar() or 0
-        except:
+        except Exception as e:
+            logger.warning(f"Error getting analyzed items count: {e}")
             analyzed_items = 0
 
         try:
             active_feeds = db.execute(text("SELECT COUNT(*) FROM feeds WHERE status = 'ACTIVE'")).scalar() or 0
-        except:
+        except Exception as e:
+            logger.warning(f"Error getting active feeds count: {e}")
             active_feeds = 0
 
         try:
             active_runs = db.execute(text("SELECT COUNT(*) FROM analysis_runs WHERE status = 'running'")).scalar() or 0
-        except:
+        except Exception as e:
+            logger.warning(f"Error getting active runs count: {e}")
             active_runs = 0
 
         stats = (total_items, analyzed_items, active_feeds, active_runs)

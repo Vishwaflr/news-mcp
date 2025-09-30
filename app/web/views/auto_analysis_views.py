@@ -10,17 +10,11 @@ from datetime import datetime, timedelta
 from app.database import get_session, engine
 from app.models import Feed, PendingAutoAnalysis
 from app.services.pending_analysis_processor import PendingAnalysisProcessor
+from app.services.auto_analysis_config import auto_analysis_config
 
 router = APIRouter(tags=["htmx-auto-analysis"])
 logger = get_logger(__name__)
 templates = Jinja2Templates(directory="templates")
-
-auto_analysis_config = {
-    "max_runs_per_day": 10,
-    "max_items_per_run": 50,
-    "ai_model": "gpt-4.1-nano",
-    "check_interval": 60
-}
 
 
 @router.get("/auto-analysis-dashboard", response_class=HTMLResponse)
@@ -200,12 +194,25 @@ def update_auto_analysis_config(
 ):
     """Update auto-analysis configuration"""
     try:
-        auto_analysis_config["max_runs_per_day"] = max_runs_per_day
-        auto_analysis_config["max_items_per_run"] = max_items_per_run
-        auto_analysis_config["ai_model"] = ai_model
-        auto_analysis_config["check_interval"] = check_interval
+        # Update and save to persistent storage
+        config_updates = {
+            "max_runs_per_day": max_runs_per_day,
+            "max_items_per_run": max_items_per_run,
+            "ai_model": ai_model,
+            "check_interval": check_interval
+        }
 
-        logger.info(f"Updated auto-analysis config: {auto_analysis_config}")
+        success = auto_analysis_config.update(config_updates)
+
+        if not success:
+            logger.error("Failed to save auto-analysis config")
+            return HTMLResponse("""
+                <div class="alert alert-danger">
+                    <i class="bi bi-x-circle"></i> Failed to save configuration. Please check logs.
+                </div>
+            """)
+
+        logger.info(f"Updated and saved auto-analysis config: {config_updates}")
 
         html = f"""
         <div id="config-view" class="row">
@@ -253,12 +260,7 @@ def update_auto_analysis_config(
 @router.get("/auto-analysis-config", response_class=HTMLResponse)
 def get_auto_analysis_config():
     """Get current auto-analysis configuration"""
-    return {
-        "max_runs_per_day": auto_analysis_config["max_runs_per_day"],
-        "max_items_per_run": auto_analysis_config["max_items_per_run"],
-        "ai_model": auto_analysis_config["ai_model"],
-        "check_interval": auto_analysis_config["check_interval"]
-    }
+    return auto_analysis_config.get_all()
 
 
 @router.get("/analysis/run-stats/{run_id}")

@@ -82,8 +82,7 @@ class FeedService(BaseService[Feed, FeedCreate, FeedUpdate]):
                 self._assign_categories(feed.id, create_data.category_ids)
 
             # Track the change
-            # TODO: Fix change tracking - for now just log
-            logger.info(f"Created feed {feed.id} with URL: {create_data.url}")
+            FeedChangeTracker.log_feed_created(feed, created_by='system')
 
             # Trigger initial fetch
             self._trigger_initial_fetch(feed.id)
@@ -134,8 +133,8 @@ class FeedService(BaseService[Feed, FeedCreate, FeedUpdate]):
                     changes[field] = {"from": original_value, "to": current_value}
 
             if changes:
-                # TODO: Fix change tracking - for now just log
-                logger.info(f"Updated feed {feed_id} with changes: {changes}")
+                # Track the change with FeedChangeTracker
+                FeedChangeTracker.log_feed_updated(feed, original_values, updated_by='system')
 
             logger.info(f"Updated feed {feed_id}: {changes}")
             return ServiceResult.ok(feed)
@@ -154,10 +153,10 @@ class FeedService(BaseService[Feed, FeedCreate, FeedUpdate]):
 
             # Store feed info for logging before deletion
             feed_title = feed.title or feed.url
+            feed_data = FeedChangeTracker._feed_to_dict(feed)
 
             # Track the change before deletion (when relationships still exist)
-            # TODO: Fix change tracking - for now just log
-            logger.info(f"Preparing to delete feed {feed_id}: {feed_title}")
+            FeedChangeTracker.log_feed_deleted(feed_id, feed_data, deleted_by='system')
 
             # Delete related data in the correct order to avoid foreign key constraints
 

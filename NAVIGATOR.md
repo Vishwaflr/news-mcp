@@ -1,9 +1,9 @@
 # NAVIGATOR.md – News-MCP System-Navigator
 
 **Zweck:** Zentrale Orientierung für strukturierte Entwicklung
-**Version:** 3.1.0
+**Version:** 3.2.0
 **Stand:** 2025-09-30
-**Aktueller Fokus:** Phase 2 Abgeschlossen - Auto-Analysis läuft produktiv (100% Rollout, 9 Feeds)
+**Aktueller Fokus:** Phase 3 - Error Recovery Mechanisms ✅ ABGESCHLOSSEN
 
 ---
 
@@ -46,6 +46,8 @@
 | **Infrastructure** | | |
 | Database Layer | `app/database.py` | ✅ SQLModel/Alembic |
 | Health Checks | `app/core/health.py` | ✅ K8s-ready |
+| Error Recovery | `app/services/error_recovery.py` | ✅ **NEU: Circuit Breaker** |
+| Circuit Breaker API | `app/api/v1/health.py` | ✅ **NEU: Monitoring** |
 | Feature Flags | `app/api/feature_flags_admin.py` | ✅ A/B Testing |
 | Metrics | `app/api/metrics.py` | ✅ Monitoring |
 | | | |
@@ -210,6 +212,27 @@
 
 ### ✅ Phase 2: Auto-Analysis (ABGESCHLOSSEN)
 
+### ✅ Phase 2.5: Code Refactoring & Optimierung (ABGESCHLOSSEN)
+
+#### Task 2.1: API Consolidation ✅
+- [x] Alle Feed API Endpoints auf v1 migriert
+- [x] Article API auf v1 migriert
+- [x] Analysis API auf v1 migriert
+- [x] Template API auf v1 migriert
+- [x] Frontend auf neue v1 Endpoints umgestellt
+
+#### Task 2.2: Large File Refactoring ✅
+- [x] analysis_control.py refaktoriert (765 → 98 Zeilen, 3 Module)
+- [x] processor_components.py refaktoriert (667 → 29 Zeilen, 3 Module)
+- [x] feed_components.py: Refactoring zurückgerollt (UI-Kompatibilität)
+
+#### Task 2.3: Cleanup ✅
+- [x] Alte API-Dateien entfernen (analysis_worker_api.py entfernt)
+- [x] Nicht genutzte Imports bereinigen
+- [x] Code-Dokumentation aktualisieren (ARCHITECTURE.md, API_DOCUMENTATION.md erstellt)
+
+### Phase 3: Erweiterte Features (Geplant)
+
 #### ✅ Sprint 1: Core Implementation
 - [x] Tabelle `pending_auto_analysis` erstellt
 - [x] Auto-Analysis Service implementieren
@@ -270,7 +293,30 @@
 
 ---
 
-### 📋 Phase 3: Advanced Features (Q4 2025)
+### ✅ Phase 3: Error Recovery Mechanisms (ABGESCHLOSSEN)
+
+#### Erreichte Ziele:
+- [x] **Circuit Breaker Pattern** implementiert
+  - Automatische Fehlererkennung
+  - Service-Isolation bei Ausfällen
+  - Graduelle Recovery-Tests
+  - Manuelle Reset-Möglichkeit
+- [x] **Retry-Strategien** mit Exponential Backoff
+  - Smart Retry mit Jitter
+  - Konfigurierbare Versuche
+  - Fehlertyp-spezifische Recovery
+- [x] **Monitoring Endpoints** für Circuit Breaker
+  - `/api/v1/health/circuit-breakers` - Status-Übersicht
+  - `/api/v1/health/error-stats` - Fehlerstatistiken
+  - Reset-Funktionalität für manuelle Eingriffe
+- [x] **Integration** in kritische Komponenten
+  - Analysis Orchestrator (OpenAI Calls)
+  - Feed Fetcher (RSS Fetching)
+  - Analysis Worker (Database Operations)
+- [x] **Umfassende Tests** (27 Tests, alle bestanden)
+- [x] **Dokumentation** aktualisiert
+
+### 📋 Phase 4: Advanced Features (Q4 2025)
 - [ ] Smart Scheduling
   - [ ] Adaptive Intervals basierend auf Feed Activity
   - [ ] Priority Queues
@@ -286,7 +332,7 @@
 
 ---
 
-### 📋 Phase 4: Optimization (2026)
+### 📋 Phase 5: Optimization (2026)
 - [ ] Performance Optimizations
   - [ ] Caching Layer (Redis)
   - [ ] Database Partitioning

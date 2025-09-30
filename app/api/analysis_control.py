@@ -1,7 +1,8 @@
 from fastapi import APIRouter, HTTPException, Query, Body, Depends
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from typing import List, Optional
 from app.core.logging_config import get_logger
+import warnings
 
 from app.domain.analysis.control import (
     RunScope, RunParams, RunPreview, AnalysisRun, AnalysisPreset,
@@ -15,7 +16,21 @@ from app.services.cost_estimator import get_cost_estimator
 router = APIRouter(prefix="/analysis", tags=["analysis-control"])
 logger = get_logger(__name__)
 
+# Log deprecation warning
+logger.warning(
+    "DEPRECATED: /api/analysis/* endpoints are deprecated. "
+    "Please migrate to /api/v1/analysis/* endpoints. "
+    "These old endpoints will be removed in 2 weeks (2025-10-14)."
+)
+
 # Updated limit to 1000 articles - forced reload
+
+def log_deprecation(endpoint: str, new_endpoint: str):
+    """Log deprecation warning for old endpoints"""
+    logger.warning(
+        f"DEPRECATED API CALL: {endpoint} -> Use {new_endpoint} instead. "
+        f"Old endpoint will be removed on 2025-10-14"
+    )
 
 @router.post("/preview")
 async def preview_run(
@@ -25,6 +40,8 @@ async def preview_run(
     analysis_service: AnalysisService = Depends(get_analysis_service)
 ) -> RunPreview:
     """Preview what a run would analyze - supports both new and legacy formats"""
+
+    log_deprecation("/api/analysis/preview", "/api/v1/analysis/preview")
 
     # Handle legacy format with just item_ids
     if item_ids is not None and scope is None:
@@ -51,6 +68,8 @@ async def start_run(
     analysis_service: AnalysisService = Depends(get_analysis_service)
 ) -> AnalysisRun:
     """Start a new analysis run (supports both direct and job-based starts)"""
+
+    log_deprecation("/api/analysis/start", "/api/v1/analysis/runs")
 
     # If job_id is provided, get config from job service
     if job_id:

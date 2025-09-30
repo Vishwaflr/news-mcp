@@ -40,9 +40,17 @@ class RunScope(BaseModel):
     # Article-based scope (specific articles selection)
     article_ids: List[int] = Field(default_factory=list)
 
+    # Category-based scope
+    category_ids: List[int] = Field(default_factory=list)
+
     # Time-based scope
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
+    hours: Optional[int] = None  # Used for relative time ranges
+
+    # Additional filters
+    limit: Optional[int] = None
+    feed_status: Optional[str] = None
 
     # Filters
     unanalyzed_only: bool = True
