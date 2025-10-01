@@ -71,7 +71,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 
 app = FastAPI(
     title="News MCP API",
-    version="3.1.0",
+    version="4.0.0",
     docs_url="/docs",
     redoc_url="/redoc"
 )
@@ -824,4 +824,4 @@ async def process_analysis(run_id: int):
 ---
 
 **Last Updated:** September 2025
-**Architecture Version:** v3.1.0
+**Architecture Version:** v4.0.0

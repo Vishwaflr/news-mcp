@@ -54,7 +54,7 @@ app = FastAPI(
     - **Alembic Migrations**: Schema-first with drop protection
     - **Health Monitoring**: Comprehensive system health checks
     """,
-    version="3.0.0-repository-migration",
+    version="4.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",

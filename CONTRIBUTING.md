@@ -830,5 +830,5 @@ Your contributions help make enterprise RSS management and AI analysis accessibl
 ---
 
 **Last Updated**: 2025-09-24
-**Version**: v3.0.0-repository-migration
+**Version**: v4.0.0
 **Contributors**: See [CONTRIBUTORS.md](./CONTRIBUTORS.md)
