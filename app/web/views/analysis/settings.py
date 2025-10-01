@@ -2,7 +2,8 @@
 Analysis settings endpoints - Form and SLO
 """
 
-from fastapi import APIRouter, Depends
+import fastapi
+from fastapi import APIRouter, Depends, Form
 from fastapi.responses import HTMLResponse
 from sqlmodel import Session, text
 from app.database import get_session
@@ -231,5 +232,95 @@ async def get_settings_slo(db: Session = Depends(get_session)):
         <div class="alert alert-danger">
             <i class="bi bi-exclamation-triangle me-2"></i>
             Error loading SLO metrics.
+        </div>
+        """)
+
+
+@router.post("/analysis-config", response_class=HTMLResponse)
+async def save_analysis_config(
+    max_concurrent_runs: int = Form(...),
+    max_daily_runs: int = Form(...),
+    max_hourly_runs: int = Form(...),
+    analysis_batch_limit: int = Form(...),
+    analysis_rps: float = Form(...),
+    analysis_model: str = Form(...)
+):
+    """Save analysis configuration via HTMX"""
+    from app.config import settings
+    import os
+
+    try:
+        # Update runtime settings
+        settings.max_concurrent_runs = max_concurrent_runs
+        settings.max_daily_runs = max_daily_runs
+        settings.max_hourly_runs = max_hourly_runs
+        settings.analysis_batch_limit = analysis_batch_limit
+        settings.analysis_rps = analysis_rps
+        settings.analysis_model = analysis_model
+
+        # Update .env file
+        env_path = os.path.join(os.getcwd(), ".env")
+        env_vars = {}
+
+        # Read existing .env
+        if os.path.exists(env_path):
+            with open(env_path, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#') and '=' in line:
+                        key, value = line.split('=', 1)
+                        env_vars[key.strip()] = value.strip()
+
+        # Update values
+        env_vars["MAX_CONCURRENT_RUNS"] = str(max_concurrent_runs)
+        env_vars["MAX_DAILY_RUNS"] = str(max_daily_runs)
+        env_vars["MAX_HOURLY_RUNS"] = str(max_hourly_runs)
+        env_vars["ANALYSIS_BATCH_LIMIT"] = str(analysis_batch_limit)
+        env_vars["ANALYSIS_RPS"] = str(analysis_rps)
+        env_vars["ANALYSIS_MODEL"] = analysis_model
+
+        # Write back to .env
+        with open(env_path, 'w') as f:
+            for key, value in sorted(env_vars.items()):
+                f.write(f"{key}={value}\n")
+
+        logger.info(f"Updated analysis config: concurrent={max_concurrent_runs}, daily={max_daily_runs}, hourly={max_hourly_runs}")
+
+        # Return updated view
+        return HTMLResponse(f"""
+        <div id="analysis-config-view" class="row small">
+            <div class="col-md-3">
+                <strong>Concurrent:</strong> <span id="view-max-concurrent">{max_concurrent_runs}</span>
+            </div>
+            <div class="col-md-3">
+                <strong>Daily Limit:</strong> <span id="view-max-daily">{max_daily_runs}</span>
+            </div>
+            <div class="col-md-3">
+                <strong>Hourly Limit:</strong> <span id="view-max-hourly">{max_hourly_runs}</span>
+            </div>
+            <div class="col-md-3">
+                <strong>Batch Size:</strong> <span id="view-batch-limit">{analysis_batch_limit}</span>
+            </div>
+        </div>
+        <script>
+            // Hide form and show view
+            document.getElementById('analysis-config-edit').style.display = 'none';
+            document.getElementById('analysis-config-view').parentElement.querySelector('#analysis-config-view').style.display = 'block';
+
+            // Show success toast
+            const toast = document.createElement('div');
+            toast.className = 'alert alert-success position-fixed top-0 end-0 m-3';
+            toast.style.zIndex = '9999';
+            toast.innerHTML = '<i class="bi bi-check-circle me-2"></i>Configuration saved successfully!';
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        </script>
+        """)
+    except Exception as e:
+        logger.error(f"Error saving analysis config: {e}")
+        return HTMLResponse(f"""
+        <div class="alert alert-danger">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            Error saving configuration: {str(e)}
         </div>
         """)

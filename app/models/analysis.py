@@ -12,18 +12,15 @@ class ItemAnalysis(SQLModel, table=True):
     """AI analysis results for news items."""
     __tablename__ = "item_analysis"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
-    item_id: int = Field(foreign_key="items.id", unique=True)
-    sentiment_score: Optional[float] = None
-    sentiment_label: Optional[str] = Field(index=True)
-    impact_score: Optional[float] = None
-    urgency_score: Optional[int] = Field(index=True)
-    relevance_score: Optional[float] = None
-    impact_overall: Optional[int] = Field(index=True)
+    # FIXED: item_id is the PRIMARY KEY (not id)
+    # Database schema: item_analysis.item_id is PRIMARY KEY
+    item_id: int = Field(foreign_key="items.id", primary_key=True)
+
+    # FIXED: Actual DB schema uses JSONB fields (not individual columns)
+    sentiment_json: dict = Field(default={}, sa_column=Column(JSON))
+    impact_json: dict = Field(default={}, sa_column=Column(JSON))
     model_tag: Optional[str] = None
-    raw_analysis_data: Optional[dict] = Field(sa_column=Column(JSON))
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: Optional[datetime] = Field(index=True)
+    updated_at: datetime = Field(default_factory=datetime.utcnow, index=True)
 
 
 class AnalysisRun(SQLModel, table=True):

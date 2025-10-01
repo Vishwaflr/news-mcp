@@ -164,11 +164,14 @@ OPENAI_API_KEY=your_openai_api_key_here
 ENVIRONMENT=development
 LOG_LEVEL=INFO
 
-# Auto-Analysis Configuration
-MAX_CONCURRENT_RUNS=5
-MAX_DAILY_RUNS=100
-MAX_DAILY_AUTO_RUNS=500
+# Auto-Analysis Configuration (Production Values)
+MAX_CONCURRENT_RUNS=6
+MAX_DAILY_RUNS=300
+MAX_DAILY_AUTO_RUNS=1000
+MAX_HOURLY_RUNS=50
 AUTO_ANALYSIS_RATE_PER_SECOND=3.0
+ANALYSIS_BATCH_LIMIT=200
+ANALYSIS_RPS=1.5
 ```
 
 ### Configuration Files
@@ -560,20 +563,24 @@ alembic current
 
 ### Current Metrics
 
-- **Feeds**: 37 active feeds
-- **Articles**: 11,000+ items
-- **Analysis Runs**: 75+ completed
-- **Concurrent Processing**: 5 simultaneous runs
+- **Feeds**: 41 active feeds
+- **Articles**: 16,843 items
+- **Analysis Runs**: 813 completed
+- **Analyzed Items**: 6,137 items processed
+- **Concurrent Processing**: 6 simultaneous runs
 - **OpenAI Rate**: 3.0 requests/second
-- **Auto-Analysis**: 9 feeds with automatic analysis
+- **Auto-Analysis**: 13 feeds with automatic analysis enabled
+- **Success Rate**: >95% (production-tested)
 
 ### Limits
 
 ```bash
-MAX_CONCURRENT_RUNS=5       # Simultaneous analysis runs
-MAX_DAILY_RUNS=100          # Manual analysis runs per day
-MAX_DAILY_AUTO_RUNS=500     # Auto-analysis runs per day
-MAX_HOURLY_RUNS=10          # Runs per hour (all types)
+MAX_CONCURRENT_RUNS=6       # Simultaneous analysis runs
+MAX_DAILY_RUNS=300          # Manual analysis runs per day
+MAX_DAILY_AUTO_RUNS=1000    # Auto-analysis runs per day
+MAX_HOURLY_RUNS=50          # Runs per hour (all types)
+ANALYSIS_BATCH_LIMIT=200    # Articles per batch
+ANALYSIS_RPS=1.5            # OpenAI requests per second per run
 ```
 
 ## 🔧 Troubleshooting

@@ -17,6 +17,9 @@ from app.domain.analysis.control import RunScope, RunParams
 from app.services.domain.analysis_service import AnalysisService
 from app.dependencies import get_analysis_service
 from app.services.auto_analysis_config import auto_analysis_config
+from app.services.queue_limiter import get_queue_limiter
+from app.services.adaptive_rate_limiter import get_rate_limiter
+from app.services.prometheus_metrics import get_metrics
 
 logger = get_logger(__name__)
 
@@ -31,16 +34,42 @@ class PendingAnalysisProcessor:
         # NEW: Increased batch size for efficient processing with skip logic
         self.batch_size = auto_analysis_config.max_items_per_run
 
+        # SPRINT 1 DAY 2: Backpressure controls
+        self.queue_limiter = get_queue_limiter(max_concurrent=50)
+        self.rate_limiter = get_rate_limiter(rate_per_second=3.0)
+
+        # SPRINT 1 DAY 3: Prometheus metrics
+        self.metrics = get_metrics()
+
     async def process_pending_queue(self) -> int:
         """
         Process pending auto-analysis jobs in batches.
+
+        IMPROVED: Now includes backpressure controls to prevent overload.
 
         Returns:
             Number of jobs processed
         """
         processed_count = 0
 
+        # SPRINT 1 DAY 2: Check queue availability before processing
+        if not self.queue_limiter.is_available():
+            logger.warning(
+                f"Queue limiter at capacity "
+                f"({self.queue_limiter.get_metrics()['active_count']}/{self.queue_limiter.max_concurrent}), "
+                f"deferring processing"
+            )
+            return 0
+
         try:
+            # SPRINT 1 DAY 3: Update queue metrics
+            queue_metrics = self.queue_limiter.get_metrics()
+            self.metrics.update_queue_metrics(
+                depth=queue_metrics['active_count'],
+                active=queue_metrics['active_count'],
+                utilization=queue_metrics['utilization_pct']
+            )
+
             with Session(engine) as session:
                 # Get pending jobs, limited to batch size
                 pending_jobs = session.exec(
@@ -55,6 +84,9 @@ class PendingAnalysisProcessor:
                     return 0
 
                 logger.info(f"Processing batch of {len(pending_jobs)} pending auto-analysis jobs")
+
+                # SPRINT 1 DAY 3: Record batch size
+                self.metrics.batch_size.observe(len(pending_jobs))
 
                 # Group jobs by feed for better batching
                 jobs_by_feed = {}
@@ -235,12 +267,34 @@ class PendingAnalysisProcessor:
         return age > timedelta(hours=self.max_age_hours)
 
     def _validate_items(self, session: Session, item_ids: list[int]) -> list[int]:
-        """Validate that items exist and return valid IDs"""
+        """
+        Validate that items exist and filter out already analyzed items.
+
+        IMPROVED: Now checks item_analysis table to skip already analyzed items,
+        preventing duplicate analysis and saving API costs.
+        """
+        from app.models import ItemAnalysis
+
         valid_ids = []
         for item_id in item_ids:
+            # Check if item exists
             item = session.get(Item, item_id)
-            if item:
-                valid_ids.append(item_id)
+            if not item:
+                continue
+
+            # IMPROVED: Check if already analyzed (idempotency)
+            # item_analysis.item_id is PRIMARY KEY, so we query directly
+            existing_analysis = session.exec(
+                select(ItemAnalysis).where(ItemAnalysis.item_id == item_id)
+            ).first()
+
+            if existing_analysis:
+                logger.debug(f"Item {item_id} already analyzed, skipping")
+                continue
+
+            valid_ids.append(item_id)
+
+        logger.info(f"Filtered {len(item_ids)} items → {len(valid_ids)} valid unanalyzed items")
         return valid_ids
 
     def _check_daily_limits(self, session: Session, feed_id: int) -> bool:
@@ -286,8 +340,13 @@ class PendingAnalysisProcessor:
                     job.processed_at = datetime.utcnow()
                     job.analysis_run_id = analysis_run_id
                     session.commit()
+
+                    # SPRINT 1 DAY 3: Record metrics
+                    for item_id in job.item_ids:
+                        self.metrics.record_item_processed("completed", "auto")
         except Exception as e:
             logger.error(f"Error marking job {job_id} as completed: {e}")
+            self.metrics.record_error("mark_completed_failed", "pending_processor")
 
     def _mark_job_failed(self, job_id: int, error_message: str):
         """Mark job as failed"""
@@ -299,8 +358,14 @@ class PendingAnalysisProcessor:
                     job.processed_at = datetime.utcnow()
                     job.error_message = error_message[:500]
                     session.commit()
+
+                    # SPRINT 1 DAY 3: Record metrics
+                    for item_id in job.item_ids:
+                        self.metrics.record_item_processed("failed", "auto")
+                    self.metrics.record_error("job_failed", "pending_processor")
         except Exception as e:
             logger.error(f"Error marking job {job_id} as failed: {e}")
+            self.metrics.record_error("mark_failed_failed", "pending_processor")
 
     def cleanup_old_jobs(self, days: int = 7):
         """
@@ -364,3 +429,17 @@ class PendingAnalysisProcessor:
         except Exception as e:
             logger.error(f"Error getting queue stats: {e}")
             return {"error": str(e)}
+
+    def get_backpressure_metrics(self) -> dict:
+        """
+        Get backpressure control metrics.
+
+        SPRINT 1 DAY 2: New method for monitoring backpressure.
+
+        Returns:
+            Combined metrics from queue limiter and rate limiter
+        """
+        return {
+            "queue_limiter": self.queue_limiter.get_metrics(),
+            "rate_limiter": self.rate_limiter.get_metrics()
+        }

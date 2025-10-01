@@ -295,6 +295,67 @@
             </div>
         </div>
 
+        <!-- Manual Analysis Configuration -->
+        <div class="row mb-3">
+            <div class="col">
+                <div class="card border-primary">
+                    <div class="card-header bg-primary bg-opacity-10 d-flex justify-content-between align-items-center py-2"
+                         style="cursor: pointer;"
+                         data-bs-toggle="collapse"
+                         data-bs-target="#analysis-config-collapse">
+                        <h6 class="mb-0"><i class="bi bi-gear-fill me-2"></i>Manual Analysis Settings</h6>
+                        <i class="bi bi-chevron-down"></i>
+                    </div>
+                    <div id="analysis-config-collapse" class="collapse show">
+                        <div class="card-body py-2">
+                            <form id="analysis-config-form"
+                                  hx-post="/htmx/analysis/analysis-config"
+                                  hx-trigger="submit"
+                                  hx-swap="none">
+                                <div class="row g-2">
+                                    <div class="col-md-2">
+                                        <label class="form-label small mb-1">Max Concurrent</label>
+                                        <input type="number" class="form-control form-control-sm" name="max_concurrent_runs" value="5" min="1" max="20">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label small mb-1">Daily Limit</label>
+                                        <input type="number" class="form-control form-control-sm" name="max_daily_runs" value="100" min="10" max="1000">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label small mb-1">Hourly Limit</label>
+                                        <input type="number" class="form-control form-control-sm" name="max_hourly_runs" value="10" min="1" max="100">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label small mb-1">Batch Size</label>
+                                        <input type="number" class="form-control form-control-sm" name="analysis_batch_limit" value="200" min="10" max="500">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label small mb-1">Analysis RPS</label>
+                                        <input type="number" step="0.1" class="form-control form-control-sm" name="analysis_rps" value="1.0" min="0.1" max="10.0">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label small mb-1">Model</label>
+                                        <select class="form-select form-select-sm" name="analysis_model">
+                                            <option value="gpt-4o-mini" selected>gpt-4o-mini</option>
+                                            <option value="gpt-4o">gpt-4o</option>
+                                            <option value="gpt-4-turbo">gpt-4-turbo</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="row mt-2">
+                                    <div class="col-12 text-end">
+                                        <button type="submit" class="btn btn-sm btn-success">
+                                            <i class="bi bi-save"></i> Save
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Statistics Dashboard -->
         <div class="row mb-4" id="stats-dashboard" hx-get="/htmx/analysis/stats-horizontal" hx-trigger="load, every 30s" hx-swap="innerHTML">
             <div class="col">
@@ -532,20 +593,43 @@
                              :class="{
                                  'alert-info': currentJobStatus.status === 'running',
                                  'alert-success': currentJobStatus.status === 'done',
-                                 'alert-warning': currentJobStatus.status === 'cancelled',
-                                 'alert-danger': currentJobStatus.status === 'error'
+                                 'alert-warning': currentJobStatus.status === 'cancelled' || (currentJobStatus.status === 'error' && currentJobStatus.errorType === 'data'),
+                                 'alert-danger': currentJobStatus.status === 'error' && ['limit', 'system'].includes(currentJobStatus.errorType),
+                                 'alert-primary': currentJobStatus.status === 'error' && currentJobStatus.errorType === 'validation'
                              }"
                              x-cloak>
                             <div class="d-flex justify-content-between align-items-center">
                                 <small>
+                                    <!-- Error Icon based on type -->
+                                    <span x-show="currentJobStatus.status === 'error'">
+                                        <span x-show="currentJobStatus.errorType === 'limit'">🚫</span>
+                                        <span x-show="currentJobStatus.errorType === 'data'">⚠️</span>
+                                        <span x-show="currentJobStatus.errorType === 'validation'">ℹ️</span>
+                                        <span x-show="currentJobStatus.errorType === 'system'">⛔</span>
+                                    </span>
                                     <strong x-text="currentJobStatus.message"></strong>
                                     <span x-show="currentJobStatus.id"> (Job ID: <span x-text="currentJobStatus.id"></span>)</span>
+                                    <!-- Error Code Badge -->
+                                    <span x-show="currentJobStatus.status === 'error' && currentJobStatus.errorCode"
+                                          class="badge bg-secondary ms-2"
+                                          x-text="currentJobStatus.errorCode"
+                                          style="font-size: 0.7em;"></span>
                                 </small>
                                 <button x-show="currentJobStatus.status === 'running'"
                                         @click="cancelRun()"
                                         class="btn btn-sm btn-outline-danger">
                                     ✕ Cancel
                                 </button>
+                            </div>
+                            <!-- Error Details (expandable) -->
+                            <div x-show="currentJobStatus.status === 'error' && currentJobStatus.errorDetails && Object.keys(currentJobStatus.errorDetails).length > 0"
+                                 class="mt-2 pt-2 border-top">
+                                <details>
+                                    <summary class="text-muted small" style="cursor: pointer;">
+                                        🔍 Error Details
+                                    </summary>
+                                    <pre class="mt-2 mb-0 small text-muted" style="font-size: 0.8em;" x-text="JSON.stringify(currentJobStatus.errorDetails, null, 2)"></pre>
+                                </details>
                             </div>
                         </div>
                     </div>
@@ -865,6 +949,12 @@
                     }
                 },
 
+                updatePreview() {
+                    console.log('Updating preview...');
+                    // Recalculate preview based on current settings
+                    this.updatePreviewFromLimit();
+                },
+
                 updatePreviewFromLimit() {
                     console.log('Updating preview from limit change:', this.futureRun.model.limit);
 
@@ -896,7 +986,35 @@
                         });
 
                         if (!response.ok) {
-                            throw new Error('Failed to start analysis run');
+                            // Parse backend error
+                            const errorData = await response.json();
+                            const errorMessage = errorData.error?.user_message || errorData.error?.message || 'Failed to start analysis run';
+                            const errorCode = errorData.error?.code || 'UNKNOWN_ERROR';
+                            const errorDetails = errorData.error?.details || {};
+
+                            console.error('Backend error:', { errorCode, errorMessage, errorDetails });
+
+                            // Categorize error type
+                            let errorType = 'system';
+                            if (errorCode.includes('LIMIT') || errorMessage.toLowerCase().includes('limit exceeded')) {
+                                errorType = 'limit';
+                            } else if (errorCode.includes('NOT_FOUND') || errorMessage.toLowerCase().includes('no items')) {
+                                errorType = 'data';
+                            } else if (errorCode.includes('VALIDATION')) {
+                                errorType = 'validation';
+                            }
+
+                            this.currentJobStatus = {
+                                status: 'error',
+                                message: errorMessage,
+                                errorCode: errorCode,
+                                errorType: errorType,
+                                errorDetails: errorDetails,
+                                id: null
+                            };
+
+                            this.loading = false;
+                            return;
                         }
 
                         const run = await response.json();
@@ -914,7 +1032,9 @@
                         console.error('Error starting run:', error);
                         this.currentJobStatus = {
                             status: 'error',
-                            message: error.message,
+                            message: error.message || 'Unexpected error occurred',
+                            errorCode: 'CLIENT_ERROR',
+                            errorType: 'system',
                             id: null
                         };
                     } finally {
@@ -1064,6 +1184,52 @@
                 }
             }
         }
+    </script>
+
+    <!-- Analysis Config Script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('analysis-config-form');
+
+            if (!form) return;
+
+            // Load current config values from API
+            fetch('/api/config/analysis')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        const config = data.data;
+                        form.querySelector('[name="max_concurrent_runs"]').value = config.max_concurrent_runs || 5;
+                        form.querySelector('[name="max_daily_runs"]').value = config.max_daily_runs || 100;
+                        form.querySelector('[name="max_hourly_runs"]').value = config.max_hourly_runs || 10;
+                        form.querySelector('[name="analysis_batch_limit"]').value = config.analysis_batch_limit || 200;
+                        form.querySelector('[name="analysis_rps"]').value = config.analysis_rps || 1.0;
+                        form.querySelector('[name="analysis_model"]').value = config.analysis_model || 'gpt-4o-mini';
+                    }
+                })
+                .catch(err => console.error('Failed to load config:', err));
+
+            // Handle successful save
+            form.addEventListener('htmx:afterRequest', function(event) {
+                if (event.detail.successful) {
+                    // Show success toast
+                    const toast = document.createElement('div');
+                    toast.className = 'alert alert-success position-fixed top-0 end-0 m-3';
+                    toast.style.zIndex = '9999';
+                    toast.innerHTML = '<i class="bi bi-check-circle me-2"></i>Configuration saved successfully!';
+                    document.body.appendChild(toast);
+                    setTimeout(() => toast.remove(), 3000);
+                } else {
+                    // Show error toast
+                    const toast = document.createElement('div');
+                    toast.className = 'alert alert-danger position-fixed top-0 end-0 m-3';
+                    toast.style.zIndex = '9999';
+                    toast.innerHTML = '<i class="bi bi-exclamation-triangle me-2"></i>Failed to save configuration!';
+                    document.body.appendChild(toast);
+                    setTimeout(() => toast.remove(), 3000);
+                }
+            });
+        });
     </script>
 </div>
 {% endblock %}

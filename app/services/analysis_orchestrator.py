@@ -9,6 +9,7 @@ from app.services.llm_client import LLMClient
 from app.services.error_recovery import get_error_recovery_service, CircuitBreakerConfig
 from app.domain.analysis.schema import AnalysisResult, Overall, Market, SentimentPayload, ImpactPayload
 from app.domain.analysis.control import MODEL_PRICING, AVG_TOKENS_PER_ITEM
+from app.services.prometheus_metrics import get_metrics
 
 logger = get_logger(__name__)
 
@@ -28,6 +29,9 @@ class AnalysisOrchestrator:
             success_threshold=2,   # Close after 2 successes
             timeout_seconds=60,    # Try recovery after 60s
         )
+
+        # SPRINT 1 DAY 3: Prometheus metrics
+        self.metrics = get_metrics()
 
     def get_available_runs(self) -> List[Dict[str, Any]]:
         """Get runs that can be processed (pending or running, not paused/cancelled)"""
@@ -161,6 +165,9 @@ class AnalysisOrchestrator:
     def _process_item_analysis(self, queue_id: int, item_content: Dict[str, Any],
                               llm_client: LLMClient, model_tag: str) -> None:
         """Process actual analysis for an item"""
+        # SPRINT 1 DAY 3: Track analysis duration
+        start_time = time.time()
+
         try:
             item_id = item_content["id"]
             title = item_content["title"] or ""
@@ -168,6 +175,8 @@ class AnalysisOrchestrator:
 
             if not title.strip():
                 self._mark_item_failed(queue_id, "EEMPTY", "Empty title")
+                self.metrics.record_item_processed("failed", "manual")
+                self.metrics.record_error("empty_title", "orchestrator")
                 return
 
             # Prepare content for analysis (limit to 1200 chars)
@@ -176,7 +185,12 @@ class AnalysisOrchestrator:
             logger.debug(f"Analyzing item {item_id}: {title[:50]}...")
 
             # Call LLM for classification with retry
+            # SPRINT 1 DAY 3: Track API call duration
+            api_start = time.time()
             llm_data = self._call_llm_with_retry(llm_client, title, summary_text, model_tag)
+            api_duration = time.time() - api_start
+            self.metrics.api_request_duration.labels(model=model_tag).observe(api_duration)
+            self.metrics.record_api_call(model_tag, "success")
 
             # Build analysis result
             sentiment = SentimentPayload(
@@ -211,9 +225,19 @@ class AnalysisOrchestrator:
 
             logger.info(f"✓ Analyzed item {item_id}: {sentiment.overall.label} sentiment, {impact.overall:.2f} impact")
 
+            # SPRINT 1 DAY 3: Record successful completion
+            analysis_duration = time.time() - start_time
+            self.metrics.analysis_duration.observe(analysis_duration)
+            self.metrics.record_item_processed("completed", "manual")
+
         except Exception as e:
             error_code = self._classify_error(e)
             self._mark_item_failed(queue_id, error_code, str(e))
+
+            # SPRINT 1 DAY 3: Record failure
+            self.metrics.record_item_processed("failed", "manual")
+            self.metrics.record_error(error_code, "orchestrator")
+            self.metrics.record_api_call(model_tag, "failure")
 
     def _process_item_dry_run(self, queue_id: int, item_content: Dict[str, Any], model_tag: str) -> None:
         """Process dry run for an item"""
@@ -251,6 +275,9 @@ class AnalysisOrchestrator:
 
     def _mark_item_skipped(self, queue_id: int, skip_reason: str) -> None:
         """Mark an item as skipped"""
+        # SPRINT 1 DAY 3: Record skip metrics
+        self.metrics.record_item_processed("skipped", "manual")
+
         from sqlmodel import Session, text
         from app.database import engine
         from datetime import datetime
@@ -458,27 +485,29 @@ class AnalysisOrchestrator:
 
     def check_already_analyzed(self, item_id: int, days: int = 7) -> tuple[bool, Optional[str]]:
         """
-        Check if item was recently analyzed
-        Returns: (is_analyzed, previous_run_id)
+        Check if item was already analyzed (has results in item_analysis table).
+        This is the source of truth for analysis completion.
+
+        Returns: (is_analyzed, previous_run_id or 'existing')
         """
         from sqlmodel import Session, text
         from app.database import engine
 
+        # IMPROVED: Check item_analysis table directly (source of truth)
         query = text("""
-            SELECT ar.id, ari.completed_at
-            FROM analysis_run_items ari
-            JOIN analysis_runs ar ON ari.run_id = ar.id
-            WHERE ari.item_id = :item_id
-            AND ari.state = 'completed'
-            AND ari.completed_at > NOW() - INTERVAL :days DAY
-            ORDER BY ari.completed_at DESC
+            SELECT
+                ia.item_id,
+                ia.updated_at
+            FROM item_analysis ia
+            WHERE ia.item_id = :item_id
             LIMIT 1
         """)
 
         with Session(engine) as session:
-            result = session.execute(query, {"item_id": item_id, "days": f"{days}"}).first()
+            result = session.execute(query, {"item_id": item_id}).first()
             if result:
-                return True, f"run_{result[0]}"
+                # Item has analysis results - skip it
+                return True, "existing"
             return False, None
 
     def check_run_completion(self, run: Dict[str, Any]) -> bool:

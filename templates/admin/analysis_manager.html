@@ -9,7 +9,7 @@
     <!-- Status Cards -->
     <div class="row g-4 mb-4">
         <!-- Current Status -->
-        <div class="col-lg-4">
+        <div class="col-lg-3">
             <div class="card h-100"
                  hx-get="/htmx/manager-status"
                  hx-trigger="load, every 5s"
@@ -21,7 +21,7 @@
         </div>
 
         <!-- Queue Status -->
-        <div class="col-lg-4">
+        <div class="col-lg-3">
             <div class="card h-100"
                  hx-get="/htmx/manager-queue"
                  hx-trigger="load, every 5s"
@@ -33,7 +33,7 @@
         </div>
 
         <!-- Daily Stats -->
-        <div class="col-lg-4">
+        <div class="col-lg-3">
             <div class="card h-100"
                  hx-get="/htmx/manager-daily-stats"
                  hx-trigger="load, every 10s"
@@ -43,19 +43,17 @@
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Configuration Section -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <h5 class="mb-0">Configuration Settings</h5>
-        </div>
-        <div class="card-body"
-             id="config-section"
-             hx-get="/htmx/manager-config"
-             hx-trigger="load"
-             hx-swap="innerHTML">
-            <div class="text-muted">Loading configuration...</div>
+        <!-- System Overview (from Metrics) -->
+        <div class="col-lg-3">
+            <div class="card h-100"
+                 hx-get="/api/metrics/system/overview"
+                 hx-trigger="load, every 30s"
+                 hx-swap="innerHTML">
+                <div class="card-body">
+                    <div class="text-muted">Loading overview...</div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -87,8 +85,78 @@
         </div>
     </div>
 
+    <!-- System Management -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">System Management</h5>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-cog fa-2x text-success me-3"></i>
+                        <div class="flex-grow-1">
+                            <h6 class="mb-1">Content Workers</h6>
+                            <p class="text-muted small mb-0">Manage content processing workers and configurations</p>
+                        </div>
+                        <a href="/admin/processors" class="btn btn-outline-success btn-sm">
+                            Manage <i class="fas fa-arrow-right ms-1"></i>
+                        </a>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-cogs fa-2x text-info me-3"></i>
+                        <div class="flex-grow-1">
+                            <h6 class="mb-1">Analysis Templates</h6>
+                            <p class="text-muted small mb-0">Configure analysis templates and prompts</p>
+                        </div>
+                        <a href="/admin/templates" class="btn btn-outline-info btn-sm">
+                            Configure <i class="fas fa-arrow-right ms-1"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- External Tools -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">External Monitoring Tools</h5>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-chart-area fa-2x text-primary me-3"></i>
+                        <div class="flex-grow-1">
+                            <h6 class="mb-1">Grafana Dashboards</h6>
+                            <p class="text-muted small mb-0">Advanced metrics visualization and monitoring</p>
+                        </div>
+                        <a href="http://192.168.178.72:3001" target="_blank" class="btn btn-outline-primary btn-sm">
+                            Open <i class="fas fa-external-link-alt ms-1"></i>
+                        </a>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-fire fa-2x text-warning me-3"></i>
+                        <div class="flex-grow-1">
+                            <h6 class="mb-1">Prometheus Metrics</h6>
+                            <p class="text-muted small mb-0">Raw metrics and query interface</p>
+                        </div>
+                        <a href="http://192.168.178.72:9091" target="_blank" class="btn btn-outline-warning btn-sm">
+                            Open <i class="fas fa-external-link-alt ms-1"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Active Runs Table -->
-    <div class="card">
+    <div class="card mb-4">
         <div class="card-header">
             <h5 class="mb-0">Active Runs</h5>
         </div>
@@ -100,5 +168,331 @@
             <div class="text-muted">Loading active runs...</div>
         </div>
     </div>
+
+    <!-- Metrics Section -->
+    <h2 class="h4 mb-3 mt-4">📊 Detailed Metrics</h2>
+
+    <!-- Feed Performance -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">🔄 Feed Performance</h5>
+        </div>
+        <div class="card-body">
+            <div class="feed-selector mb-3">
+                <label for="feed-select" class="form-label">Select Feed:</label>
+                <select id="feed-select" class="form-select" onchange="loadFeedMetrics(this.value)">
+                    <option value="">-- Select a Feed --</option>
+                </select>
+            </div>
+            <div id="feed-metrics">
+                <div class="placeholder text-center py-4 text-muted">Select a feed to view metrics</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Queue Performance -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">⚡ Queue Performance</h5>
+        </div>
+        <div class="card-body"
+             id="queue-performance"
+             hx-get="/api/metrics/performance/queue"
+             hx-trigger="load, every 30s">
+            <div class="loading text-center py-4 text-muted">Loading queue metrics...</div>
+        </div>
+    </div>
+
+    <!-- Cost Analysis -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">💰 Cost Analysis</h5>
+        </div>
+        <div class="card-body">
+            <div class="cost-controls mb-3">
+                <label for="cost-days" class="form-label">Time Range:</label>
+                <select id="cost-days" class="form-select" style="max-width: 200px;" onchange="loadCostBreakdown(this.value)">
+                    <option value="1">Last 24 hours</option>
+                    <option value="7" selected>Last 7 days</option>
+                    <option value="30">Last 30 days</option>
+                </select>
+            </div>
+            <div id="cost-breakdown">
+                <div class="loading text-center py-4 text-muted">Loading cost data...</div>
+            </div>
+        </div>
+    </div>
 </div>
+
+<script>
+// Load feeds for selection
+async function loadFeeds() {
+    try {
+        const response = await fetch('/api/feeds/');
+        const data = await response.json();
+        const select = document.getElementById('feed-select');
+
+        if (Array.isArray(data)) {
+            data.forEach(feed => {
+                const option = document.createElement('option');
+                option.value = feed.id;
+                option.textContent = `${feed.title || 'Untitled'} (ID: ${feed.id})`;
+                select.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('Error loading feeds:', error);
+    }
+}
+
+// Load metrics for specific feed
+async function loadFeedMetrics(feedId) {
+    if (!feedId) {
+        document.getElementById('feed-metrics').innerHTML =
+            '<div class="placeholder text-center py-4 text-muted">Select a feed to view metrics</div>';
+        return;
+    }
+
+    document.getElementById('feed-metrics').innerHTML =
+        '<div class="loading text-center py-4 text-muted">Loading feed metrics...</div>';
+
+    try {
+        const response = await fetch(`/api/metrics/feeds/${feedId}/summary`);
+        const data = await response.json();
+
+        if (data.success && data.data) {
+            displayFeedMetrics(data.data);
+        } else {
+            throw new Error(data.error || 'Failed to load metrics');
+        }
+    } catch (error) {
+        document.getElementById('feed-metrics').innerHTML =
+            `<div class="alert alert-danger">Error loading metrics: ${error.message}</div>`;
+    }
+}
+
+// Display feed metrics
+function displayFeedMetrics(metrics) {
+    const today = metrics.today;
+    const lastWeek = metrics.last_7_days;
+
+    let html = `<h6 class="mb-3">${metrics.feed_name || 'Unknown'}</h6>`;
+
+    html += `
+        <div class="row g-3">
+            <div class="col-md-6">
+                <div class="card bg-dark">
+                    <div class="card-body">
+                        <h6 class="card-title">📊 Today's Stats</h6>
+                        ${today ? `
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Analyses:</span>
+                                <strong>${today.analysis_counts.total}</strong>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Items Processed:</span>
+                                <strong>${today.item_counts.total_processed}</strong>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Success Rate:</span>
+                                <strong>${today.performance.success_rate.toFixed(1)}%</strong>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <span>Cost:</span>
+                                <strong>$${today.costs.total_usd.toFixed(4)}</strong>
+                            </div>
+                        ` : '<p class="text-muted">No data for today</p>'}
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card bg-dark">
+                    <div class="card-body">
+                        <h6 class="card-title">📈 Last 7 Days</h6>
+                        ${lastWeek ? `
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Total Analyses:</span>
+                                <strong>${lastWeek.total_analyses}</strong>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Total Items:</span>
+                                <strong>${lastWeek.total_items}</strong>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Avg Success Rate:</span>
+                                <strong>${lastWeek.avg_success_rate.toFixed(1)}%</strong>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <span>Total Cost:</span>
+                                <strong>$${lastWeek.total_cost_usd.toFixed(4)}</strong>
+                            </div>
+                        ` : '<p class="text-muted">No data available</p>'}
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('feed-metrics').innerHTML = html;
+}
+
+// Load cost breakdown
+async function loadCostBreakdown(days) {
+    document.getElementById('cost-breakdown').innerHTML =
+        '<div class="loading text-center py-4 text-muted">Loading cost data...</div>';
+
+    try {
+        const response = await fetch(`/api/metrics/costs/breakdown?days=${days}`);
+        const data = await response.json();
+
+        if (data.success && data.data) {
+            displayCostBreakdown(data.data);
+        } else {
+            throw new Error(data.error || 'Failed to load cost data');
+        }
+    } catch (error) {
+        document.getElementById('cost-breakdown').innerHTML =
+            `<div class="alert alert-danger">Error loading costs: ${error.message}</div>`;
+    }
+}
+
+// Display cost breakdown
+function displayCostBreakdown(data) {
+    const breakdown = data.breakdown;
+
+    let html = `
+        <div class="row g-3 mb-3">
+            <div class="col-md-3">
+                <div class="card bg-dark text-center">
+                    <div class="card-body">
+                        <small class="text-muted">Total Analyses</small>
+                        <h5 class="mb-0">${breakdown.system_totals?.total_analyses || 0}</h5>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-dark text-center">
+                    <div class="card-body">
+                        <small class="text-muted">Total Cost</small>
+                        <h5 class="mb-0">$${(breakdown.system_totals?.total_cost_usd || 0).toFixed(4)}</h5>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-dark text-center">
+                    <div class="card-body">
+                        <small class="text-muted">Active Feeds</small>
+                        <h5 class="mb-0">${breakdown.system_totals?.active_feeds || 0}</h5>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-dark text-center">
+                    <div class="card-body">
+                        <small class="text-muted">Items Processed</small>
+                        <h5 class="mb-0">${breakdown.system_totals?.total_items || 0}</h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    if (breakdown.top_spending_feeds && breakdown.top_spending_feeds.length > 0) {
+        html += `
+            <h6 class="mb-3">🔥 Top Spending Feeds</h6>
+            <div class="list-group">
+        `;
+
+        breakdown.top_spending_feeds.forEach(feed => {
+            html += `
+                <div class="list-group-item d-flex justify-content-between align-items-center">
+                    <span>Feed ${feed.feed_id}</span>
+                    <span class="badge bg-primary rounded-pill">$${feed.cost_usd.toFixed(4)}</span>
+                </div>
+            `;
+        });
+
+        html += `</div>`;
+    }
+
+    document.getElementById('cost-breakdown').innerHTML = html;
+}
+
+// HTMX response handler for system overview and queue performance
+document.body.addEventListener('htmx:afterRequest', function(evt) {
+    const target = evt.detail.target;
+
+    // System Overview handler
+    if (target && target.parentElement &&
+        target.parentElement.querySelector('[hx-get="/api/metrics/system/overview"]')) {
+        try {
+            const data = JSON.parse(evt.detail.xhr.responseText);
+            if (data.success && data.data) {
+                displaySystemOverview(target, data.data);
+            }
+        } catch (error) {
+            console.error('Error parsing system overview:', error);
+        }
+    }
+
+    // Queue Performance handler
+    if (target && target.id === 'queue-performance') {
+        try {
+            const data = JSON.parse(evt.detail.xhr.responseText);
+            if (data.success && data.data) {
+                displayQueuePerformance(data.data);
+            }
+        } catch (error) {
+            target.innerHTML = '<div class="alert alert-danger">Error parsing queue performance</div>';
+        }
+    }
+});
+
+// Display system overview in card
+function displaySystemOverview(target, data) {
+    const totals = data.system_totals;
+    const queue = data.queue_performance;
+
+    let html = `
+        <div class="card-body">
+            <h6 class="card-title mb-3">📊 System Overview</h6>
+            <div class="d-flex justify-content-between mb-2">
+                <small class="text-muted">Analyses Today:</small>
+                <strong>${totals?.total_analyses || 0}</strong>
+            </div>
+            <div class="d-flex justify-content-between mb-2">
+                <small class="text-muted">Items Processed:</small>
+                <strong>${totals?.total_items || 0}</strong>
+            </div>
+            <div class="d-flex justify-content-between mb-2">
+                <small class="text-muted">Avg Time:</small>
+                <strong>${(queue?.avg_queue_time_seconds || 0).toFixed(1)}s</strong>
+            </div>
+            <div class="d-flex justify-content-between">
+                <small class="text-muted">Cost Today:</small>
+                <strong class="text-success">$${(totals?.total_cost_usd || 0).toFixed(4)}</strong>
+            </div>
+        </div>
+    `;
+
+    target.innerHTML = html;
+}
+
+// Display queue performance
+function displayQueuePerformance(data) {
+    document.getElementById('queue-performance').innerHTML = `
+        <div class="text-center py-4">
+            <p class="mb-2">${data.message || 'Queue performance monitoring is active'}</p>
+            <small class="text-muted">Queue metrics will be available once processing begins</small>
+        </div>
+    `;
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadFeeds();
+    loadCostBreakdown(7);
+});
+</script>
+
 {% endblock %}

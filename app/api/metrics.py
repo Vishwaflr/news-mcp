@@ -4,13 +4,30 @@ Metrics API
 API endpoints for accessing feed metrics, costs, and performance data.
 """
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Response
 from typing import Dict, Any, List, Optional
 from app.core.logging_config import get_logger
 from app.services.metrics_service import get_metrics_service
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 
 router = APIRouter(prefix="/api/metrics", tags=["metrics"])
 logger = get_logger(__name__)
+
+
+@router.get("/prometheus")
+async def prometheus_metrics():
+    """
+    Prometheus metrics endpoint.
+
+    Returns metrics in Prometheus text format for scraping.
+    SPRINT 1 DAY 3: New endpoint for Prometheus integration.
+    """
+    try:
+        metrics_data = generate_latest()
+        return Response(content=metrics_data, media_type=CONTENT_TYPE_LATEST)
+    except Exception as e:
+        logger.error(f"Error generating Prometheus metrics: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate metrics: {str(e)}")
 
 
 @router.get("/system/overview")
