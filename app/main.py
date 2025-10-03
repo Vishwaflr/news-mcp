@@ -20,7 +20,7 @@ from app.api.v1 import analysis as analysis_v1, health as health_v1
 
 # View imports
 from app.routes import templates as template_routes, processors_htmx
-from app.web.views import analysis, auto_analysis_views, manager_views, template_views
+from app.web.views import analysis, auto_analysis_views, manager_views, special_report_views
 
 # Core imports
 from app.core.logging_config import setup_logging, get_logger
@@ -132,7 +132,7 @@ app.include_router(feature_flags_admin.router)
 app.include_router(analysis.router)
 app.include_router(auto_analysis_views.router, prefix="/htmx")
 app.include_router(manager_views.router)
-app.include_router(template_views.router)
+app.include_router(special_report_views.router)
 
 app.include_router(analysis_jobs.router, prefix="/api")
 app.include_router(websocket_endpoint.router)

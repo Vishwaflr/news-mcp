@@ -13,32 +13,32 @@ from app.database import get_session
 from app.models.content_distribution import SpecialReport, GeneratedContent
 from app.config import settings
 
-router = APIRouter(tags=["special_report-views"])
-special_reports = Jinja2Templates(directory="special_reports")
+router = APIRouter(tags=["special-report-views"])
+templates = Jinja2Templates(directory="templates")
 
 
-@router.get("/admin/content-special_reports", response_class=HTMLResponse)
-async def content_special_reports_page(request: Request):
-    """Main content special_reports overview page."""
-    return special_reports.TemplateResponse(
-        "admin/content_special_reports.html",
+@router.get("/admin/special-reports", response_class=HTMLResponse)
+async def special_reports_page(request: Request):
+    """Main special reports overview page."""
+    return templates.TemplateResponse(
+        "admin/special_reports.html",
         {"request": request}
     )
 
 
-@router.get("/admin/content-special_reports/{special_report_id}", response_class=HTMLResponse)
-async def content_special_report_detail_page(
+@router.get("/admin/special-reports/{special_report_id}", response_class=HTMLResponse)
+async def special_report_detail_page(
     request: Request,
     special_report_id: int,
     session: Session = Depends(get_session)
 ):
-    """Content special_report detail page with generated content."""
+    """Special report detail page with generated content."""
     special_report = session.get(SpecialReport, special_report_id)
 
     if not special_report:
         raise HTTPException(status_code=404, detail="Template not found")
 
-    return special_reports.TemplateResponse(
+    return templates.TemplateResponse(
         "admin/special_report_detail.html",
         {
             "request": request,
