@@ -1,9 +1,9 @@
 # NAVIGATOR.md – News-MCP System-Navigator
 
 **Zweck:** Zentrale Orientierung für strukturierte Entwicklung
-**Version:** 4.3.0
-**Stand:** 2025-10-03
-**Aktueller Fokus:** Production-Ready - Phase 3 Complete, Content Distribution LLM Instructions, Modular Enrichment Ready
+**Version:** 4.4.0
+**Stand:** 2025-10-03 (Updated after system recovery)
+**Aktueller Fokus:** Stable Production System - Content Generation Ready, Multi-Service Architecture (API + Worker + Scheduler)
 
 ---
 
@@ -12,16 +12,16 @@
 | Was | Wo | Status |
 |-----|-----|--------|
 | **Core System** | | |
-| FastAPI Web Server | `app/main.py` | ✅ Läuft (Port 8000, PID 368256) |
-| Analysis Worker | `app/worker/analysis_worker.py` | ✅ Läuft (PID 365993) |
-| Feed Scheduler | `app/services/feed_scheduler.py` | ✅ Läuft (PID 365974) |
-| PostgreSQL DB | localhost:5432 | ✅ Aktiv (30 Tabellen) |
+| FastAPI Web Server | `app/main.py` | ✅ Läuft (Port 8000) |
+| Analysis Worker | `app/worker/analysis_worker.py` | ✅ Läuft (Auto-Analysis) |
+| Feed Scheduler | `app/services/scheduler_runner.py` | ✅ Läuft (RSS Fetching) |
+| PostgreSQL DB | localhost:5432 | ✅ Aktiv (30+ Tabellen) |
 | | | |
 | **Content Layer** | | |
-| Feeds Management | `app/api/feeds.py` | ✅ Produktiv (41 Feeds) |
-| Items/Articles | `app/api/items.py` | ✅ Produktiv (16,843 Items) |
+| Feeds Management | `app/api/feeds.py` | ✅ Produktiv (41 Feeds, 34 active) |
+| Items/Articles | `app/api/items.py` | ✅ Produktiv (21,339 Items) |
 | Categories | `app/api/categories.py` | ✅ Produktiv |
-| Sources | `app/api/sources.py` | ✅ Produktiv (41 Sources) |
+| Sources | `app/api/sources.py` | ✅ Produktiv |
 | | | |
 | **Analysis System** | | |
 | Analysis Control | `app/api/analysis_control.py` | ✅ Legacy Support |
@@ -30,18 +30,20 @@
 | Selection Cache | `app/services/selection_cache.py` | ✅ In-Memory Cache |
 | Run Manager | `app/services/analysis_run_manager.py` | ✅ Config-based (5 concurrent) |
 | Worker API | `app/api/analysis_worker_api.py` | ✅ Worker Control |
-| **Auto-Analysis** | `app/services/auto_analysis_service.py` | ✅ **PRODUKTIV (100%)** |
+| **Auto-Analysis** | `app/services/auto_analysis_service.py` | ✅ **PRODUKTIV (12 Feeds)** |
 | Auto-Analysis Views | `app/web/views/auto_analysis_views.py` | ✅ **PRODUKTIV** |
 | Pending Processor | `app/services/pending_analysis_processor.py` | ✅ **PRODUKTIV** |
+| Analysis Worker Runner | `app/worker/analysis_worker.py` | ✅ **Background Service** |
 | | | |
 | **Template System** | | |
 | Templates API | `app/api/templates.py` | ✅ Produktiv |
 | Template Manager | `app/services/dynamic_template_manager.py` | ✅ Hot-Reload |
 | | | |
 | **Content Distribution (Phase 1 ✅)** | | |
-| Content Templates | `app/api/v2/templates.py` | ✅ Produktiv (LLM Instructions) |
-| Generated Content | `app/api/v2/content.py` | ✅ Produktiv |
-| Content Worker | `app/worker/content_generator_worker.py` | ✅ Läuft (PID 205560) |
+| Content Templates | `app/models/content_distribution.py` | ✅ DB Model (LLM Instructions) |
+| Content Templates API | `app/api/v2/templates.py` | ✅ REST API |
+| Content Templates Views | `app/web/views/template_views.py` | ✅ Web UI |
+| Content Worker | `app/worker/content_generator_worker.py` | ✅ Generation Service |
 | Content Queue | `pending_content_generation` | ✅ Async Processing |
 | | | |
 | **Processing** | | |
@@ -70,7 +72,7 @@
 
 ### Hotspot 1: Auto-Analysis System ✅ PRODUKTIV
 **Zweck:** Automatische Analyse neuer Feed-Items
-**Status:** ✅ Produktiv (100% Rollout, 13 Feeds aktiv)
+**Status:** ✅ Produktiv (12 Feeds aktiv)
 **Priorität:** 🔧 Wartung & Monitoring
 
 **Komponenten:**
@@ -80,14 +82,15 @@
 - Manager Dashboard (Control Center) ✅
 - Feed-Level Config (Toggle, Interval) ✅
 - Error Handling (Categorized errors with UI) ✅
+- Analysis Worker (Background Service) ✅
 
 **Erreichte Leistung:**
 - 6 Concurrent Runs (optimiert)
 - 3.0 req/sec OpenAI Rate
-- 100% Rollout auf 13 Feeds
+- 12 Feeds with Auto-Analysis enabled
 - Config-basierte Limits (.env Management)
-- 813 Analysis Runs absolviert
-- 6,137 Items analysiert
+- 1,523 Analysis Runs absolviert
+- 8,591 Items analysiert
 - >95% Success Rate
 
 ---

@@ -3,7 +3,18 @@
 **Database:** `news_db`
 **User:** `news_user`
 **Password:** `news_password`
-**Total Tables:** 30
+**Total Tables:** 35
+**Last Updated:** 2025-10-03
+
+**Complete Table List:**
+- Core: `items`, `feeds`, `sources`, `categories`, `feed_types`
+- Analysis: `item_analysis`, `analysis_runs`, `analysis_run_items`, `pending_auto_analysis`, `analysis_presets`
+- Content Distribution: `content_templates`, `pending_content_generation`, `generated_content`, `distribution_channels`, `distribution_log`
+- Templates: `dynamic_feed_templates`, `processor_templates`, `feed_template_assignments`
+- Monitoring: `feed_health`, `feed_metrics`, `feed_limits`, `feed_violations`, `feed_scheduler_state`, `queue_metrics`, `preview_jobs`, `fetch_log`
+- Configuration: `feed_processor_configs`, `feed_configuration_changes`, `user_settings`, `feed_categories`
+- Processing: `content_processing_logs`, `queued_runs`
+- Metadata: `item_tags`, `alembic_version`, `basetablemodel`
 
 ---
 
@@ -275,6 +286,103 @@ Table "public.feed_types"
 - `feed_configuration_changes` - Configuration change history
 - `analysis_presets` - Analysis presets
 - `user_settings` - User preferences
+
+---
+
+## Content Distribution Tables (Phase 1 ✅)
+
+### `content_templates` - LLM Content Generation Templates
+
+```sql
+Table "public.content_templates"
+       Column        |            Type             | Nullable |                    Default
+---------------------+-----------------------------+----------+-----------------------------------------------
+ id                  | integer                     | not null | nextval('content_templates_id_seq'::regclass)
+ name                | character varying(200)      | not null |
+ description         | text                        |          |
+ target_audience     | character varying(100)      |          |
+ selection_criteria  | jsonb                       | not null | -- Article selection rules
+ content_structure   | jsonb                       | not null | -- Output structure definition
+ llm_prompt_template | text                        | not null | -- Base prompt template
+ llm_model           | character varying(50)       | not null | 'gpt-4o-mini'::character varying
+ llm_temperature     | numeric(3,2)                | not null | 0.7
+ generation_schedule | character varying(100)      |          |
+ is_active           | boolean                     | not null | true
+ created_at          | timestamp without time zone | not null | now()
+ updated_at          | timestamp without time zone | not null | now()
+ version             | integer                     | not null | 1
+ tags                | jsonb                       |          |
+ -- Phase 1: Enhanced LLM Instructions (✅ Implemented 2025-10-02)
+ system_instruction  | text                        |          | -- LLM role definition & behavioral constraints
+ output_format       | character varying(50)       | not null | 'markdown'::character varying
+ output_constraints  | jsonb                       |          | -- {forbidden: [...], required: [...]}
+ few_shot_examples   | jsonb                       |          | -- Example outputs to guide generation
+ validation_rules    | jsonb                       |          | -- {min_word_count: 500, require_sources: true}
+ -- Phase 2: Enrichment Placeholder (Future)
+ enrichment_config   | jsonb                       |          | -- CVE lookup, web search, scraping config
+
+Indexes:
+    "content_templates_pkey" PRIMARY KEY (id)
+
+Purpose: Define structured templates for LLM-generated reports
+- Prevents code generation (constraints: forbidden: ["code_blocks"])
+- Enforces prose-only output with source attribution
+- Ready for Phase 2 enrichment modules
+```
+
+### `pending_content_generation` - Content Generation Queue
+
+```sql
+Table "public.pending_content_generation"
+-- Queue for asynchronous content generation jobs
+
+Indexes:
+    "pending_content_generation_pkey" PRIMARY KEY (id)
+    "ix_pending_content_generation_status" (status)
+    "ix_pending_content_generation_template_id" (template_id)
+
+Foreign Keys:
+    template_id -> content_templates(id) CASCADE
+```
+
+### `generated_content` - Generated Content Storage
+
+```sql
+Table "public.generated_content"
+-- Storage for LLM-generated content
+
+Indexes:
+    "generated_content_pkey" PRIMARY KEY (id)
+    "ix_generated_content_template_id" (template_id)
+
+Foreign Keys:
+    template_id -> content_templates(id)
+```
+
+### `distribution_channels` - Distribution Configuration
+
+```sql
+Table "public.distribution_channels"
+-- Channel configuration for content distribution
+
+Indexes:
+    "distribution_channels_pkey" PRIMARY KEY (id)
+```
+
+### `distribution_log` - Distribution History
+
+```sql
+Table "public.distribution_log"
+-- Distribution history tracking
+
+Indexes:
+    "distribution_log_pkey" PRIMARY KEY (id)
+    "ix_distribution_log_content_id" (content_id)
+
+Foreign Keys:
+    content_id -> generated_content(id)
+    channel_id -> distribution_channels(id)
+```
 
 ---
 

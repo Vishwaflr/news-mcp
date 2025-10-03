@@ -352,4 +352,4 @@ python -c "from app.database import create_tables; create_tables()"
 
 **Installation Time:** ~5 minutes
 **Difficulty:** Beginner-friendly
-**Last Updated:** 2025-10-01
+**Last Updated:** 2025-10-03

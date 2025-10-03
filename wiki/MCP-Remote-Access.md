@@ -78,4 +78,4 @@ Replace `192.168.1.100` with your server's IP address.
 
 ---
 
-**Last Updated:** 2025-10-01
+**Last Updated:** 2025-10-03

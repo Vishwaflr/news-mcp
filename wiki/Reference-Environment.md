@@ -97,4 +97,4 @@ Complete reference for all News MCP environment variables.
 
 ---
 
-**Last Updated:** 2025-10-01
+**Last Updated:** 2025-10-03

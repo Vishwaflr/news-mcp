@@ -2,7 +2,7 @@
 
 **Enterprise RSS MCP Server** - AI-powered news aggregation with 48 native tools for Claude Desktop.
 
-[![Version](https://img.shields.io/badge/version-4.0.0-blue.svg)](https://github.com/CytrexSGR/news-mcp/releases)
+[![Version](https://img.shields.io/badge/version-4.1.0-blue.svg)](https://github.com/CytrexSGR/news-mcp/releases)
 [![MCP](https://img.shields.io/badge/MCP-48_Tools-orange.svg)](https://modelcontextprotocol.io/)
 [![License](https://img.shields.io/badge/License-GPL%203.0-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
@@ -28,8 +28,8 @@ News MCP is a **Model Context Protocol (MCP) server** for intelligent RSS feed a
 - **48 MCP Tools** - Control feeds, search articles, run analysis directly from Claude Desktop
 - **Auto-Analysis System** - Automatic AI sentiment analysis of new feed items
 - **11 Web Dashboards** - Comprehensive monitoring and management interfaces
-- **172+ REST API Endpoints** - Complete programmatic access
-- **Enterprise-Ready** - Production-proven with 37+ active feeds, 11,000+ articles
+- **246 REST API Endpoints** - Complete programmatic access
+- **Enterprise-Ready** - Production-proven with 41 feeds, 21,339 articles analyzed
 
 ---
 
@@ -59,8 +59,8 @@ News MCP is a **Model Context Protocol (MCP) server** for intelligent RSS feed a
 - **[Setup guide →](Auto-Analysis-Dashboard)**
 
 ### 📡 REST API
-- 172+ endpoints across 15 categories
-- Feed Management, Items, Analysis, Templates
+- 246 endpoints (278 routes) across 15 categories
+- Feed Management, Items, Analysis, Content Templates
 - Statistics, Metrics, Health Monitoring
 - HTMX components for progressive enhancement
 - WebSocket support for real-time updates
@@ -74,14 +74,14 @@ News MCP is a **Model Context Protocol (MCP) server** for intelligent RSS feed a
 ┌─────────────────────────────────────────────────────────┐
 │  FastAPI Web Server (Port 8000) + MCP Server (8001)    │
 ├─────────────────────────────────────────────────────────┤
-│  📡 172 API Endpoints | 🌐 11 Web Dashboards           │
+│  📡 246 API Endpoints | 🌐 11 Web Dashboards           │
 │  🔌 48 MCP Tools      | 📊 Real-time WebSocket         │
 ├─────────────────────────────────────────────────────────┤
 │  ⚙️  Background Workers                                  │
 │  • Analysis Worker    • Feed Scheduler                 │
-│  • Auto-Analysis      • Queue Processor                │
+│  • Content Worker     • Queue Processor                │
 ├─────────────────────────────────────────────────────────┤
-│  🗄️  PostgreSQL Database (30 Tables, 11,000+ Items)    │
+│  🗄️  PostgreSQL Database (35 Tables, 21,339 Items)     │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -125,7 +125,7 @@ News MCP is a **Model Context Protocol (MCP) server** for intelligent RSS feed a
 
 ### 🏗️ Architecture & Development
 - **[System Architecture](Architecture)** - High-level design
-- **[Database Schema](Database-Schema)** - 30 tables documented
+- **[Database Schema](Database-Schema)** - 35 tables documented
 - **[Repository Pattern](Repository-Pattern)** - Data access layer
 - **[Worker System](Worker-System)** - Background processing
 - **[Feature Flags](Feature-Flags)** - Gradual rollout system
@@ -154,16 +154,18 @@ News MCP is a **Model Context Protocol (MCP) server** for intelligent RSS feed a
 
 ## 📊 Current System Status
 
-**Version:** 4.0.0
+**Version:** 4.1.0
 **Status:** ✅ Production Ready
 
 ### Metrics
-- **Feeds:** 37 active
-- **Articles:** 11,000+ items
-- **Analysis Runs:** 75+ completed
-- **Auto-Analysis:** 9 feeds (100% rollout)
+- **Feeds:** 41 total (34 active, 7 error)
+- **Articles:** 21,339 items stored
+- **Analysis Runs:** 1,523 completed
+- **Items Analyzed:** 8,591 items processed
+- **Auto-Analysis:** 12 feeds enabled
 - **MCP Tools:** 48 available
-- **API Endpoints:** 172+
+- **API Endpoints:** 246 paths (278 routes)
+- **Database Tables:** 35 tables
 - **Dashboards:** 11 web interfaces
 
 ---
@@ -186,6 +188,6 @@ This wiki is maintained by the News MCP community. To contribute:
 
 ---
 
-**Last Updated:** 2025-10-01
-**Wiki Version:** 1.0.0
-**Project Version:** 4.0.0
+**Last Updated:** 2025-10-03
+**Wiki Version:** 1.1.0
+**Project Version:** 4.1.0

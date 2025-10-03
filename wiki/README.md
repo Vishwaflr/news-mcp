@@ -16,7 +16,7 @@ This directory contains comprehensive documentation for the News MCP project. Al
 | **MCP Integration** | `MCP-Integration.md` | 18 KB | ✅ Complete | Claude Desktop setup + 48 tools |
 | **Troubleshooting** | `Troubleshooting-Common.md` | 16 KB | ✅ Complete | Common issues & solutions |
 
-**Total:** 7 core pages, 93.2 KB of documentation
+**Total:** 19 core pages (comprehensive wiki documentation)
 
 ---
 
@@ -269,6 +269,7 @@ For questions about wiki content:
 ---
 
 **Created:** 2025-10-01
-**Version:** 1.0.0
+**Last Updated:** 2025-10-03
+**Version:** 1.1.0
 **Status:** ✅ Ready for GitHub Wiki Upload
-**Total Effort:** ~7 comprehensive pages covering all major features
+**Total Pages:** 19 comprehensive pages covering all major features

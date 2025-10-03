@@ -1,12 +1,17 @@
 # News MCP API Documentation
 
-Generated: 2025-09-26 19:00:20
+**Generated:** 2025-10-03
+**Base URL:** `http://localhost:8000` (or configured API_HOST:API_PORT)
+**OpenAPI Version:** 3.1.0
+**Total Endpoints:** 246 paths (278 routes with HTTP methods)
 
 ## Overview
 
-Base URL: `http://localhost:8000`
-
-OpenAPI Version: 3.1.0
+This is an auto-generated API reference. For detailed explanations and examples, see:
+- **[ENDPOINTS.md](../ENDPOINTS.md)** - Organized by category with examples
+- **[API_EXAMPLES.md](./API_EXAMPLES.md)** - Usage examples and recipes
+- **Interactive Docs:** http://localhost:8000/docs (Swagger UI)
+- **Alternative Docs:** http://localhost:8000/redoc (ReDoc)
 
 
 ## Other

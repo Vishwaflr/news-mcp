@@ -1,5 +1,9 @@
 # News Analysis Worker
 
+**Last Updated:** 2025-10-03
+**Status:** Production - Running (PID 291349)
+**Performance:** 1,523 runs completed, 8,591 items analyzed, >95% success rate
+
 Ein persistent laufender Worker-Service, der Analysis Runs und Items aus der Queue abarbeitet und LLM-basierte Sentiment- und Impact-Analysen durchführt.
 
 ## Überblick
@@ -52,15 +56,20 @@ Der Analysis Worker implementiert das Producer-Consumer Pattern:
 
 ### Manual Start
 ```bash
-# Direkt ausführen
-./scripts/start-worker.sh --verbose
+# Standard start (recommended)
+./scripts/start-worker.sh
 
-# Dry-run Modus (simuliert Processing ohne API-Calls)
-./scripts/start-worker.sh --dry-run --verbose
+# With verbose logging
+python -B app/worker/analysis_worker.py --verbose
 
-# Environment laden und Python direkt aufrufen
-export $(grep -v '^#' .env.worker | xargs)
-python app/worker/analysis_worker.py --verbose
+# Check status
+ps aux | grep analysis_worker
+cat /tmp/news-mcp-worker.pid
+
+# Stop worker
+./scripts/stop-all.sh  # Stops all services
+# or kill specific worker:
+kill $(cat /tmp/news-mcp-worker.pid)
 ```
 
 ### Systemd Service

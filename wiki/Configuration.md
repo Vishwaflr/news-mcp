@@ -111,4 +111,4 @@ LOG_FILE=/var/log/news-mcp/app.log  # Log file path (optional)
 
 ---
 
-**Last Updated:** 2025-10-01
+**Last Updated:** 2025-10-03

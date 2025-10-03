@@ -593,13 +593,13 @@ alembic current
 
 ### Current Metrics
 
-- **Feeds**: 41 active feeds
-- **Articles**: 16,843 items
-- **Analysis Runs**: 813 completed
-- **Analyzed Items**: 6,137 items processed
+- **Feeds**: 41 total (34 active, 7 error)
+- **Articles**: 21,339 items
+- **Analysis Runs**: 1,523 completed
+- **Analyzed Items**: 8,591 items processed
 - **Concurrent Processing**: 6 simultaneous runs
 - **OpenAI Rate**: 3.0 requests/second
-- **Auto-Analysis**: 13 feeds with automatic analysis enabled
+- **Auto-Analysis**: 12 feeds with automatic analysis enabled
 - **Success Rate**: >95% (production-tested)
 
 ### Limits
@@ -682,6 +682,6 @@ This project is licensed under the GNU General Public License v3.0 - see the [LI
 
 ---
 
-**Current Version**: v4.0.0 - Complete Documentation Suite & Production-Ready MCP Server
+**Current Version**: v4.1.0 - Content Generation System & Enhanced Documentation
 
-**Status**: ✅ Production Ready - 100% Auto-Analysis Rollout
+**Status**: ✅ Production Ready - Stable Multi-Service Architecture (API + Worker + Scheduler)

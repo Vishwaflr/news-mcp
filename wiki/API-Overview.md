@@ -1,6 +1,6 @@
 # API Overview - News MCP REST API
 
-Complete reference for the News MCP REST API with 172+ endpoints across 15 categories.
+Complete reference for the News MCP REST API with 246 endpoints (278 routes) across 15 categories.
 
 ---
 
@@ -8,7 +8,7 @@ Complete reference for the News MCP REST API with 172+ endpoints across 15 categ
 
 The News MCP API follows RESTful principles with a modular, category-based organization:
 
-- **172+ Endpoints** organized into 15 logical categories
+- **246 Endpoints** organized into 15 logical categories
 - **FastAPI Framework** with automatic OpenAPI documentation
 - **Type-Safe** with Pydantic models and SQLModel integration
 - **HTMX Support** for progressive enhancement
@@ -36,7 +36,7 @@ The News MCP API follows RESTful principles with a modular, category-based organ
 | **[Scheduler](#scheduler)** | 6 | `/api/scheduler` | Feed scheduling |
 | **[Feed Limits](#feed-limits)** | 9 | `/api/feed-limits` | Rate limiting |
 
-**Total:** 172 endpoints
+**Total:** 246 endpoints
 
 ---
 
@@ -345,6 +345,6 @@ Feed operations respect rate limits:
 
 ---
 
-**Last Updated:** 2025-10-01
+**Last Updated:** 2025-10-03
 **API Version:** 4.0.0
 **Total Endpoints:** 172

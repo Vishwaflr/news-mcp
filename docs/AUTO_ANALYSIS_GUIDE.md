@@ -1,8 +1,9 @@
 # Auto-Analysis System - User Guide
 
-**Version:** 1.0.0
-**Status:** ✅ Production Ready
-**Last Updated:** 2025-09-27
+**Version:** 2.0.0
+**Status:** ✅ Production - 12 Feeds Active
+**Last Updated:** 2025-10-03
+**Performance:** 1,523 analysis runs, 8,591 items analyzed, >95% success rate
 
 ---
 
@@ -13,11 +14,12 @@ The Auto-Analysis System enables automatic AI analysis of new articles immediate
 ### Features
 
 - ✅ **Feed-Level Toggle**: Enable/disable auto-analysis per feed
-- ✅ **Queue-Based Processing**: Asynchronous processing without blocking
-- ✅ **Rate Limiting**: Automatic limits (10 runs/day per feed)
-- ✅ **Error Handling**: Robust error handling with retry
-- ✅ **Live Dashboard**: HTMX-based real-time overview
-- ✅ **Cost Control**: Cheaper model (gpt-4.1-nano) for auto-analyses
+- ✅ **Queue-Based Processing**: Async processing with `pending_auto_analysis` table
+- ✅ **Rate Limiting**: Concurrent run limits (6 max), configurable via .env
+- ✅ **Error Handling**: Categorized errors with fallback results
+- ✅ **Live Dashboard**: HTMX-based real-time overview at `/admin/auto-analysis`
+- ✅ **Cost Control**: Optimized models (gpt-4o-mini) for auto-analyses
+- ✅ **Background Worker**: Dedicated analysis worker service
 
 ---
 
@@ -67,16 +69,23 @@ curl "http://localhost:8000/api/feeds/1/auto-analysis-status"
 }
 ```
 
-### 3. View Dashboard
+### 3. View Dashboards
 
-**Via Browser:**
+**Feed Management:**
 ```
 http://localhost:8000/admin/feeds
 ```
+- 🟢 Green "Auto-Analysis ON" = Active
+- 🔘 Gray "Auto-Analysis OFF" = Disabled
 
-In the dashboard you will see:
-- 🟢 Green badge "🤖 Auto" = Auto-analysis active
-- 🔘 Gray badge "🤖 Manual" = Auto-analysis disabled
+**Auto-Analysis Dashboard:**
+```
+http://localhost:8000/admin/auto-analysis
+```
+- Real-time queue status
+- Success/failure metrics
+- Per-feed configuration
+- Recent analysis history
 
 ---
 

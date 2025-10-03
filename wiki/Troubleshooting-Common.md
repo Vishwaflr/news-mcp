@@ -788,5 +788,5 @@ psql -h localhost -U news_user -d news_db < backup-20251001.sql
 
 ---
 
-**Last Updated:** 2025-10-01
+**Last Updated:** 2025-10-03
 **Covers:** Common issues, service problems, database issues, feed errors, analysis issues, MCP problems

@@ -130,7 +130,7 @@ Shows selection details before analysis starts.
 Selection Preview
 ─────────────────────────────────────────
 Target: Feed "TechCrunch"
-Date Range: 2025-09-25 to 2025-10-01
+Date Range: 2025-09-25 to 2025-10-03
 Scope Limit: 50
 
 Items Found: 127
@@ -379,7 +379,7 @@ ws.onmessage = (event) => {
 {
   "feed_id": 1,
   "date_from": "2025-09-25",
-  "date_to": "2025-10-01",
+  "date_to": "2025-10-03",
   "scope_limit": 50,
   "skip_analyzed": true
 }
@@ -415,7 +415,7 @@ ws.onmessage = (event) => {
   "run_id": 123,
   "status": "queued",
   "items_count": 50,
-  "created_at": "2025-10-01T10:00:00Z"
+  "created_at": "2025-10-03T10:00:00Z"
 }
 ```
 
@@ -593,5 +593,5 @@ POLLING_INTERVAL=2000  # milliseconds
 ---
 
 **Template File:** `templates/analysis_cockpit_v4.html`
-**Last Updated:** 2025-10-01
+**Last Updated:** 2025-10-03
 **Version:** 4.0

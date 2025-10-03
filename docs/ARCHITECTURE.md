@@ -1,8 +1,19 @@
 # News MCP System Architecture
 
+**Version:** 4.1.0
+**Last Updated:** 2025-10-03
+**Status:** Production-Ready Multi-Service Architecture
+
 ## Overview
 
 The News MCP System is a modular, scalable platform for RSS feed aggregation with integrated AI analysis. The architecture follows modern microservice principles with clear separation of concerns.
+
+**Current Scale:**
+- 41 RSS Feeds (34 active)
+- 21,339 Articles stored
+- 1,523 Analysis runs completed
+- 8,591 Items analyzed
+- 3 Background Services (API + Worker + Scheduler)
 
 ## High-Level Architecture
 
@@ -19,11 +30,12 @@ graph TB
     end
 
     subgraph "Application Layer"
-        Web[FastAPI Web Server]
-        Worker[Analysis Worker]
-        Scheduler[Feed Scheduler]
-        AutoAnalysis[Auto-Analysis System]
-        MCP[MCP Server]
+        Web[FastAPI Web Server<br/>Port 8000]
+        Worker[Analysis Worker<br/>Background Service]
+        Scheduler[Feed Scheduler<br/>RSS Fetching]
+        AutoAnalysis[Auto-Analysis<br/>12 Feeds Enabled]
+        ContentWorker[Content Generator<br/>LLM Reports]
+        MCP[MCP Server<br/>Optional]
     end
 
     subgraph "Data Layer"
@@ -71,7 +83,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 
 app = FastAPI(
     title="News MCP API",
-    version="4.0.0",
+    version="4.1.0",
     docs_url="/docs",
     redoc_url="/redoc"
 )
@@ -227,21 +239,27 @@ class PendingAnalysisProcessor:
 - **Indexing**: Query-optimized indexes
 - **Partitioning**: Time-based for large tables
 
-**Key Tables:**
+**Key Tables (Current Stats):**
 ```sql
 -- Core Content
-feeds (40 rows, 37 active) → RSS Feed Configuration
-items (11,254 rows) → News Articles
+feeds (41 rows, 34 active) → RSS Feed Configuration
+items (21,339 rows) → News Articles
 sources (41 rows) → News Sources
 
 -- Analysis System
-analysis_runs (75 rows) → AI Analysis Jobs
-analysis_run_items (2,981 rows) → Individual Tasks
-item_analysis (2,866 rows) → Analysis Results
+analysis_runs (1,523 rows) → AI Analysis Jobs
+item_analysis (8,591 rows) → Analysis Results
+pending_auto_analysis (queue) → Auto-Analysis Queue
 
--- Monitoring
-fetch_log (35,040 rows) → Feed Fetch History
-feed_health (37 rows) → Health Monitoring
+-- Content Distribution
+content_templates → LLM Generation Templates
+generated_content → Generated Reports
+pending_content_generation → Content Queue
+
+-- Monitoring (35 total tables)
+fetch_log → Feed Fetch History
+feed_health → Health Monitoring
+feed_metrics → Performance Metrics
 ```
 
 **Performance Optimizations:**

@@ -29,7 +29,7 @@ Complete database schema documentation for News MCP PostgreSQL database.
 | created_at | timestamp | Creation timestamp |
 | updated_at | timestamp | Last update timestamp |
 
-**Current Rows:** 37 (37 active)
+**Current Rows:** 41 (34 active, 7 error)
 
 ---
 
@@ -145,7 +145,7 @@ Complete database schema documentation for News MCP PostgreSQL database.
 | consecutive_errors | int | Error counter |
 | updated_at | timestamp | Last health check |
 
-**Current Rows:** 37 (one per feed)
+**Current Rows:** 41 (one per feed)
 
 ---
 
@@ -273,7 +273,7 @@ WHERE fh.status != 'healthy';
 
 ---
 
-**Last Updated:** 2025-10-01
+**Last Updated:** 2025-10-03
 **Schema Version:** 4.0.0
 **Total Tables:** 30
 **Total Rows:** 54,000+

@@ -1,8 +1,10 @@
 # ENDPOINTS.md – News-MCP API-Gedächtnis
 
-**Zweck:** Komplette API-Referenz für News-MCP System (150+ Endpunkte strukturiert)
-**Version:** 3.2.0
-**Letzte Aktualisierung:** 2025-09-30
+**Zweck:** Komplette API-Referenz für News-MCP System
+**Version:** 4.0.0
+**Letzte Aktualisierung:** 2025-10-03
+**Total Endpoints:** 246 unique paths (278 total routes including methods)
+**Breakdown:** 176 GET, 78 POST, 17 DELETE, 7 PUT
 
 ---
 
@@ -26,7 +28,8 @@
 | [Scheduler](#14-scheduler) | 6 | `/api/scheduler` | ✅ Aktiv |
 | [Feed Limits](#15-feed-limits) | 9 | `/api/feed-limits` | ✅ Aktiv |
 
-**Total:** 173 Endpunkte
+**Documented:** ~170 endpoints (full API has 246+ paths)
+**Note:** This document covers core categories. See `/docs` OpenAPI spec for complete list.
 
 ---
 
