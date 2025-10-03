@@ -90,18 +90,9 @@ class ItemComponent(BaseComponent):
 
         # Compact display (always visible)
         compact_html = f"""
-        <div class="sentiment-analysis mb-2">
-            <div class="d-flex align-items-center gap-2 sentiment-compact flex-wrap" style="cursor: pointer;" onclick="toggleSentimentDetails(this)">
-                <span class="sentiment-icon">{icon}</span>
-                <span class="badge bg-{color}">{score:.1f}</span>
-                <span class="badge bg-warning">⚡ {urgency:.1f}</span>
-                <span class="badge bg-info">📊 {impact_overall:.1f}</span>
-                <small class="text-muted">Details ⌄</small>
-            </div>
-            <div class="mt-2">
-                {finance_html}
-                {geo_html}
-            </div>
+        <div class="sentiment-analysis">
+            {finance_html}
+            {geo_html}
     """
 
         # Detailed display (initially hidden)
@@ -161,20 +152,24 @@ class ItemComponent(BaseComponent):
         return f'''
         <div class="card mb-3 shadow-sm">
             <div class="card-body">
-                <div class="d-flex justify-content-between align-items-start mb-2">
-                    <h5 class="card-title mb-0 flex-grow-1">
-                        <a href="{item_data.get('link', '#')}" target="_blank" class="text-decoration-none text-primary">
-                            {clean_title}
-                        </a>
-                    </h5>
-                    {analysis_display}
+                <div class="row">
+                    <div class="col-lg-8">
+                        <h5 class="card-title mb-2">
+                            <a href="{item_data.get('link', '#')}" target="_blank" class="text-decoration-none text-primary">
+                                {clean_title}
+                            </a>
+                        </h5>
+                        <div class="d-flex flex-wrap gap-3 text-muted small mb-2">
+                            <span><i class="bi bi-calendar me-1"></i>{published_date}</span>
+                            <span><i class="bi bi-rss me-1"></i>{feed_name}</span>
+                            {author_info}
+                        </div>
+                        {f'<p class="card-text text-body-secondary">{clean_description}</p>' if clean_description else ''}
+                    </div>
+                    <div class="col-lg-4">
+                        {analysis_display}
+                    </div>
                 </div>
-                <div class="d-flex flex-wrap gap-3 text-muted small mb-2">
-                    <span><i class="bi bi-calendar me-1"></i>{published_date}</span>
-                    <span><i class="bi bi-rss me-1"></i>{feed_name}</span>
-                    {author_info}
-                </div>
-                {f'<p class="card-text text-body-secondary">{clean_description}</p>' if clean_description else ''}
             </div>
         </div>
         '''
