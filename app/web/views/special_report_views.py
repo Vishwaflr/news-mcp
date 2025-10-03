@@ -523,8 +523,7 @@ async def htmx_test_selection(
     session: Session = Depends(get_session)
 ):
     """HTMX: Test article selection with current criteria."""
-    from sqlmodel import select, and_, or_
-    from app.models.core import Item
+    from sqlmodel import text
     from datetime import datetime, timedelta
 
     # Parse form data from request
@@ -542,45 +541,65 @@ async def htmx_test_selection(
     keywords = [k.strip() for k in form_data.get('keywords', '').split(',') if k.strip()]
     exclude_keywords = [k.strip() for k in form_data.get('exclude_keywords', '').split(',') if k.strip()]
 
-    # Build query
-    query = select(Item)
+    # Build raw SQL query with JSONB extraction for scores
+    # Note: items table has no impact_score/sentiment_score columns
+    # These are in item_analysis table as JSONB: impact_json->>'overall' and sentiment_json->'overall'->>'score'
 
-    # Filter by feeds
-    if feed_ids:
-        query = query.where(Item.feed_id.in_(feed_ids))
-
-    # Filter by timeframe
     cutoff = datetime.now() - timedelta(hours=timeframe_hours)
-    query = query.where(Item.published >= cutoff)
 
-    # Filter by impact
+    # Build WHERE clauses
+    where_clauses = []
+    params = {'cutoff': cutoff}
+
+    if feed_ids:
+        placeholders = ','.join([f':feed_{i}' for i in range(len(feed_ids))])
+        where_clauses.append(f"i.feed_id IN ({placeholders})")
+        for idx, fid in enumerate(feed_ids):
+            params[f'feed_{idx}'] = fid
+
+    where_clauses.append("i.published >= :cutoff")
+
     if min_impact > 0:
-        query = query.where(Item.impact_score >= min_impact)
+        where_clauses.append("COALESCE((a.impact_json->>'overall')::numeric, 0) >= :min_impact")
+        params['min_impact'] = min_impact
 
-    # Filter by sentiment
     if min_sentiment is not None:
-        query = query.where(Item.sentiment_score >= min_sentiment)
+        where_clauses.append("COALESCE((a.sentiment_json->'overall'->>'score')::numeric, 0) >= :min_sentiment")
+        params['min_sentiment'] = min_sentiment
 
-    # Filter by keywords (OR condition)
     if keywords:
-        keyword_conditions = []
-        for kw in keywords:
-            keyword_conditions.append(Item.title.ilike(f'%{kw}%'))
-            keyword_conditions.append(Item.summary.ilike(f'%{kw}%'))
-        query = query.where(or_(*keyword_conditions))
+        kw_clauses = []
+        for idx, kw in enumerate(keywords):
+            kw_clauses.append(f"(i.title ILIKE :kw_{idx} OR i.description ILIKE :kw_{idx})")
+            params[f'kw_{idx}'] = f'%{kw}%'
+        where_clauses.append(f"({' OR '.join(kw_clauses)})")
 
-    # Exclude keywords (AND NOT condition)
-    for kw in exclude_keywords:
-        query = query.where(
-            ~(Item.title.ilike(f'%{kw}%') | Item.summary.ilike(f'%{kw}%'))
-        )
+    for idx, kw in enumerate(exclude_keywords):
+        where_clauses.append(f"NOT (i.title ILIKE :ex_kw_{idx} OR i.description ILIKE :ex_kw_{idx})")
+        params[f'ex_kw_{idx}'] = f'%{kw}%'
 
-    # Order and limit
-    query = query.order_by(Item.impact_score.desc(), Item.published.desc())
-    query = query.limit(max_articles)
+    where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
 
-    # Execute
-    articles = session.exec(query).all()
+    sql = f"""
+        SELECT
+            i.id,
+            i.title,
+            i.link,
+            i.description,
+            i.published,
+            COALESCE((a.impact_json->>'overall')::numeric, 0) as impact_score,
+            COALESCE((a.sentiment_json->'overall'->>'score')::numeric, 0) as sentiment_score
+        FROM items i
+        LEFT JOIN item_analysis a ON i.id = a.item_id
+        WHERE {where_sql}
+        ORDER BY impact_score DESC, i.published DESC
+        LIMIT :limit
+    """
+    params['limit'] = max_articles
+
+    # Execute raw SQL
+    result = session.exec(text(sql), params)
+    articles = result.fetchall()
 
     # Build HTML response
     if not articles:
@@ -599,27 +618,34 @@ async def htmx_test_selection(
         </div>
     ''']
 
-    for i, article in enumerate(articles[:10], 1):  # Show first 10
-        pub_date = article.published.strftime('%Y-%m-%d %H:%M') if article.published else 'N/A'
-        impact_color = 'success' if article.impact_score >= 0.7 else ('warning' if article.impact_score >= 0.4 else 'secondary')
-        sentiment_color = 'success' if article.sentiment_score > 0.3 else ('danger' if article.sentiment_score < -0.3 else 'secondary')
+    for i, row in enumerate(articles[:10], 1):  # Show first 10
+        # row is a SQLAlchemy Row object with: id, title, link, description, published, impact_score, sentiment_score
+        pub_date = row.published.strftime('%Y-%m-%d %H:%M') if row.published else 'N/A'
+        impact_score = float(row.impact_score or 0)
+        sentiment_score = float(row.sentiment_score or 0)
+
+        impact_color = 'success' if impact_score >= 0.7 else ('warning' if impact_score >= 0.4 else 'secondary')
+        sentiment_color = 'success' if sentiment_score > 0.3 else ('danger' if sentiment_score < -0.3 else 'secondary')
+
+        description = row.description or ''
+        description_preview = description[:200] if len(description) > 200 else description
 
         html_parts.append(f'''
             <div class="article-card">
                 <div class="d-flex justify-content-between align-items-start mb-2">
                     <span class="badge bg-secondary">#{i}</span>
                     <div>
-                        <span class="badge badge-metric bg-{impact_color}">Impact: {article.impact_score:.2f}</span>
-                        <span class="badge badge-metric bg-{sentiment_color}">Sentiment: {article.sentiment_score:.2f}</span>
+                        <span class="badge badge-metric bg-{impact_color}">Impact: {impact_score:.2f}</span>
+                        <span class="badge badge-metric bg-{sentiment_color}">Sentiment: {sentiment_score:.2f}</span>
                     </div>
                 </div>
-                <h6 class="text-light mb-2">{article.title}</h6>
-                <p class="text-muted small mb-2">{article.summary[:200] if article.summary else 'No summary'}...</p>
+                <h6 class="text-light mb-2">{row.title}</h6>
+                <p class="text-muted small mb-2">{description_preview}{'...' if len(description) > 200 else ''}</p>
                 <div class="d-flex justify-content-between align-items-center">
                     <small class="text-secondary">
                         <i class="fas fa-calendar"></i> {pub_date}
                     </small>
-                    <a href="{article.link}" target="_blank" class="btn btn-sm btn-outline-primary">
+                    <a href="{row.link}" target="_blank" class="btn btn-sm btn-outline-primary">
                         <i class="fas fa-external-link-alt"></i> View
                     </a>
                 </div>
