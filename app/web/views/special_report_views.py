@@ -26,6 +26,48 @@ async def special_reports_page(request: Request):
     )
 
 
+@router.get("/admin/special-reports/{special_report_id}/edit", response_class=HTMLResponse)
+async def special_report_edit_page(
+    request: Request,
+    special_report_id: int,
+    session: Session = Depends(get_session)
+):
+    """Dedicated edit page with live test functionality."""
+    from sqlmodel import select
+    from app.models.core import Feed
+
+    special_report = session.get(SpecialReport, special_report_id)
+    if not special_report:
+        raise HTTPException(status_code=404, detail="Special Report not found")
+
+    # Get all feeds
+    feeds = session.exec(select(Feed).order_by(Feed.title)).all()
+
+    # Extract selection criteria
+    sc = special_report.selection_criteria or {}
+    selected_feed_ids = sc.get('feed_ids') or []
+
+    # Safely extract keywords
+    keywords_raw = sc.get('keywords') or []
+    keywords_str = ','.join(keywords_raw) if isinstance(keywords_raw, list) else (keywords_raw if isinstance(keywords_raw, str) else '')
+
+    exclude_keywords_raw = sc.get('exclude_keywords') or []
+    exclude_keywords_str = ','.join(exclude_keywords_raw) if isinstance(exclude_keywords_raw, list) else (exclude_keywords_raw if isinstance(exclude_keywords_raw, str) else '')
+
+    return templates.TemplateResponse(
+        "admin/special_report_edit.html",
+        {
+            "request": request,
+            "special_report": special_report,
+            "feeds": feeds,
+            "selected_feed_ids": selected_feed_ids,
+            "selection_criteria": sc,
+            "keywords_str": keywords_str,
+            "exclude_keywords_str": exclude_keywords_str
+        }
+    )
+
+
 @router.get("/admin/special-reports/{special_report_id}", response_class=HTMLResponse)
 async def special_report_detail_page(
     request: Request,
@@ -98,14 +140,9 @@ async def htmx_special_reports_list(session: Session = Depends(get_session)):
                         <a href="/admin/special-reports/{special_report.id}" class="btn btn-sm btn-outline-primary" title="View">
                             <i class="fas fa-eye"></i>
                         </a>
-                        <button class="btn btn-sm btn-outline-warning"
-                                hx-get="/htmx/special_reports/{special_report.id}/edit-form"
-                                hx-target="#edit-form-modal-body"
-                                data-bs-toggle="modal"
-                                data-bs-target="#editSpecialReportModal"
-                                title="Edit">
+                        <a href="/admin/special-reports/{special_report.id}/edit" class="btn btn-sm btn-outline-warning" title="Edit">
                             <i class="fas fa-edit"></i>
-                        </button>
+                        </a>
                         <button class="btn btn-sm btn-outline-danger"
                                 hx-delete="/htmx/special_reports/{special_report.id}/delete"
                                 hx-target="#special-reports-list"
@@ -477,3 +514,124 @@ async def htmx_delete_special_report(
 
     # Return updated list
     return await htmx_special_reports_list(session)
+
+
+@router.post("/htmx/special_reports/{special_report_id}/test", response_class=HTMLResponse)
+async def htmx_test_selection(
+    request: Request,
+    special_report_id: int,
+    session: Session = Depends(get_session)
+):
+    """HTMX: Test article selection with current criteria."""
+    from sqlmodel import select, and_, or_
+    from app.models.content import Item
+    from datetime import datetime, timedelta
+
+    # Parse form data from request
+    form_data = await request.form()
+
+    # Parse form data to build selection criteria
+    feed_ids = form_data.getlist('feed_ids')
+    feed_ids = [int(fid) for fid in feed_ids if fid]
+
+    timeframe_hours = int(form_data.get('timeframe_hours', 24))
+    max_articles = int(form_data.get('max_articles', 20))
+    min_impact = float(form_data.get('min_impact_score', 0.0))
+    min_sentiment = float(form_data.get('min_sentiment_score', -1.0)) if form_data.get('min_sentiment_score') else None
+
+    keywords = [k.strip() for k in form_data.get('keywords', '').split(',') if k.strip()]
+    exclude_keywords = [k.strip() for k in form_data.get('exclude_keywords', '').split(',') if k.strip()]
+
+    # Build query
+    query = select(Item)
+
+    # Filter by feeds
+    if feed_ids:
+        query = query.where(Item.feed_id.in_(feed_ids))
+
+    # Filter by timeframe
+    cutoff = datetime.now() - timedelta(hours=timeframe_hours)
+    query = query.where(Item.published_at >= cutoff)
+
+    # Filter by impact
+    if min_impact > 0:
+        query = query.where(Item.impact_score >= min_impact)
+
+    # Filter by sentiment
+    if min_sentiment is not None:
+        query = query.where(Item.sentiment_score >= min_sentiment)
+
+    # Filter by keywords (OR condition)
+    if keywords:
+        keyword_conditions = []
+        for kw in keywords:
+            keyword_conditions.append(Item.title.ilike(f'%{kw}%'))
+            keyword_conditions.append(Item.summary.ilike(f'%{kw}%'))
+        query = query.where(or_(*keyword_conditions))
+
+    # Exclude keywords (AND NOT condition)
+    for kw in exclude_keywords:
+        query = query.where(
+            ~(Item.title.ilike(f'%{kw}%') | Item.summary.ilike(f'%{kw}%'))
+        )
+
+    # Order and limit
+    query = query.order_by(Item.impact_score.desc(), Item.published_at.desc())
+    query = query.limit(max_articles)
+
+    # Execute
+    articles = session.exec(query).all()
+
+    # Build HTML response
+    if not articles:
+        return '''
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle"></i>
+                <strong>No articles found</strong> with current criteria.
+                <br><small>Try relaxing the filters or extending the timeframe.</small>
+            </div>
+        '''
+
+    html_parts = [f'''
+        <div class="alert alert-success mb-3">
+            <i class="fas fa-check-circle"></i>
+            <strong>Found {len(articles)} articles</strong> matching your criteria
+        </div>
+    ''']
+
+    for i, article in enumerate(articles[:10], 1):  # Show first 10
+        pub_date = article.published_at.strftime('%Y-%m-%d %H:%M') if article.published_at else 'N/A'
+        impact_color = 'success' if article.impact_score >= 0.7 else ('warning' if article.impact_score >= 0.4 else 'secondary')
+        sentiment_color = 'success' if article.sentiment_score > 0.3 else ('danger' if article.sentiment_score < -0.3 else 'secondary')
+
+        html_parts.append(f'''
+            <div class="article-card">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <span class="badge bg-secondary">#{i}</span>
+                    <div>
+                        <span class="badge badge-metric bg-{impact_color}">Impact: {article.impact_score:.2f}</span>
+                        <span class="badge badge-metric bg-{sentiment_color}">Sentiment: {article.sentiment_score:.2f}</span>
+                    </div>
+                </div>
+                <h6 class="text-light mb-2">{article.title}</h6>
+                <p class="text-muted small mb-2">{article.summary[:200] if article.summary else 'No summary'}...</p>
+                <div class="d-flex justify-content-between align-items-center">
+                    <small class="text-secondary">
+                        <i class="fas fa-calendar"></i> {pub_date}
+                    </small>
+                    <a href="{article.link}" target="_blank" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-external-link-alt"></i> View
+                    </a>
+                </div>
+            </div>
+        ''')
+
+    if len(articles) > 10:
+        html_parts.append(f'''
+            <div class="alert alert-info mt-3">
+                <i class="fas fa-info-circle"></i>
+                Showing first 10 of {len(articles)} articles. Actual report will include all {len(articles)}.
+            </div>
+        ''')
+
+    return ''.join(html_parts)
