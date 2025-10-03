@@ -597,9 +597,10 @@ async def htmx_test_selection(
     """
     params['limit'] = max_articles
 
-    # Execute raw SQL
-    result = session.exec(text(sql), params)
-    articles = result.fetchall()
+    # Execute raw SQL using connection (for proper parameter binding)
+    with session.connection() as conn:
+        result = conn.execute(text(sql), params)
+        articles = result.fetchall()
 
     # Build HTML response
     if not articles:
