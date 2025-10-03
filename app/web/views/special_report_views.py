@@ -551,7 +551,7 @@ async def htmx_test_selection(
 
     # Filter by timeframe
     cutoff = datetime.now() - timedelta(hours=timeframe_hours)
-    query = query.where(Item.published_at >= cutoff)
+    query = query.where(Item.published >= cutoff)
 
     # Filter by impact
     if min_impact > 0:
@@ -576,7 +576,7 @@ async def htmx_test_selection(
         )
 
     # Order and limit
-    query = query.order_by(Item.impact_score.desc(), Item.published_at.desc())
+    query = query.order_by(Item.impact_score.desc(), Item.published.desc())
     query = query.limit(max_articles)
 
     # Execute
@@ -600,7 +600,7 @@ async def htmx_test_selection(
     ''']
 
     for i, article in enumerate(articles[:10], 1):  # Show first 10
-        pub_date = article.published_at.strftime('%Y-%m-%d %H:%M') if article.published_at else 'N/A'
+        pub_date = article.published.strftime('%Y-%m-%d %H:%M') if article.published else 'N/A'
         impact_color = 'success' if article.impact_score >= 0.7 else ('warning' if article.impact_score >= 0.4 else 'secondary')
         sentiment_color = 'success' if article.sentiment_score > 0.3 else ('danger' if article.sentiment_score < -0.3 else 'secondary')
 
