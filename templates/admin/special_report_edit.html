@@ -6,18 +6,23 @@
 <style>
     .split-view {
         display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 20px;
+        grid-template-columns: 400px 1fr 400px;
+        gap: 15px;
         height: calc(100vh - 120px);
         overflow: hidden;
     }
 
-    .config-panel, .preview-panel {
+    .config-panel, .articles-panel, .preview-panel {
         background: var(--bs-dark);
         border-radius: 8px;
         padding: 20px;
         overflow-y: auto;
         border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .articles-panel {
+        border-left: 2px solid #667eea;
+        border-right: 2px solid #667eea;
     }
 
     .sticky-header {
@@ -120,13 +125,23 @@
         display: inline-block;
     }
 
-    @media (max-width: 1200px) {
+    @media (max-width: 1400px) {
         .split-view {
-            grid-template-columns: 1fr;
+            grid-template-columns: 1fr 1fr;
             height: auto;
         }
 
-        .preview-panel {
+        .config-panel {
+            grid-column: 1 / -1;
+        }
+    }
+
+    @media (max-width: 900px) {
+        .split-view {
+            grid-template-columns: 1fr;
+        }
+
+        .articles-panel, .preview-panel {
             margin-top: 20px;
         }
     }
@@ -310,6 +325,25 @@
             </form>
         </div>
 
+        <!-- Middle Panel: Selected Articles -->
+        <div class="articles-panel">
+            <div class="sticky-header">
+                <h4 class="text-light mb-0">
+                    <i class="fas fa-newspaper"></i> Selected Articles
+                </h4>
+                <small class="text-muted">Articles matching current configuration</small>
+            </div>
+
+            <div id="article-list" hx-get="/htmx/special_reports/{{ special_report.id }}/articles"
+                 hx-trigger="load, configChange from:body"
+                 hx-swap="innerHTML">
+                <div class="text-center text-muted py-5">
+                    <i class="fas fa-newspaper fa-3x mb-3 opacity-25"></i>
+                    <p>Configure filters to see articles</p>
+                </div>
+            </div>
+        </div>
+
         <!-- Right Panel: Live Preview/Test -->
         <div class="preview-panel">
             <div class="sticky-header">
@@ -335,6 +369,30 @@
 </div>
 
 <script>
+    // Update articles list when config changes
+    function updateArticlesList() {
+        const formData = new FormData(document.getElementById('edit-form'));
+
+        fetch('/htmx/special_reports/{{ special_report.id }}/articles', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.text())
+        .then(html => {
+            document.getElementById('article-list').innerHTML = html;
+        });
+    }
+
+    // Trigger update on form changes (debounced)
+    let updateTimer;
+    document.getElementById('edit-form').addEventListener('change', function() {
+        clearTimeout(updateTimer);
+        updateTimer = setTimeout(updateArticlesList, 500);
+    });
+
+    // Load articles on page load
+    window.addEventListener('DOMContentLoaded', updateArticlesList);
+
     function runTest() {
         const btn = document.querySelector('.btn-test');
         btn.classList.add('loading');

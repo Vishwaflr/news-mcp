@@ -516,6 +516,116 @@ async def htmx_delete_special_report(
     return await htmx_special_reports_list(session)
 
 
+@router.post("/htmx/special_reports/{special_report_id}/articles", response_class=HTMLResponse)
+async def htmx_articles_list(
+    request: Request,
+    special_report_id: int,
+    session: Session = Depends(get_session)
+):
+    """HTMX: Show article list matching current criteria (compact view for middle panel)."""
+    from sqlmodel import text
+    from datetime import datetime, timedelta
+
+    # Parse form data
+    form_data = await request.form()
+    feed_ids = [int(fid) for fid in form_data.getlist('feed_ids') if fid]
+    timeframe_hours = int(form_data.get('timeframe_hours', 24))
+    max_articles = int(form_data.get('max_articles', 20))
+    min_impact = float(form_data.get('min_impact_score', 0.0))
+    min_sentiment = float(form_data.get('min_sentiment_score', -1.0)) if form_data.get('min_sentiment_score') else None
+
+    keywords = [k.strip() for k in form_data.get('keywords', '').split(',') if k.strip()]
+    exclude_keywords = [k.strip() for k in form_data.get('exclude_keywords', '').split(',') if k.strip()]
+
+    cutoff = datetime.now() - timedelta(hours=timeframe_hours)
+
+    # Build WHERE clauses
+    where_clauses = []
+    params = {'cutoff': cutoff}
+
+    if feed_ids:
+        placeholders = ','.join([f':feed_{i}' for i in range(len(feed_ids))])
+        where_clauses.append(f"i.feed_id IN ({placeholders})")
+        for idx, fid in enumerate(feed_ids):
+            params[f'feed_{idx}'] = fid
+
+    where_clauses.append("i.published >= :cutoff")
+
+    if min_impact > 0:
+        where_clauses.append("COALESCE((a.impact_json->>'overall')::numeric, 0) >= :min_impact")
+        params['min_impact'] = min_impact
+
+    if min_sentiment is not None:
+        where_clauses.append("COALESCE((a.sentiment_json->'overall'->>'score')::numeric, 0) >= :min_sentiment")
+        params['min_sentiment'] = min_sentiment
+
+    if keywords:
+        kw_clauses = []
+        for idx, kw in enumerate(keywords):
+            kw_clauses.append(f"(i.title ILIKE :kw_{idx} OR i.description ILIKE :kw_{idx})")
+            params[f'kw_{idx}'] = f'%{kw}%'
+        where_clauses.append(f"({' OR '.join(kw_clauses)})")
+
+    for idx, kw in enumerate(exclude_keywords):
+        where_clauses.append(f"NOT (i.title ILIKE :ex_kw_{idx} OR i.description ILIKE :ex_kw_{idx})")
+        params[f'ex_kw_{idx}'] = f'%{kw}%'
+
+    where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
+
+    sql = f"""
+        SELECT
+            i.id,
+            i.title,
+            i.link,
+            i.published,
+            COALESCE((a.impact_json->>'overall')::numeric, 0) as impact_score,
+            COALESCE((a.sentiment_json->'overall'->>'score')::numeric, 0) as sentiment_score
+        FROM items i
+        LEFT JOIN item_analysis a ON i.id = a.item_id
+        WHERE {where_sql}
+        ORDER BY impact_score DESC, i.published DESC
+        LIMIT :limit
+    """
+    params['limit'] = max_articles
+
+    # Execute
+    with session.connection() as conn:
+        result = conn.execute(text(sql), params)
+        articles = result.fetchall()
+
+    # Build compact HTML for middle panel
+    if not articles:
+        return '''
+            <div class="text-center text-muted py-4">
+                <i class="fas fa-inbox fa-2x mb-2 opacity-25"></i>
+                <p>No articles match current filters</p>
+            </div>
+        '''
+
+    html_parts = [f'<div class="text-muted mb-2"><small>{len(articles)} articles selected</small></div>']
+
+    for row in articles:
+        pub_date = row.published.strftime('%m/%d %H:%M') if row.published else 'N/A'
+        impact_score = float(row.impact_score or 0)
+        sentiment_score = float(row.sentiment_score or 0)
+
+        impact_color = 'success' if impact_score >= 0.7 else ('warning' if impact_score >= 0.4 else 'secondary')
+        sentiment_color = 'success' if sentiment_score > 0.3 else ('danger' if sentiment_score < -0.3 else 'secondary')
+
+        html_parts.append(f'''
+            <div class="article-card mb-2 p-2">
+                <div class="d-flex gap-2 mb-1">
+                    <span class="badge bg-{impact_color}" style="font-size:0.7em">{impact_score:.1f}</span>
+                    <span class="badge bg-{sentiment_color}" style="font-size:0.7em">{sentiment_score:.1f}</span>
+                    <small class="text-muted">{pub_date}</small>
+                </div>
+                <div class="text-light" style="font-size:0.85em; line-height:1.3">{row.title}</div>
+            </div>
+        ''')
+
+    return ''.join(html_parts)
+
+
 @router.post("/htmx/special_reports/{special_report_id}/test", response_class=HTMLResponse)
 async def htmx_test_selection(
     request: Request,
