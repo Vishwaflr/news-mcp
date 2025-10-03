@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{{ template.name }} - Content Templates{% endblock %}
+{% block title %}{{ special_report.name }} - Content Templates{% endblock %}
 
 {% block content %}
 <div class="container-fluid px-4">
@@ -10,15 +10,15 @@
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb mb-2">
                     <li class="breadcrumb-item"><a href="/admin/special-reports" class="text-decoration-none">Special Reports</a></li>
-                    <li class="breadcrumb-item active text-muted">{{ template.name }}</li>
+                    <li class="breadcrumb-item active text-muted">{{ special_report.name }}</li>
                 </ol>
             </nav>
-            <h1 class="h3 text-light">{{ template.name }}</h1>
-            <p class="text-muted mb-0">{{ template.description }}</p>
+            <h1 class="h3 text-light">{{ special_report.name }}</h1>
+            <p class="text-muted mb-0">{{ special_report.description }}</p>
         </div>
         <div>
-            <span class="badge {% if template.is_active %}bg-success{% else %}bg-secondary{% endif %}">
-                {% if template.is_active %}Active{% else %}Inactive{% endif %}
+            <span class="badge {% if special_report.is_active %}bg-success{% else %}bg-secondary{% endif %}">
+                {% if special_report.is_active %}Active{% else %}Inactive{% endif %}
             </span>
         </div>
     </div>
@@ -33,16 +33,16 @@
                 <div class="card-body bg-dark">
                     <dl class="row mb-0">
                         <dt class="col-sm-6">Target Audience</dt>
-                        <dd class="col-sm-6">{{ template.target_audience or 'N/A' }}</dd>
+                        <dd class="col-sm-6">{{ special_report.target_audience or 'N/A' }}</dd>
 
                         <dt class="col-sm-6">LLM Model</dt>
-                        <dd class="col-sm-6"><code>{{ template.llm_model }}</code></dd>
+                        <dd class="col-sm-6"><code>{{ special_report.llm_model }}</code></dd>
 
                         <dt class="col-sm-6">Temperature</dt>
-                        <dd class="col-sm-6">{{ template.llm_temperature }}</dd>
+                        <dd class="col-sm-6">{{ special_report.llm_temperature }}</dd>
 
                         <dt class="col-sm-6">Schedule</dt>
-                        <dd class="col-sm-6">{{ template.generation_schedule or 'On-demand' }}</dd>
+                        <dd class="col-sm-6">{{ special_report.generation_schedule or 'On-demand' }}</dd>
                     </dl>
                 </div>
             </div>
@@ -55,27 +55,27 @@
                 </div>
                 <div class="card-body bg-dark">
                     <dl class="row mb-0">
-                        {% if template.selection_criteria.keywords %}
+                        {% if special_report.selection_criteria.keywords %}
                         <dt class="col-sm-5">Keywords</dt>
                         <dd class="col-sm-7">
-                            {% for kw in template.selection_criteria.keywords %}
+                            {% for kw in special_report.selection_criteria.keywords %}
                             <span class="badge bg-primary">{{ kw }}</span>
                             {% endfor %}
                         </dd>
                         {% endif %}
 
-                        {% if template.selection_criteria.timeframe_hours %}
+                        {% if special_report.selection_criteria.timeframe_hours %}
                         <dt class="col-sm-5">Timeframe</dt>
-                        <dd class="col-sm-7">{{ template.selection_criteria.timeframe_hours }}h</dd>
+                        <dd class="col-sm-7">{{ special_report.selection_criteria.timeframe_hours }}h</dd>
                         {% endif %}
 
-                        {% if template.selection_criteria.min_impact_score %}
+                        {% if special_report.selection_criteria.min_impact_score %}
                         <dt class="col-sm-5">Min Impact</dt>
-                        <dd class="col-sm-7">{{ template.selection_criteria.min_impact_score }}</dd>
+                        <dd class="col-sm-7">{{ special_report.selection_criteria.min_impact_score }}</dd>
                         {% endif %}
 
                         <dt class="col-sm-5">Max Articles</dt>
-                        <dd class="col-sm-7">{{ template.selection_criteria.max_articles }}</dd>
+                        <dd class="col-sm-7">{{ special_report.selection_criteria.max_articles }}</dd>
                     </dl>
                 </div>
             </div>
@@ -87,10 +87,10 @@
                     <h6 class="mb-0 text-light"><i class="fas fa-file-alt"></i> Content Structure</h6>
                 </div>
                 <div class="card-body bg-dark">
-                    <p class="mb-2"><strong>Output Format:</strong> {{ template.content_structure.output_format }}</p>
+                    <p class="mb-2"><strong>Output Format:</strong> {{ special_report.content_structure.output_format }}</p>
                     <p class="mb-2"><strong>Sections:</strong></p>
                     <ul class="mb-0">
-                        {% for section in template.content_structure.sections %}
+                        {% for section in special_report.content_structure.sections %}
                         <li><code>{{ section.name }}</code> ({{ section.format }})</li>
                         {% endfor %}
                     </ul>
@@ -104,7 +104,7 @@
         <div class="card-header bg-dark border-secondary d-flex justify-content-between align-items-center">
             <h5 class="mb-0 text-light"><i class="fas fa-newspaper"></i> Generated Content</h5>
             <button class="btn btn-sm btn-primary"
-                    hx-post="/htmx/templates/{{ template.id }}/refresh-content"
+                    hx-post="/htmx/special_reports/{{ special_report.id }}/refresh-content"
                     hx-target="#content-list"
                     hx-swap="innerHTML">
                 <i class="fas fa-sync"></i> Refresh
@@ -112,7 +112,7 @@
         </div>
         <div class="card-body bg-dark">
             <div id="content-list"
-                 hx-get="/htmx/templates/{{ template.id }}/content"
+                 hx-get="/htmx/special_reports/{{ special_report.id }}/content"
                  hx-trigger="load"
                  hx-swap="innerHTML">
                 <div class="text-center py-4">

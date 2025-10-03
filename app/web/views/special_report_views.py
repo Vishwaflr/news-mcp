@@ -94,7 +94,7 @@ async def htmx_special_reports_list(session: Session = Depends(get_session)):
                 <td>{special_report.generation_schedule or 'On-demand'}</td>
                 <td><span class="badge {status_badge}">{status_text}</span></td>
                 <td>
-                    <a href="/admin/content-special_reports/{special_report.id}" class="btn btn-sm btn-primary">
+                    <a href="/admin/special-reports/{special_report.id}" class="btn btn-sm btn-primary">
                         <i class="fas fa-eye"></i> View
                     </a>
                 </td>
