@@ -1,7 +1,7 @@
 """add_llm_instruction_fields_to_content_templates
 
 Revision ID: 3d13c4217df7
-Revises: 3f1e428c6eee
+Revises: geopolitical_001
 Create Date: 2025-10-03 06:22:19.862657
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = '3d13c4217df7'
-down_revision: Union[str, Sequence[str], None] = '3f1e428c6eee'
+down_revision: Union[str, Sequence[str], None] = 'geopolitical_001'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

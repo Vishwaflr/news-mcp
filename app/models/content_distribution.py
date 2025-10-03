@@ -2,7 +2,7 @@
 SQLModel database models for Content Distribution System.
 
 These models map to the database tables created by the migration:
-- ContentTemplate
+- SpecialReport (formerly ContentTemplate)
 - GeneratedContent
 - DistributionChannel
 - DistributionLog
@@ -17,13 +17,13 @@ from datetime import datetime
 from decimal import Decimal
 
 
-class ContentTemplate(SQLModel, table=True):
+class SpecialReport(SQLModel, table=True):
     """
-    Content template for generating structured briefings.
+    Special Report configuration for generating structured briefings.
 
     Defines what content to generate, how to structure it, and when to generate it.
     """
-    __tablename__ = "content_templates"
+    __tablename__ = "special_reports"
 
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str = Field(..., max_length=200, unique=True, index=True)
@@ -64,21 +64,21 @@ class ContentTemplate(SQLModel, table=True):
     tags: Optional[Dict[str, Any]] = Field(None, sa_column=Column(JSONB))
 
     # Relationships
-    generated_contents: List["GeneratedContent"] = Relationship(back_populates="template", cascade_delete=True)
-    distribution_channels: List["DistributionChannel"] = Relationship(back_populates="template", cascade_delete=True)
-    pending_generations: List["PendingContentGeneration"] = Relationship(back_populates="template", cascade_delete=True)
+    generated_contents: List["GeneratedContent"] = Relationship(back_populates="special_report", cascade_delete=True)
+    distribution_channels: List["DistributionChannel"] = Relationship(back_populates="special_report", cascade_delete=True)
+    pending_generations: List["PendingContentGeneration"] = Relationship(back_populates="special_report", cascade_delete=True)
 
 
 class GeneratedContent(SQLModel, table=True):
     """
-    Generated content instance from a template.
+    Generated content instance from a special report.
 
     Stores the actual generated briefing/report content.
     """
     __tablename__ = "generated_content"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    template_id: int = Field(..., foreign_key="content_templates.id", index=True)
+    special_report_id: int = Field(..., foreign_key="special_reports.id", index=True)
 
     # Generated content
     title: Optional[str] = Field(None, max_length=500)
@@ -106,20 +106,20 @@ class GeneratedContent(SQLModel, table=True):
     error_message: Optional[str] = Field(None, sa_column=Column(Text))
 
     # Relationships
-    template: "ContentTemplate" = Relationship(back_populates="generated_contents")
+    special_report: "SpecialReport" = Relationship(back_populates="generated_contents")
     distribution_logs: List["DistributionLog"] = Relationship(back_populates="content", cascade_delete=True)
 
 
 class DistributionChannel(SQLModel, table=True):
     """
-    Distribution channel configuration for a template.
+    Distribution channel configuration for a special report.
 
     Defines where and how to distribute generated content (email, web, RSS, API).
     """
     __tablename__ = "distribution_channels"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    template_id: int = Field(..., foreign_key="content_templates.id", index=True)
+    special_report_id: int = Field(..., foreign_key="special_reports.id", index=True)
 
     # Channel configuration
     channel_type: str = Field(..., max_length=20, index=True)  # email, web, rss, api
@@ -132,7 +132,7 @@ class DistributionChannel(SQLModel, table=True):
     last_used_at: Optional[datetime] = None
 
     # Relationships
-    template: "ContentTemplate" = Relationship(back_populates="distribution_channels")
+    special_report: "SpecialReport" = Relationship(back_populates="distribution_channels")
     distribution_logs: List["DistributionLog"] = Relationship(back_populates="channel", cascade_delete=True)
 
 
@@ -179,7 +179,7 @@ class PendingContentGeneration(SQLModel, table=True):
     __tablename__ = "pending_content_generation"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    template_id: int = Field(..., foreign_key="content_templates.id", index=True)
+    special_report_id: int = Field(..., foreign_key="special_reports.id", index=True)
 
     # Queue status
     status: str = Field(default="pending", max_length=20, index=True)  # pending, processing, completed, failed
@@ -197,12 +197,16 @@ class PendingContentGeneration(SQLModel, table=True):
     triggered_by: str = Field(default="manual", max_length=50)  # manual, scheduled, realtime
 
     # Relationships
-    template: "ContentTemplate" = Relationship(back_populates="pending_generations")
+    special_report: "SpecialReport" = Relationship(back_populates="pending_generations")
+
+
+# Backward compatibility alias (deprecated, will be removed in v5.0)
+ContentTemplate = SpecialReport
 
 
 # Update relationships after all models are defined
 GeneratedContent.update_forward_refs()
-ContentTemplate.update_forward_refs()
+SpecialReport.update_forward_refs()
 DistributionChannel.update_forward_refs()
 DistributionLog.update_forward_refs()
 PendingContentGeneration.update_forward_refs()

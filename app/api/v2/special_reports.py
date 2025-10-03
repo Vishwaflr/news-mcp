@@ -1,7 +1,7 @@
 """
 API endpoints for Content Template management.
 
-Provides CRUD operations for templates and preview functionality.
+Provides CRUD operations for special-reports and preview functionality.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -10,66 +10,66 @@ from typing import List, Optional
 from datetime import datetime
 
 from app.database import get_session
-from app.models.content_distribution import ContentTemplate, PendingContentGeneration
+from app.models.content_distribution import SpecialReport, PendingContentGeneration
 from app.schemas.content_distribution import (
-    ContentTemplateCreate,
-    ContentTemplateUpdate,
-    ContentTemplate as ContentTemplateSchema,
-    ContentTemplatePreview,
+    SpecialReportCreate,
+    SpecialReportUpdate,
+    SpecialReport as SpecialReportSchema,
+    SpecialReportPreview,
     ContentGenerationRequest,
     ContentGenerationResponse,
 )
 
-router = APIRouter(prefix="/templates", tags=["templates"])
+router = APIRouter(prefix="/special-reports", tags=["special-reports"])
 
 
-@router.post("/", response_model=ContentTemplateSchema, status_code=201)
-async def create_template(
-    template_data: ContentTemplateCreate,
+@router.post("/", response_model=SpecialReportSchema, status_code=201)
+async def create_special_report(
+    special_report_data: SpecialReportCreate,
     session: Session = Depends(get_session)
 ):
     """
-    Create a new content template.
+    Create a new content special_report.
 
     Args:
-        template_data: Template configuration
+        special_report_data: Template configuration
         session: Database session
 
     Returns:
-        Created template
+        Created special_report
 
     Raises:
-        HTTPException: If template with same name exists
+        HTTPException: If special_report with same name exists
     """
     # Check for duplicate name
     existing = session.exec(
-        select(ContentTemplate).where(ContentTemplate.name == template_data.name)
+        select(SpecialReport).where(SpecialReport.name == special_report_data.name)
     ).first()
 
     if existing:
         raise HTTPException(
             status_code=400,
-            detail=f"Template with name '{template_data.name}' already exists"
+            detail=f"Template with name '{special_report_data.name}' already exists"
         )
 
-    # Create template
-    db_template = ContentTemplate(**template_data.model_dump())
-    session.add(db_template)
+    # Create special_report
+    db_special_report = SpecialReport(**special_report_data.model_dump())
+    session.add(db_special_report)
     session.commit()
-    session.refresh(db_template)
+    session.refresh(db_special_report)
 
-    return db_template
+    return db_special_report
 
 
-@router.get("/", response_model=List[ContentTemplateSchema])
-async def list_templates(
+@router.get("/", response_model=List[SpecialReportSchema])
+async def list_special_reports(
     is_active: Optional[bool] = Query(None, description="Filter by active status"),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     session: Session = Depends(get_session)
 ):
     """
-    List all content templates.
+    List all content special-reports.
 
     Args:
         is_active: Filter by active status (optional)
@@ -78,152 +78,152 @@ async def list_templates(
         session: Database session
 
     Returns:
-        List of templates
+        List of special-reports
     """
-    query = select(ContentTemplate)
+    query = select(SpecialReport)
 
     if is_active is not None:
-        query = query.where(ContentTemplate.is_active == is_active)
+        query = query.where(SpecialReport.is_active == is_active)
 
     query = query.offset(skip).limit(limit)
-    templates = session.exec(query).all()
+    special_reports = session.exec(query).all()
 
-    return templates
+    return special_reports
 
 
-@router.get("/{template_id}", response_model=ContentTemplateSchema)
-async def get_template(
-    template_id: int,
+@router.get("/{special_report_id}", response_model=SpecialReportSchema)
+async def get_special_report(
+    special_report_id: int,
     session: Session = Depends(get_session)
 ):
     """
-    Get a specific template by ID.
+    Get a specific special_report by ID.
 
     Args:
-        template_id: Template ID
+        special_report_id: Template ID
         session: Database session
 
     Returns:
         Template details
 
     Raises:
-        HTTPException: If template not found
+        HTTPException: If special_report not found
     """
-    template = session.get(ContentTemplate, template_id)
+    special_report = session.get(SpecialReport, special_report_id)
 
-    if not template:
+    if not special_report:
         raise HTTPException(status_code=404, detail="Template not found")
 
-    return template
+    return special_report
 
 
-@router.put("/{template_id}", response_model=ContentTemplateSchema)
-async def update_template(
-    template_id: int,
-    template_data: ContentTemplateUpdate,
+@router.put("/{special_report_id}", response_model=SpecialReportSchema)
+async def update_special_report(
+    special_report_id: int,
+    special_report_data: SpecialReportUpdate,
     session: Session = Depends(get_session)
 ):
     """
-    Update a template.
+    Update a special_report.
 
     Args:
-        template_id: Template ID
-        template_data: Updated template data
+        special_report_id: Template ID
+        special_report_data: Updated special_report data
         session: Database session
 
     Returns:
-        Updated template
+        Updated special_report
 
     Raises:
-        HTTPException: If template not found or name conflict
+        HTTPException: If special_report not found or name conflict
     """
-    template = session.get(ContentTemplate, template_id)
+    special_report = session.get(SpecialReport, special_report_id)
 
-    if not template:
+    if not special_report:
         raise HTTPException(status_code=404, detail="Template not found")
 
     # Check for name conflict if name is being updated
-    if template_data.name and template_data.name != template.name:
+    if special_report_data.name and special_report_data.name != special_report.name:
         existing = session.exec(
-            select(ContentTemplate).where(ContentTemplate.name == template_data.name)
+            select(SpecialReport).where(SpecialReport.name == special_report_data.name)
         ).first()
 
         if existing:
             raise HTTPException(
                 status_code=400,
-                detail=f"Template with name '{template_data.name}' already exists"
+                detail=f"Template with name '{special_report_data.name}' already exists"
             )
 
     # Update fields
-    update_dict = template_data.model_dump(exclude_unset=True)
+    update_dict = special_report_data.model_dump(exclude_unset=True)
     for key, value in update_dict.items():
-        setattr(template, key, value)
+        setattr(special_report, key, value)
 
-    template.updated_at = datetime.utcnow()
-    template.version += 1
+    special_report.updated_at = datetime.utcnow()
+    special_report.version += 1
 
-    session.add(template)
+    session.add(special_report)
     session.commit()
-    session.refresh(template)
+    session.refresh(special_report)
 
-    return template
+    return special_report
 
 
-@router.delete("/{template_id}", status_code=204)
-async def delete_template(
-    template_id: int,
+@router.delete("/{special_report_id}", status_code=204)
+async def delete_special_report(
+    special_report_id: int,
     session: Session = Depends(get_session)
 ):
     """
-    Delete a template.
+    Delete a special_report.
 
     Args:
-        template_id: Template ID
+        special_report_id: Template ID
         session: Database session
 
     Raises:
-        HTTPException: If template not found
+        HTTPException: If special_report not found
     """
-    template = session.get(ContentTemplate, template_id)
+    special_report = session.get(SpecialReport, special_report_id)
 
-    if not template:
+    if not special_report:
         raise HTTPException(status_code=404, detail="Template not found")
 
-    session.delete(template)
+    session.delete(special_report)
     session.commit()
 
     return None
 
 
-@router.post("/{template_id}/test", response_model=ContentTemplatePreview)
-async def test_template(
-    template_id: int,
+@router.post("/{special_report_id}/test", response_model=SpecialReportPreview)
+async def test_special_report(
+    special_report_id: int,
     session: Session = Depends(get_session)
 ):
     """
-    Test template by previewing article selection (dry-run).
+    Test special_report by previewing article selection (dry-run).
 
     Does NOT generate content, only shows what would be selected.
 
     Args:
-        template_id: Template ID
+        special_report_id: Template ID
         session: Database session
 
     Returns:
         Preview of matching articles and cost estimate
 
     Raises:
-        HTTPException: If template not found
+        HTTPException: If special_report not found
     """
     from app.services.content_query_builder import build_article_query, estimate_generation_cost
 
-    template = session.get(ContentTemplate, template_id)
+    special_report = session.get(SpecialReport, special_report_id)
 
-    if not template:
+    if not special_report:
         raise HTTPException(status_code=404, detail="Template not found")
 
-    # Build query from template criteria
-    articles = build_article_query(template.selection_criteria, session)
+    # Build query from special_report criteria
+    articles = build_article_query(special_report.selection_criteria, session)
 
     # Get sample of results
     article_count = len(articles)
@@ -231,7 +231,7 @@ async def test_template(
 
     # Estimate cost
     estimated_cost = estimate_generation_cost(
-        template=template,
+        special_report=special_report,
         article_count=article_count
     )
 
@@ -255,8 +255,8 @@ async def test_template(
             "published_at": a.published.isoformat() if a.published else None
         })
 
-    return ContentTemplatePreview(
-        template_id=template.id,
+    return SpecialReportPreview(
+        special_report_id=special_report.id,
         matching_articles_count=article_count,
         sample_article_ids=[a.id for a in sample_articles],
         estimated_cost_usd=estimated_cost,
@@ -265,17 +265,17 @@ async def test_template(
     )
 
 
-@router.post("/{template_id}/generate", response_model=ContentGenerationResponse)
+@router.post("/{special_report_id}/generate", response_model=ContentGenerationResponse)
 async def generate_content(
-    template_id: int,
+    special_report_id: int,
     request: Optional[ContentGenerationRequest] = None,
     session: Session = Depends(get_session)
 ):
     """
-    Trigger content generation for a template.
+    Trigger content generation for a special_report.
 
     Args:
-        template_id: Template ID
+        special_report_id: Template ID
         request: Generation request options
         session: Database session
 
@@ -283,14 +283,14 @@ async def generate_content(
         Generation job details or generated content (sync mode)
 
     Raises:
-        HTTPException: If template not found or inactive
+        HTTPException: If special_report not found or inactive
     """
-    template = session.get(ContentTemplate, template_id)
+    special_report = session.get(SpecialReport, special_report_id)
 
-    if not template:
+    if not special_report:
         raise HTTPException(status_code=404, detail="Template not found")
 
-    if not template.is_active:
+    if not special_report.is_active:
         raise HTTPException(status_code=400, detail="Template is inactive")
 
     # Default to async mode
@@ -301,7 +301,7 @@ async def generate_content(
     job_id = str(uuid.uuid4())
 
     pending_job = PendingContentGeneration(
-        template_id=template.id,
+        special_report_id=special_report.id,
         status="pending",
         triggered_by="manual"
     )
@@ -313,7 +313,7 @@ async def generate_content(
             success=True,
             job_id=job_id,
             status="queued",
-            message=f"Content generation queued successfully for template '{template.name}'"
+            message=f"Content generation queued successfully for special_report '{special_report.name}'"
         )
     else:
         # TODO: Implement synchronous generation (wait for worker)
