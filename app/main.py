@@ -16,6 +16,7 @@ from app.api import (
     analysis_selection, auto_analysis_monitoring,
     feeds_simple, analysis_jobs, websocket_endpoint, config
 )
+from app.api.v2 import special_reports
 from app.api.v1 import analysis as analysis_v1, health as health_v1
 
 # View imports
@@ -137,6 +138,7 @@ app.include_router(special_report_views.router)
 app.include_router(analysis_jobs.router, prefix="/api")
 app.include_router(websocket_endpoint.router)
 # MCP v2 API endpoints
+app.include_router(special_reports.router, prefix="/api/v2")
 app.include_router(api_templates.router, prefix="/api")
 app.include_router(scheduler.router, prefix="/api")
 app.include_router(analysis_management.router)

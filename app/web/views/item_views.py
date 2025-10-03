@@ -145,6 +145,43 @@ def generate_sentiment_display(analysis):
         icon = '⚪'
         color = 'secondary'
 
+    # Prepare market and geopolitical data
+    market_display = f"📉 Bearish ({market.get('bearish', 0):.1f})" if market.get('bearish', 0) > 0.6 else f"📈 Bullish ({market.get('bullish', 0):.1f})" if market.get('bullish', 0) > 0.6 else "➡️ Neutral"
+    time_horizon = market.get('time_horizon', 'medium').title()
+    themes_display = ' • '.join([f"🏷️ {theme}" for theme in themes[:4]])  # Show max 4 themes
+
+    # Finance Block
+    finance_html = f"""
+    <div class="finance-block p-3 mb-2" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; color: white;">
+        <h6 class="mb-2">💰 Finance</h6>
+        <div class="mb-1"><strong>Market:</strong> {market_display}</div>
+        <div class="mb-1"><strong>Horizon:</strong> {time_horizon}</div>
+        <div class="mb-1"><strong>Impact:</strong> ⚡ {impact_overall:.1f}</div>
+        <div><strong>Volatility:</strong> 📈 {impact_volatility:.1f}</div>
+    </div>
+"""
+
+    # Geopolitical Block
+    geo_html = ""
+    if geopolitical and geopolitical.get("conflict_type"):
+        conflict_type = geopolitical.get("conflict_type", "N/A").replace("_", " ").title()
+        security = geopolitical.get("security_relevance", 0)
+        escalation = geopolitical.get("escalation_potential", 0)
+        stability = geopolitical.get("stability_score", 0)
+        regions = geopolitical.get("regions_affected", [])
+        regions_str = ", ".join(regions[:3]) if regions else "N/A"
+
+        geo_html = f"""
+    <div class="geopolitical-block p-3 mb-2" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 8px; color: white;">
+        <h6 class="mb-2">🌍 Geopolitical</h6>
+        <div class="mb-1"><strong>Type:</strong> {conflict_type}</div>
+        <div class="mb-1"><strong>Security:</strong> {security:.1f}</div>
+        <div class="mb-1"><strong>Escalation:</strong> {escalation:.1f}</div>
+        <div class="mb-1"><strong>Stability:</strong> {stability:.1f}</div>
+        <div><strong>Regions:</strong> {regions_str}</div>
+    </div>
+"""
+
     # Compact display (always visible)
     compact_html = f"""
     <div class="sentiment-analysis mb-2">
@@ -155,20 +192,11 @@ def generate_sentiment_display(analysis):
             <span class="badge bg-info">📊 {impact_overall:.1f}</span>
             <small class="text-muted">Details ⌄</small>
         </div>
+        <div class="mt-2">
+            {finance_html}
+            {geo_html}
+        </div>
 """
-
-    # Detailed display (initially hidden)
-    market_display = f"📉 Bearish ({market.get('bearish', 0):.1f})" if market.get('bearish', 0) > 0.6 else f"📈 Bullish ({market.get('bullish', 0):.1f})" if market.get('bullish', 0) > 0.6 else "➡️ Neutral"
-    time_horizon = market.get('time_horizon', 'medium').title()
-    themes_display = ' • '.join([f"🏷️ {theme}" for theme in themes[:4]])  # Show max 4 themes
-
-    # Geopolitical display
-    geo_display = ""
-    if geopolitical and geopolitical.get("conflict_type"):
-        conflict_type = geopolitical.get("conflict_type", "N/A").replace("_", " ").title()
-        security = geopolitical.get("security_relevance", 0)
-        escalation = geopolitical.get("escalation_potential", 0)
-        geo_display = f'<div class="mb-2"><strong>🌍 Geopolitical:</strong> {conflict_type} • Security: {security:.1f} • Escalation: {escalation:.1f}</div>'
 
     detailed_html = f"""
         <div class="sentiment-details mt-2" style="display: none;">
@@ -187,7 +215,6 @@ def generate_sentiment_display(analysis):
                             <div class="mb-2">
                                 <strong>Market:</strong> {market_display} • {time_horizon}-term
                             </div>
-                            {geo_display}
                         </div>
                         <div class="col-md-6">
                             <div class="mb-2">
