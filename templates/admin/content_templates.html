@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Content Templates - News MCP{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 text-light">📰 Content Distribution Templates</h1>
+        <a href="/docs#17-content-distribution-system-v2-api" class="btn btn-outline-info btn-sm" target="_blank">
+            <i class="fas fa-book"></i> API Docs
+        </a>
+    </div>
+
+    <!-- Templates List -->
+    <div class="card border-secondary">
+        <div class="card-header bg-dark border-secondary">
+            <h5 class="mb-0 text-light">Available Templates</h5>
+        </div>
+        <div class="card-body bg-dark">
+            <div id="templates-list"
+                 hx-get="/htmx/templates/list"
+                 hx-trigger="load, every 30s"
+                 hx-swap="innerHTML">
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading templates...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
