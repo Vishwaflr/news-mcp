@@ -33,7 +33,7 @@ def get_session_context():
         session.close()
 from app.models.content_distribution import (
     PendingContentGeneration,
-    ContentTemplate,
+    SpecialReport,
     GeneratedContent
 )
 from app.models.core import Item
@@ -148,7 +148,7 @@ class ContentGeneratorWorker:
 
     def _process_job(self, job: PendingContentGeneration, session):
         """Process a single content generation job."""
-        logger.info(f"Processing content generation job {job.id} for template {job.template_id}")
+        logger.info(f"Processing content generation job {job.id} for template {job.special_report_id}")
 
         # Mark as processing
         job.status = 'processing'
@@ -158,12 +158,12 @@ class ContentGeneratorWorker:
         session.commit()
 
         # Load template
-        template = session.get(ContentTemplate, job.template_id)
+        template = session.get(SpecialReport, job.special_report_id)
         if not template:
-            raise ValueError(f"Template {job.template_id} not found")
+            raise ValueError(f"Template {job.special_report_id} not found")
 
         if not template.is_active:
-            raise ValueError(f"Template {job.template_id} is inactive")
+            raise ValueError(f"Template {job.special_report_id} is inactive")
 
         # Query articles
         articles = build_article_query(template.selection_criteria, session)
@@ -194,7 +194,7 @@ class ContentGeneratorWorker:
 
         # Store generated content
         generated_content = GeneratedContent(
-            template_id=template.id,
+            special_report_id=template.id,
             title=content_data.get('title') or f"{template.name} - {datetime.utcnow().strftime('%Y-%m-%d')}",
             content_html=content_data.get('html'),
             content_markdown=content_data.get('markdown'),
@@ -230,7 +230,7 @@ class ContentGeneratorWorker:
     def _prepare_llm_context(
         self,
         articles: List[Item],
-        template: ContentTemplate
+        template: SpecialReport
     ) -> Dict[str, Any]:
         """
         Prepare context data for LLM prompt.
@@ -290,7 +290,7 @@ class ContentGeneratorWorker:
 
     def _call_llm(
         self,
-        template: ContentTemplate,
+        template: SpecialReport,
         context: Dict[str, Any]
     ) -> str:
         """
@@ -402,7 +402,7 @@ Generate content following this exact structure:
     def _parse_llm_response(
         self,
         llm_response: str,
-        template: ContentTemplate
+        template: SpecialReport
     ) -> Dict[str, Any]:
         """
         Parse LLM response into structured content.

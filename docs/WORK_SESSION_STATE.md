@@ -8,7 +8,7 @@ Implemented structured LLM instruction system for Content Distribution templates
 ### Implementation Summary
 
 #### 1. Database Schema Enhancement
-**Migration:** `3d13c4217df7_add_llm_instruction_fields_to_content_templates`
+**Migration:** `3d13c4217df7_add_llm_instruction_fields_to_special_reports`
 
 **New Fields Added:**
 ```sql
@@ -28,7 +28,7 @@ enrichment_config   JSONB               -- Future: CVE lookup, web search, etc.
 #### 2. Model Updates
 **File:** `app/models/content_distribution.py:44-52`
 
-Added all new fields to `ContentTemplate` SQLModel with proper types and defaults.
+Added all new fields to `SpecialReport` SQLModel with proper types and defaults.
 
 **Status:** ✅ Model updated, backward compatible
 
@@ -200,7 +200,7 @@ After PR #2 squash-merge, several services stopped and files were missing.
 ### Files Restored
 - `app/services/scheduler_runner.py` (from backup)
 - `app/web/views/template_views.py` (from git commit e15b6db)
-- `templates/admin/content_templates.html` (from git)
+- `templates/admin/special_reports.html` (from git)
 - `templates/admin/template_detail.html` (from git)
 
 **Recovery Start:** 2025-10-03 08:00 UTC

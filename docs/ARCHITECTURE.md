@@ -252,7 +252,7 @@ item_analysis (8,591 rows) → Analysis Results
 pending_auto_analysis (queue) → Auto-Analysis Queue
 
 -- Content Distribution
-content_templates → LLM Generation Templates
+special_reports → LLM Generation Templates
 generated_content → Generated Reports
 pending_content_generation → Content Queue
 

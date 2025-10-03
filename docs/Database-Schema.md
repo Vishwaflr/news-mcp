@@ -9,7 +9,7 @@
 **Complete Table List:**
 - Core: `items`, `feeds`, `sources`, `categories`, `feed_types`
 - Analysis: `item_analysis`, `analysis_runs`, `analysis_run_items`, `pending_auto_analysis`, `analysis_presets`
-- Content Distribution: `content_templates`, `pending_content_generation`, `generated_content`, `distribution_channels`, `distribution_log`
+- Content Distribution: `special_reports`, `pending_content_generation`, `generated_content`, `distribution_channels`, `distribution_log`
 - Templates: `dynamic_feed_templates`, `processor_templates`, `feed_template_assignments`
 - Monitoring: `feed_health`, `feed_metrics`, `feed_limits`, `feed_violations`, `feed_scheduler_state`, `queue_metrics`, `preview_jobs`, `fetch_log`
 - Configuration: `feed_processor_configs`, `feed_configuration_changes`, `user_settings`, `feed_categories`
@@ -291,13 +291,13 @@ Table "public.feed_types"
 
 ## Content Distribution Tables (Phase 1 ✅)
 
-### `content_templates` - LLM Content Generation Templates
+### `special_reports` - LLM Content Generation Templates
 
 ```sql
-Table "public.content_templates"
+Table "public.special_reports"
        Column        |            Type             | Nullable |                    Default
 ---------------------+-----------------------------+----------+-----------------------------------------------
- id                  | integer                     | not null | nextval('content_templates_id_seq'::regclass)
+ id                  | integer                     | not null | nextval('special_reports_id_seq'::regclass)
  name                | character varying(200)      | not null |
  description         | text                        |          |
  target_audience     | character varying(100)      |          |
@@ -322,7 +322,7 @@ Table "public.content_templates"
  enrichment_config   | jsonb                       |          | -- CVE lookup, web search, scraping config
 
 Indexes:
-    "content_templates_pkey" PRIMARY KEY (id)
+    "special_reports_pkey" PRIMARY KEY (id)
 
 Purpose: Define structured templates for LLM-generated reports
 - Prevents code generation (constraints: forbidden: ["code_blocks"])
@@ -342,7 +342,7 @@ Indexes:
     "ix_pending_content_generation_template_id" (template_id)
 
 Foreign Keys:
-    template_id -> content_templates(id) CASCADE
+    template_id -> special_reports(id) CASCADE
 ```
 
 ### `generated_content` - Generated Content Storage
@@ -356,7 +356,7 @@ Indexes:
     "ix_generated_content_template_id" (template_id)
 
 Foreign Keys:
-    template_id -> content_templates(id)
+    template_id -> special_reports(id)
 ```
 
 ### `distribution_channels` - Distribution Configuration
@@ -517,15 +517,15 @@ psql -h localhost -U news_user -d news_db -c "\d+ tablename"
 
 ## Content Distribution System (Phase 1 Complete - 2025-10-03)
 
-### `content_templates` - Content Generation Templates
+### `special_reports` - Content Generation Templates
 
 Template definitions for LLM-based content generation with structured prompts.
 
 ```sql
-Table "public.content_templates"
+Table "public.special_reports"
      Column         |            Type             | Nullable |              Default
 --------------------+-----------------------------+----------+-----------------------------------
- id                 | integer                     | not null | nextval('content_templates_id_seq')
+ id                 | integer                     | not null | nextval('special_reports_id_seq')
  name               | character varying(200)      | not null |
  description        | text                        |          |
  target_audience    | character varying(100)      |          |
@@ -560,7 +560,7 @@ Table "public.content_templates"
  tags               | jsonb                       |          |
 
 Indexes:
-    "content_templates_pkey" PRIMARY KEY (id)
+    "special_reports_pkey" PRIMARY KEY (id)
     "uq_template_name" UNIQUE (name)
     "idx_templates_active" (is_active)
     "idx_templates_schedule" (generation_schedule)
@@ -601,12 +601,12 @@ Referenced By:
 ```sql
 -- Get active templates with LLM instructions
 SELECT name, system_instruction, output_constraints
-FROM content_templates
+FROM special_reports
 WHERE is_active = true;
 
 -- Find templates using specific constraints
 SELECT name, output_constraints->'forbidden' as forbidden_elements
-FROM content_templates
+FROM special_reports
 WHERE output_constraints ? 'forbidden';
 ```
 
@@ -621,7 +621,7 @@ Table "public.generated_content"
      Column                 |       Type       | Nullable | Default
 ----------------------------+------------------+----------+---------
  id                         | integer          | not null |
- template_id                | integer          | not null | FK -> content_templates
+ template_id                | integer          | not null | FK -> special_reports
 
  -- Generated Content
  title                      | varchar(500)     |          |
@@ -655,7 +655,7 @@ Indexes:
     "idx_content_status" (status)
 
 Foreign Keys:
-    template_id -> content_templates(id) ON DELETE CASCADE
+    template_id -> special_reports(id) ON DELETE CASCADE
 ```
 
 **Worker:** `app/worker/content_generator_worker.py`
@@ -672,7 +672,7 @@ Table "public.pending_content_generation"
      Column             |       Type       | Nullable | Default
 ------------------------+------------------+----------+---------
  id                     | integer          | not null |
- template_id            | integer          | not null | FK -> content_templates
+ template_id            | integer          | not null | FK -> special_reports
  status                 | varchar(20)      | not null | 'pending'
  created_at             | timestamp        | not null |
  started_at             | timestamp        |          |
@@ -689,7 +689,7 @@ Indexes:
     "idx_pcg_created" (created_at)
 
 Foreign Keys:
-    template_id -> content_templates(id) ON DELETE CASCADE
+    template_id -> special_reports(id) ON DELETE CASCADE
 ```
 
 **Statuses:** `pending` → `processing` → `completed`/`failed`
@@ -705,7 +705,7 @@ Table "public.distribution_channels"
      Column      |       Type       | Nullable | Default
 -----------------+------------------+----------+---------
  id              | integer          | not null |
- template_id     | integer          | not null | FK -> content_templates
+ template_id     | integer          | not null | FK -> special_reports
  channel_type    | varchar(20)      | not null | -- email/web/rss/api
  channel_name    | varchar(200)     | not null |
  channel_config  | jsonb            | not null |
@@ -719,7 +719,7 @@ Indexes:
     "idx_dc_type_active" (channel_type, is_active)
 
 Foreign Keys:
-    template_id -> content_templates(id) ON DELETE CASCADE
+    template_id -> special_reports(id) ON DELETE CASCADE
 ```
 
 ---

@@ -43,7 +43,7 @@ Complete documentation update after system recovery, ensuring all docs reflect c
 **Changes:**
 - Total tables: 30 → 35 (accurate count)
 - Added complete Content Distribution tables section
-- Documented `content_templates` with LLM instruction fields
+- Documented `special_reports` with LLM instruction fields
 - Added table categorization list
 - Updated last modified date
 
@@ -134,7 +134,7 @@ Complete documentation update after system recovery, ensuring all docs reflect c
    - **Action:** All updated to current values
 
 3. **Missing Content Distribution Docs:**
-   - New Content Templates feature not documented
+   - New Special Reports feature not documented
    - LLM instruction system not explained
    - **Action:** Added to Database-Schema.md, needs standalone guide
 
