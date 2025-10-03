@@ -10,54 +10,54 @@ from typing import List
 import httpx
 
 from app.database import get_session
-from app.models.content_distribution import ContentTemplate, GeneratedContent
+from app.models.content_distribution import SpecialReport, GeneratedContent
 from app.config import settings
 
-router = APIRouter(tags=["template-views"])
-templates = Jinja2Templates(directory="templates")
+router = APIRouter(tags=["special_report-views"])
+special_reports = Jinja2Templates(directory="special_reports")
 
 
-@router.get("/admin/content-templates", response_class=HTMLResponse)
-async def content_templates_page(request: Request):
-    """Main content templates overview page."""
-    return templates.TemplateResponse(
-        "admin/content_templates.html",
+@router.get("/admin/content-special_reports", response_class=HTMLResponse)
+async def content_special_reports_page(request: Request):
+    """Main content special_reports overview page."""
+    return special_reports.TemplateResponse(
+        "admin/content_special_reports.html",
         {"request": request}
     )
 
 
-@router.get("/admin/content-templates/{template_id}", response_class=HTMLResponse)
-async def content_template_detail_page(
+@router.get("/admin/content-special_reports/{special_report_id}", response_class=HTMLResponse)
+async def content_special_report_detail_page(
     request: Request,
-    template_id: int,
+    special_report_id: int,
     session: Session = Depends(get_session)
 ):
-    """Content template detail page with generated content."""
-    template = session.get(ContentTemplate, template_id)
+    """Content special_report detail page with generated content."""
+    special_report = session.get(SpecialReport, special_report_id)
 
-    if not template:
+    if not special_report:
         raise HTTPException(status_code=404, detail="Template not found")
 
-    return templates.TemplateResponse(
-        "admin/template_detail.html",
+    return special_reports.TemplateResponse(
+        "admin/special_report_detail.html",
         {
             "request": request,
-            "template": template
+            "special_report": special_report
         }
     )
 
 
-@router.get("/htmx/templates/list", response_class=HTMLResponse)
-async def htmx_templates_list(session: Session = Depends(get_session)):
+@router.get("/htmx/special_reports/list", response_class=HTMLResponse)
+async def htmx_special_reports_list(session: Session = Depends(get_session)):
     """HTMX: Templates list."""
-    query = select(ContentTemplate).order_by(ContentTemplate.created_at.desc())
-    all_templates = session.exec(query).all()
+    query = select(SpecialReport).order_by(SpecialReport.created_at.desc())
+    all_special_reports = session.exec(query).all()
 
-    if not all_templates:
+    if not all_special_reports:
         return """
         <div class="alert alert-info bg-dark border-info text-light">
             <i class="fas fa-info-circle"></i>
-            No templates found. Create your first template via the API.
+            No special_reports found. Create your first special_report via the API.
         </div>
         """
 
@@ -78,23 +78,23 @@ async def htmx_templates_list(session: Session = Depends(get_session)):
         <tbody>
     ''')
 
-    for template in all_templates:
-        status_badge = 'bg-success' if template.is_active else 'bg-secondary'
-        status_text = 'Active' if template.is_active else 'Inactive'
+    for special_report in all_special_reports:
+        status_badge = 'bg-success' if special_report.is_active else 'bg-secondary'
+        status_text = 'Active' if special_report.is_active else 'Inactive'
 
         html_parts.append(f'''
             <tr>
                 <td>
-                    <strong>{template.name}</strong>
+                    <strong>{special_report.name}</strong>
                     <br>
-                    <small class="text-muted">{template.description or 'No description'}</small>
+                    <small class="text-muted">{special_report.description or 'No description'}</small>
                 </td>
-                <td>{template.target_audience or '-'}</td>
-                <td><code>{template.llm_model}</code></td>
-                <td>{template.generation_schedule or 'On-demand'}</td>
+                <td>{special_report.target_audience or '-'}</td>
+                <td><code>{special_report.llm_model}</code></td>
+                <td>{special_report.generation_schedule or 'On-demand'}</td>
                 <td><span class="badge {status_badge}">{status_text}</span></td>
                 <td>
-                    <a href="/admin/content-templates/{template.id}" class="btn btn-sm btn-primary">
+                    <a href="/admin/content-special_reports/{special_report.id}" class="btn btn-sm btn-primary">
                         <i class="fas fa-eye"></i> View
                     </a>
                 </td>
@@ -106,14 +106,14 @@ async def htmx_templates_list(session: Session = Depends(get_session)):
     return ''.join(html_parts)
 
 
-@router.get("/htmx/templates/{template_id}/content", response_class=HTMLResponse)
-async def htmx_template_content(
-    template_id: int,
+@router.get("/htmx/special_reports/{special_report_id}/content", response_class=HTMLResponse)
+async def htmx_special_report_content(
+    special_report_id: int,
     session: Session = Depends(get_session)
 ):
-    """HTMX: Generated content list for template."""
+    """HTMX: Generated content list for special_report."""
     query = select(GeneratedContent).where(
-        GeneratedContent.template_id == template_id
+        GeneratedContent.special_report_id == special_report_id
     ).order_by(GeneratedContent.generated_at.desc())
 
     content_list = session.exec(query).all()
@@ -122,7 +122,7 @@ async def htmx_template_content(
         return """
         <div class="alert alert-warning bg-dark border-warning text-light">
             <i class="fas fa-exclamation-triangle"></i>
-            No content generated yet for this template.
+            No content generated yet for this special_report.
         </div>
         """
 
