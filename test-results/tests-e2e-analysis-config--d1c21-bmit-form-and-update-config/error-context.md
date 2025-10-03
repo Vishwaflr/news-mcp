@@ -1,0 +1,422 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - navigation [ref=e2]:
+    - generic [ref=e3]:
+      - link " News MCP" [ref=e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e5] [cursor=pointer]: 
+        - text: News MCP
+      - generic [ref=e7]:
+        - link " Feeds" [ref=e8] [cursor=pointer]:
+          - /url: /admin/feeds
+          - generic [ref=e9] [cursor=pointer]: 
+          - text: Feeds
+        - link " Articles" [ref=e10] [cursor=pointer]:
+          - /url: /admin/items
+          - generic [ref=e11] [cursor=pointer]: 
+          - text: Articles
+        - link " Analysis" [ref=e12] [cursor=pointer]:
+          - /url: /admin/analysis
+          - generic [ref=e13] [cursor=pointer]: 
+          - text: Analysis
+        - link " Auto-Analysis" [ref=e14] [cursor=pointer]:
+          - /url: /admin/auto-analysis
+          - generic [ref=e15] [cursor=pointer]: 
+          - text: Auto-Analysis
+        - link " Manager" [ref=e16] [cursor=pointer]:
+          - /url: /admin/manager
+          - generic [ref=e17] [cursor=pointer]: 
+          - text: Manager
+        - link " Statistics" [ref=e18] [cursor=pointer]:
+          - /url: /admin/statistics
+          - generic [ref=e19] [cursor=pointer]: 
+          - text: Statistics
+        - link " Database" [ref=e20] [cursor=pointer]:
+          - /url: /admin/database
+          - generic [ref=e21] [cursor=pointer]: 
+          - text: Database
+        - link " Health" [ref=e22] [cursor=pointer]:
+          - /url: /admin/health
+          - generic [ref=e23] [cursor=pointer]: 
+          - text: Health
+  - generic [ref=e25]:
+    - heading "Analysis Cockpit v4.0" [level=1] [ref=e28]
+    - generic [ref=e31]:
+      - generic [ref=e32]:
+        - heading " Manual Analysis Settings" [level=6] [ref=e33]:
+          - generic [ref=e34]: 
+          - text: Manual Analysis Settings
+        - button " Edit" [ref=e35] [cursor=pointer]:
+          - generic [ref=e36] [cursor=pointer]: 
+          - text: Edit
+      - generic [ref=e38]:
+        - generic [ref=e39]:
+          - generic [ref=e40]:
+            - generic [ref=e41]: Max Concurrent
+            - spinbutton [ref=e42]: "7"
+          - generic [ref=e43]:
+            - generic [ref=e44]: Daily Limit
+            - spinbutton [ref=e45]: "150"
+          - generic [ref=e46]:
+            - generic [ref=e47]: Hourly Limit
+            - spinbutton [ref=e48]: "15"
+          - generic [ref=e49]:
+            - generic [ref=e50]: Batch Size
+            - spinbutton [ref=e51]: "200"
+        - generic [ref=e52]:
+          - generic [ref=e53]:
+            - generic [ref=e54]: Analysis RPS
+            - spinbutton [ref=e55]: "1"
+          - generic [ref=e56]:
+            - generic [ref=e57]: Model
+            - combobox [ref=e58]:
+              - option "gpt-4o-mini" [selected]
+              - option "gpt-4o"
+              - option "gpt-4-turbo"
+          - generic [ref=e59]:
+            - button " Save" [active] [ref=e60] [cursor=pointer]:
+              - generic [ref=e61] [cursor=pointer]: 
+              - text: Save
+            - button " Cancel" [ref=e62] [cursor=pointer]:
+              - generic [ref=e63] [cursor=pointer]: 
+              - text: Cancel
+    - generic [ref=e65]:
+      - generic [ref=e67]:
+        - generic [ref=e68]: 16,740
+        - generic [ref=e69]: Total Articles
+      - generic [ref=e71]:
+        - generic [ref=e72]: 6,051
+        - generic [ref=e73]: Analyzed
+      - generic [ref=e75]:
+        - generic [ref=e76]: 36.1%
+        - generic [ref=e77]: Coverage
+      - generic [ref=e79]:
+        - generic [ref=e80]: "1"
+        - generic [ref=e81]: Active Runs
+    - generic [ref=e82]:
+      - generic [ref=e83]:
+        - generic [ref=e84]:
+          - generic [ref=e85]:
+            - heading "🎯 Target Selection" [level=5] [ref=e86]
+            - group [ref=e87]:
+              - button "📰 Latest" [ref=e88] [cursor=pointer]
+              - button "🕐 Time Range" [ref=e89] [cursor=pointer]
+              - button "🔍 Unanalyzed" [ref=e90] [cursor=pointer]
+            - generic [ref=e91]:
+              - generic [ref=e92]: Number of articles (1-1000)
+              - spinbutton [ref=e93]: "50"
+              - generic [ref=e94]: Will select the N most recent articles
+          - generic [ref=e95]:
+            - heading "📡 Feed Filter (Optional)" [level=6] [ref=e96]:
+              - text: 📡 Feed Filter
+              - generic [ref=e97]: (Optional)
+            - generic [ref=e98]:
+              - checkbox "Limit to specific feed" [ref=e99]
+              - generic [ref=e100]: Limit to specific feed
+          - generic [ref=e101]:
+            - heading "🤖 Model & Parameters" [level=6] [ref=e102]
+            - generic [ref=e103]:
+              - generic [ref=e104]: Model
+              - combobox [ref=e105]:
+                - option "GPT-4.1 Nano (US $0.40/1M tokens)" [selected]
+                - option "GPT-4 Mini (US $0.80/1M tokens)"
+            - generic [ref=e106]:
+              - generic [ref=e107]:
+                - generic [ref=e108]: Rate/sec
+                - spinbutton [ref=e109]: "1"
+              - generic [ref=e110]:
+                - generic [ref=e111]: Limit
+                - spinbutton [ref=e112]: "200"
+          - generic [ref=e113]:
+            - heading "⚙️ Additional Settings" [level=6] [ref=e114]
+            - generic [ref=e115]:
+              - checkbox "Re-analyze already processed articles" [ref=e116]
+              - generic [ref=e117]: Re-analyze already processed articles
+            - generic [ref=e118]: Check to run analysis even for items that were already analyzed
+          - generic [ref=e119]:
+            - heading "🚀 Preview & Start" [level=6] [ref=e120]
+            - generic [ref=e121]:
+              - generic [ref=e123]:
+                - generic [ref=e124]: "50"
+                - generic [ref=e125]: TOTAL
+              - generic [ref=e127]:
+                - generic [ref=e128]: "41"
+                - generic [ref=e129]: ANALYZED
+              - generic [ref=e131]:
+                - generic [ref=e132]: "9"
+                - generic [ref=e133]: TO ANALYZE
+            - generic [ref=e134]:
+              - generic [ref=e136]:
+                - generic [ref=e137]:
+                  - text: 💰
+                  - generic [ref=e138]: $0.0009
+                - generic [ref=e139]: EST. COST
+              - generic [ref=e141]:
+                - generic [ref=e142]:
+                  - text: ⏱️
+                  - generic [ref=e143]: 1 min
+                - generic [ref=e144]: EST. TIME
+            - generic [ref=e145]:
+              - button "🚀 Start Analysis" [ref=e146] [cursor=pointer]:
+                - generic [ref=e147] [cursor=pointer]: 🚀 Start Analysis
+              - button "🔄 Refresh Preview" [ref=e148] [cursor=pointer]
+        - generic [ref=e149]:
+          - heading "⚡ Active Runs" [level=6] [ref=e151]
+          - generic [ref=e154]:
+            - generic [ref=e155]: 
+            - text: No active analysis runs at the moment.
+        - generic [ref=e156]:
+          - heading "📊 History" [level=6] [ref=e158]
+          - generic [ref=e160]:
+            - table [ref=e162]:
+              - rowgroup [ref=e163]:
+                - row "ID Started Completed Status Items Success Rate" [ref=e164]:
+                  - cell "ID" [ref=e165]
+                  - cell "Started" [ref=e166]
+                  - cell "Completed" [ref=e167]
+                  - cell "Status" [ref=e168]
+                  - cell "Items" [ref=e169]
+                  - cell "Success Rate" [ref=e170]
+              - rowgroup [ref=e171]:
+                - row "#796 2025-10-01 14:23 N/A running 2/6 100.0%" [ref=e172]:
+                  - cell "#796" [ref=e173]
+                  - cell "2025-10-01 14:23" [ref=e174]
+                  - cell "N/A" [ref=e175]
+                  - cell "running" [ref=e176]:
+                    - generic [ref=e177]: running
+                  - cell "2/6" [ref=e178]
+                  - cell "100.0%" [ref=e179]
+                - row "#795 2025-10-01 14:22 2025-10-01 14:22 completed 2/2 100.0%" [ref=e180]:
+                  - cell "#795" [ref=e181]
+                  - cell "2025-10-01 14:22" [ref=e182]
+                  - cell "2025-10-01 14:22" [ref=e183]
+                  - cell "completed" [ref=e184]:
+                    - generic [ref=e185]: completed
+                  - cell "2/2" [ref=e186]
+                  - cell "100.0%" [ref=e187]
+                - row "#794 2025-10-01 14:19 2025-10-01 14:19 completed 1/1 100.0%" [ref=e188]:
+                  - cell "#794" [ref=e189]
+                  - cell "2025-10-01 14:19" [ref=e190]
+                  - cell "2025-10-01 14:19" [ref=e191]
+                  - cell "completed" [ref=e192]:
+                    - generic [ref=e193]: completed
+                  - cell "1/1" [ref=e194]
+                  - cell "100.0%" [ref=e195]
+                - row "#793 2025-10-01 14:19 2025-10-01 14:19 completed 1/1 100.0%" [ref=e196]:
+                  - cell "#793" [ref=e197]
+                  - cell "2025-10-01 14:19" [ref=e198]
+                  - cell "2025-10-01 14:19" [ref=e199]
+                  - cell "completed" [ref=e200]:
+                    - generic [ref=e201]: completed
+                  - cell "1/1" [ref=e202]
+                  - cell "100.0%" [ref=e203]
+                - row "#792 2025-10-01 14:16 2025-10-01 14:16 completed 2/2 100.0%" [ref=e204]:
+                  - cell "#792" [ref=e205]
+                  - cell "2025-10-01 14:16" [ref=e206]
+                  - cell "2025-10-01 14:16" [ref=e207]
+                  - cell "completed" [ref=e208]:
+                    - generic [ref=e209]: completed
+                  - cell "2/2" [ref=e210]
+                  - cell "100.0%" [ref=e211]
+                - row "#791 2025-10-01 14:15 2025-10-01 14:16 completed 31/31 100.0%" [ref=e212]:
+                  - cell "#791" [ref=e213]
+                  - cell "2025-10-01 14:15" [ref=e214]
+                  - cell "2025-10-01 14:16" [ref=e215]
+                  - cell "completed" [ref=e216]:
+                    - generic [ref=e217]: completed
+                  - cell "31/31" [ref=e218]
+                  - cell "100.0%" [ref=e219]
+                - row "#790 2025-10-01 14:15 2025-10-01 14:15 completed 1/1 100.0%" [ref=e220]:
+                  - cell "#790" [ref=e221]
+                  - cell "2025-10-01 14:15" [ref=e222]
+                  - cell "2025-10-01 14:15" [ref=e223]
+                  - cell "completed" [ref=e224]:
+                    - generic [ref=e225]: completed
+                  - cell "1/1" [ref=e226]
+                  - cell "100.0%" [ref=e227]
+                - row "#789 2025-10-01 14:07 2025-10-01 14:07 completed 1/1 100.0%" [ref=e228]:
+                  - cell "#789" [ref=e229]
+                  - cell "2025-10-01 14:07" [ref=e230]
+                  - cell "2025-10-01 14:07" [ref=e231]
+                  - cell "completed" [ref=e232]:
+                    - generic [ref=e233]: completed
+                  - cell "1/1" [ref=e234]
+                  - cell "100.0%" [ref=e235]
+                - row "#788 2025-10-01 14:04 2025-10-01 14:04 completed 4/4 100.0%" [ref=e236]:
+                  - cell "#788" [ref=e237]
+                  - cell "2025-10-01 14:04" [ref=e238]
+                  - cell "2025-10-01 14:04" [ref=e239]
+                  - cell "completed" [ref=e240]:
+                    - generic [ref=e241]: completed
+                  - cell "4/4" [ref=e242]
+                  - cell "100.0%" [ref=e243]
+                - row "#787 2025-10-01 14:04 2025-10-01 14:04 completed 1/1 100.0%" [ref=e244]:
+                  - cell "#787" [ref=e245]
+                  - cell "2025-10-01 14:04" [ref=e246]
+                  - cell "2025-10-01 14:04" [ref=e247]
+                  - cell "completed" [ref=e248]:
+                    - generic [ref=e249]: completed
+                  - cell "1/1" [ref=e250]
+                  - cell "100.0%" [ref=e251]
+            - navigation [ref=e252]:
+              - list [ref=e253]:
+                - listitem [ref=e254]:
+                  - link "1" [ref=e255] [cursor=pointer]:
+                    - /url: "#"
+                - listitem [ref=e256]:
+                  - link "2" [ref=e257] [cursor=pointer]:
+                    - /url: "#"
+                - listitem [ref=e258]:
+                  - link "3" [ref=e259] [cursor=pointer]:
+                    - /url: "#"
+                - listitem [ref=e260]:
+                  - link "Next" [ref=e261] [cursor=pointer]:
+                    - /url: "#"
+      - generic [ref=e263]:
+        - generic [ref=e264]:
+          - generic [ref=e265]:
+            - generic [ref=e266]:
+              - heading "📄 Article Preview" [level=6] [ref=e267]
+              - generic [ref=e268]: 10 articles per page
+            - button "🔄 Refresh" [ref=e269] [cursor=pointer]
+          - group [ref=e270]:
+            - button "◀ Prev" [disabled]
+            - button "Page 1 of 1 (9 total)" [disabled]:
+              - generic: Page 1 of 1
+              - generic: (9 total)
+            - button "Next ▶" [disabled]
+        - generic [ref=e272]:
+          - text: 
+          - generic [ref=e273]:
+            - generic [ref=e274]: "1"
+            - generic [ref=e275]:
+              - heading "Microsoft makes Xbox Cloud Gaming generally available, removing its beta tag after over five years, adds 1440p support, ..." [level=6] [ref=e277]
+              - generic [ref=e278]:
+                - generic [ref=e279]: TechMeme
+                - generic [ref=e280]: 01.10.2025, 14:08
+              - generic [ref=e281]: <a href="https://www.theverge.com/news/789461/xbox-cloud-gaming-launch-1440p-resolution-bitrate-changes"><img align="RIGHT" border="0" hspace="4" src="http://www.techmeme.com/25100...
+              - generic [ref=e282]:
+                - generic [ref=e284]: ○ Not Analyzed
+                - generic [ref=e285]:
+                  - link "Read Article →" [ref=e286] [cursor=pointer]:
+                    - /url: http://www.techmeme.com/251001/p33#a251001p33
+                  - generic [ref=e287]: "#17696"
+          - generic [ref=e288]:
+            - generic [ref=e289]: "2"
+            - generic [ref=e290]:
+              - 'heading "Lessons for Europe: Inside Ukraine’s drone war" [level=6] [ref=e292]'
+              - generic [ref=e293]:
+                - generic [ref=e294]: European Council on Foreign Relations (ECFR)
+                - generic [ref=e295]: 01.10.2025, 14:08
+              - generic [ref=e296]: Lesia Ogryzko and Leo Litra welcome Lyuba Shupovich and Gustav Gressel to unpack how warfare in Ukraine is changing and if Europe can respond
+              - generic [ref=e297]:
+                - generic [ref=e299]: ○ Not Analyzed
+                - generic [ref=e300]:
+                  - link "Read Article →" [ref=e301] [cursor=pointer]:
+                    - /url: https://ecfr.eu/podcasts/episode/lessons-for-europe-inside-ukraines-drone-war/
+                  - generic [ref=e302]: "#17684"
+          - generic [ref=e303]:
+            - generic [ref=e304]: "3"
+            - generic [ref=e305]:
+              - heading "Microsoft raises the Xbox Game Pass Ultimate subscription price from $19.99 to $29.99 per month, rebrands Xbox Game Pass..." [level=6] [ref=e307]
+              - generic [ref=e308]:
+                - generic [ref=e309]: TechMeme
+                - generic [ref=e310]: 01.10.2025, 14:07
+              - generic [ref=e311]: <a href="https://www.theverge.com/news/789424/xbox-game-pass-premium-essentials-ultimate-price-increase-changes"><img align="RIGHT" border="0" hspace="4" src="http://www.techmeme.c...
+              - generic [ref=e312]:
+                - generic [ref=e314]: ○ Not Analyzed
+                - generic [ref=e315]:
+                  - link "Read Article →" [ref=e316] [cursor=pointer]:
+                    - /url: http://www.techmeme.com/251001/p32#a251001p32
+                  - generic [ref=e317]: "#17697"
+          - generic [ref=e318]:
+            - generic [ref=e319]: "4"
+            - generic [ref=e320]:
+              - heading "AI Expands the Search for New Battery Materials" [level=6] [ref=e322]
+              - generic [ref=e323]:
+                - generic [ref=e324]: IEEE Spectrum
+                - generic [ref=e325]: 01.10.2025, 14:00
+              - generic [ref=e326]: <img src="https://spectrum.ieee.org/media-library/artistic-representation-of-a-structure-generated-by-ai.jpg?id=61668002&amp;width=2000&amp;height=1500&amp;coordinates=0%2C0%2C0%2C...
+              - generic [ref=e327]:
+                - generic [ref=e329]: ○ Not Analyzed
+                - generic [ref=e330]:
+                  - link "Read Article →" [ref=e331] [cursor=pointer]:
+                    - /url: https://spectrum.ieee.org/ai-battery-material
+                  - generic [ref=e332]: "#17687"
+          - generic [ref=e333]:
+            - generic [ref=e334]: "5"
+            - generic [ref=e335]:
+              - heading "AI Expands the Search for New Battery Materials" [level=6] [ref=e337]
+              - generic [ref=e338]:
+                - generic [ref=e339]: IEEE Spectrum
+                - generic [ref=e340]: 01.10.2025, 14:00
+              - generic [ref=e341]: <img src="https://spectrum.ieee.org/media-library/artistic-representation-of-a-structure-generated-by-ai.jpg?id=61668002&amp;width=1200&amp;height=800&amp;coordinates=0%2C133%2C0%2...
+              - generic [ref=e342]:
+                - generic [ref=e344]: ○ Not Analyzed
+                - generic [ref=e345]:
+                  - link "Read Article →" [ref=e346] [cursor=pointer]:
+                    - /url: https://spectrum.ieee.org/ai-battery-material
+                  - generic [ref=e347]: "#17642"
+          - generic [ref=e348]:
+            - generic [ref=e349]: "6"
+            - generic [ref=e350]:
+              - heading "Q&A with Marc Andreessen and investor Charlie Songhurst on Silicon Valley's past, present, and future, AI, productivity,..." [level=6] [ref=e352]
+              - generic [ref=e353]:
+                - generic [ref=e354]: TechMeme
+                - generic [ref=e355]: 01.10.2025, 13:55
+              - generic [ref=e356]: <a href="https://cheekypint.substack.com/p/marc-andreessen-and-charlie-songhurst"><img align="RIGHT" border="0" hspace="4" src="http://www.techmeme.com/251001/i31.jpg" vspace="4" /...
+              - generic [ref=e357]:
+                - generic [ref=e359]: ○ Not Analyzed
+                - generic [ref=e360]:
+                  - link "Read Article →" [ref=e361] [cursor=pointer]:
+                    - /url: http://www.techmeme.com/251001/p31#a251001p31
+                  - generic [ref=e362]: "#17650"
+          - generic [ref=e363]:
+            - generic [ref=e364]: "7"
+            - generic [ref=e365]:
+              - heading "AI causes reduction in users’ brain activity – MIT" [level=6] [ref=e367]
+              - generic [ref=e368]:
+                - generic [ref=e369]: AI News
+                - generic [ref=e370]: 01.10.2025, 13:44
+              - generic [ref=e371]: <p>A study from MIT (Massachusetts Institute of Technology) has found that the human brain not only works less hard when using an LLM, but its effects continue, negatively affectin...
+              - generic [ref=e372]:
+                - generic [ref=e374]: ○ Not Analyzed
+                - generic [ref=e375]:
+                  - link "Read Article →" [ref=e376] [cursor=pointer]:
+                    - /url: https://www.artificialintelligence-news.com/news/ai-causes-reduction-in-users-brain-activity-mit/
+                  - generic [ref=e377]: "#17629"
+          - generic [ref=e378]:
+            - generic [ref=e379]: "8"
+            - generic [ref=e380]:
+              - 'heading "Sources: Qualcomm adopts Arm''s latest v9 architecture for its new generation of PC and phone chips, joining rivals like ..." [level=6] [ref=e382]'
+              - generic [ref=e383]:
+                - generic [ref=e384]: TechMeme
+                - generic [ref=e385]: 01.10.2025, 13:35
+              - generic [ref=e386]: <a href="https://www.reuters.com/business/qualcomm-shifts-chips-newer-arm-tech-competition-with-apple-mediatek-heats-up-2025-10-01/"><img align="RIGHT" border="0" hspace="4" src="h...
+              - generic [ref=e387]:
+                - generic [ref=e389]: ○ Not Analyzed
+                - generic [ref=e390]:
+                  - link "Read Article →" [ref=e391] [cursor=pointer]:
+                    - /url: http://www.techmeme.com/251001/p30#a251001p30
+                  - generic [ref=e392]: "#17623"
+          - generic [ref=e393]:
+            - generic [ref=e394]: "9"
+            - generic [ref=e395]:
+              - heading "Amazon unveils Amazon Grocery, a new private-label brand that offers 1,000+ grocery items largely priced below $5, avail..." [level=6] [ref=e397]
+              - generic [ref=e398]:
+                - generic [ref=e399]: TechMeme
+                - generic [ref=e400]: 01.10.2025, 13:30
+              - generic [ref=e401]: <a href="https://www.bloomberg.com/news/articles/2025-10-01/amazon-launches-grocery-brand-aimed-at-price-conscious-shoppers"><img align="RIGHT" border="0" hspace="4" src="http://ww...
+              - generic [ref=e402]:
+                - generic [ref=e404]: ○ Not Analyzed
+                - generic [ref=e405]:
+                  - link "Read Article →" [ref=e406] [cursor=pointer]:
+                    - /url: http://www.techmeme.com/251001/p29#a251001p29
+                  - generic [ref=e407]: "#17597"
+          - generic [ref=e409]:
+            - generic [ref=e410]: Showing 1-9 of 9 articles
+            - generic [ref=e411]: •
+            - generic [ref=e412]: Page 1 of 1
+```

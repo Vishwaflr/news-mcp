@@ -8,6 +8,15 @@
 
     <!-- Status Cards -->
     <div class="row g-4 mb-4">
+        <!-- Storage Statistics -->
+        <div class="col-lg-3">
+            <div class="card h-100" id="storage-stats-card">
+                <div class="card-body" id="storage-stats-content">
+                    <div class="text-muted">Loading storage stats...</div>
+                </div>
+            </div>
+        </div>
+
         <!-- Current Status -->
         <div class="col-lg-3">
             <div class="card h-100"
@@ -43,17 +52,18 @@
                 </div>
             </div>
         </div>
+    </div>
 
-        <!-- System Overview (from Metrics) -->
-        <div class="col-lg-3">
-            <div class="card h-100"
-                 hx-get="/api/metrics/system/overview"
-                 hx-trigger="load, every 30s"
-                 hx-swap="innerHTML">
-                <div class="card-body">
-                    <div class="text-muted">Loading overview...</div>
-                </div>
-            </div>
+    <!-- Storage Details (Expandable) -->
+    <div class="card mb-4" id="storage-details" style="display: none;">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">💾 Storage Details</h5>
+            <button class="btn btn-sm btn-outline-secondary" onclick="toggleStorageDetails()">
+                <i class="fas fa-times"></i> Close
+            </button>
+        </div>
+        <div class="card-body" id="storage-details-content">
+            <!-- Will be populated by JavaScript -->
         </div>
     </div>
 
@@ -488,10 +498,225 @@ function displayQueuePerformance(data) {
     `;
 }
 
+// Storage Statistics Functions
+async function loadStorageStats() {
+    try {
+        const response = await fetch('/api/metrics/storage/stats');
+        const result = await response.json();
+
+        if (result.success && result.data) {
+            displayStorageStats(result.data);
+        } else {
+            throw new Error(result.error || 'Failed to load storage stats');
+        }
+    } catch (error) {
+        document.getElementById('storage-stats-content').innerHTML =
+            `<div class="alert alert-danger p-2 m-0"><small>Error: ${error.message}</small></div>`;
+    }
+}
+
+function displayStorageStats(data) {
+    const content = document.getElementById('storage-stats-content');
+
+    let html = `
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="card-title mb-0">💾 Storage Stats</h6>
+            <button class="btn btn-sm btn-outline-primary" onclick="loadStorageStats()" title="Refresh">
+                <i class="fas fa-sync-alt"></i>
+            </button>
+        </div>
+        <div class="d-flex justify-content-between mb-2">
+            <small class="text-muted">Database Size:</small>
+            <strong>${data.database_size}</strong>
+        </div>
+        <div class="d-flex justify-content-between mb-2">
+            <small class="text-muted">Total Items:</small>
+            <strong>${data.item_count.toLocaleString()}</strong>
+        </div>
+        <div class="d-flex justify-content-between mb-2">
+            <small class="text-muted">Analyzed:</small>
+            <strong>${data.analysis_count.toLocaleString()} (${data.analysis_coverage_percent}%)</strong>
+        </div>
+        <div class="d-flex justify-content-between mb-2">
+            <small class="text-muted">Growth:</small>
+            <strong>${data.growth.items_per_week.toLocaleString()}/week</strong>
+        </div>
+        <div class="mt-2">
+            <button class="btn btn-sm btn-info w-100" onclick="toggleStorageDetails()">
+                <i class="fas fa-chart-bar"></i> Details
+            </button>
+        </div>
+    `;
+
+    content.innerHTML = html;
+}
+
+function toggleStorageDetails() {
+    const detailsCard = document.getElementById('storage-details');
+    const isVisible = detailsCard.style.display !== 'none';
+
+    if (isVisible) {
+        detailsCard.style.display = 'none';
+    } else {
+        detailsCard.style.display = 'block';
+        loadStorageDetails();
+    }
+}
+
+async function loadStorageDetails() {
+    const detailsContent = document.getElementById('storage-details-content');
+    detailsContent.innerHTML = '<div class="text-center py-3"><i class="fas fa-spinner fa-spin"></i> Loading details...</div>';
+
+    try {
+        const response = await fetch('/api/metrics/storage/stats');
+        const result = await response.json();
+
+        if (result.success && result.data) {
+            displayStorageDetails(result.data);
+        } else {
+            throw new Error(result.error || 'Failed to load storage details');
+        }
+    } catch (error) {
+        detailsContent.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+    }
+}
+
+function displayStorageDetails(data) {
+    const detailsContent = document.getElementById('storage-details-content');
+
+    let html = `
+        <div class="row g-3">
+            <!-- Category Breakdown -->
+            <div class="col-md-6">
+                <h6>📊 Storage by Category</h6>
+                <div class="list-group">
+    `;
+
+    data.category_sizes.forEach(cat => {
+        const percentage = (cat.bytes / (data.top_tables[0]?.total_bytes || 1) * 100).toFixed(1);
+        html += `
+            <div class="list-group-item d-flex justify-content-between align-items-center">
+                <span>${cat.category}</span>
+                <div class="text-end">
+                    <strong>${cat.size}</strong>
+                    <br><small class="text-muted">${percentage}%</small>
+                </div>
+            </div>
+        `;
+    });
+
+    html += `
+                </div>
+            </div>
+
+            <!-- Top Tables -->
+            <div class="col-md-6">
+                <h6>🗃️ Top 5 Tables</h6>
+                <div class="list-group">
+    `;
+
+    data.top_tables.slice(0, 5).forEach(table => {
+        html += `
+            <div class="list-group-item">
+                <div class="d-flex justify-content-between">
+                    <strong>${table.name}</strong>
+                    <span class="badge bg-primary">${table.total_size}</span>
+                </div>
+                <small class="text-muted">Table: ${table.table_size} | Indexes: ${table.indexes_size}</small>
+            </div>
+        `;
+    });
+
+    html += `
+                </div>
+            </div>
+
+            <!-- Growth Stats -->
+            <div class="col-md-6">
+                <h6>📈 Growth Statistics</h6>
+                <div class="card bg-dark">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Total Items:</span>
+                            <strong>${data.growth.total_items.toLocaleString()}</strong>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Items/Week:</span>
+                            <strong>${data.growth.items_per_week.toLocaleString()}</strong>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Est. Items/Year:</span>
+                            <strong>${data.growth.estimated_items_per_year_k}k</strong>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span>Data Age:</span>
+                            <strong>${data.growth.data_age_days} days</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analysis Data -->
+            <div class="col-md-6">
+                <h6>🧠 Analysis Data</h6>
+                <div class="card bg-dark">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Total Analyses:</span>
+                            <strong>${data.analysis_count.toLocaleString()}</strong>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Coverage:</span>
+                            <strong>${data.analysis_coverage_percent}%</strong>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Geopolitical:</span>
+                            <strong>${data.geopolitical.with_geopolitical.toLocaleString()} (${data.geopolitical.percentage}%)</strong>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span>Geo Size:</span>
+                            <strong>${data.geopolitical.size}</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- JSONB Field Sizes -->
+            <div class="col-md-12">
+                <h6>📦 JSONB Field Sizes</h6>
+                <div class="row g-2">
+    `;
+
+    data.jsonb_fields.forEach(field => {
+        html += `
+            <div class="col-md-6">
+                <div class="card bg-dark">
+                    <div class="card-body py-2">
+                        <div class="d-flex justify-content-between">
+                            <strong>${field.field_type}</strong>
+                            <span class="badge bg-secondary">${field.total_size}</span>
+                        </div>
+                        <small class="text-muted">${field.entries.toLocaleString()} entries • Avg: ${field.avg_size}</small>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    html += `
+                </div>
+            </div>
+        </div>
+    `;
+
+    detailsContent.innerHTML = html;
+}
+
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
     loadFeeds();
     loadCostBreakdown(7);
+    loadStorageStats();  // Load storage stats on page load
 });
 </script>
 

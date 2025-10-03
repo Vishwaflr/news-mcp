@@ -13,12 +13,18 @@ logger = get_logger(__name__)
 
 @router.get("/feeds-options", response_class=HTMLResponse)
 def get_feeds_options(session: Session = Depends(get_session)):
-    feeds = session.exec(select(Feed)).all()
-    html = ""
-    for feed in feeds:
-        title = feed.title or feed.url[:50] + "..."
-        html += f'<option value="{feed.id}">{title}</option>'
-    return html
+    """Optimized feeds dropdown - loads only necessary fields"""
+    # Only select id, title, url for performance
+    stmt = select(Feed.id, Feed.title, Feed.url).order_by(Feed.title)
+    results = session.exec(stmt).all()
+
+    # Use list comprehension for faster HTML building
+    options = [
+        f'<option value="{feed_id}">{title or url[:50] + "..."}</option>'
+        for feed_id, title, url in results
+    ]
+
+    return "".join(options)
 
 @router.post("/feed-fetch-now/{feed_id}", response_class=HTMLResponse)
 def fetch_feed_now_htmx(feed_id: int, session: Session = Depends(get_session)):

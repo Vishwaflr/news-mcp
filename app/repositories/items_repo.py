@@ -33,8 +33,11 @@ class ItemsRepository(BaseRepository[ItemResponse, ItemCreate, ItemUpdate, ItemQ
             i.id, i.title, i.link, i.description, i.content, i.author,
             i.published, i.guid, i.content_hash, i.feed_id, i.created_at,
             f.title as feed_title, f.url as feed_url,
-            a.id as analysis_id, a.sentiment_label, a.sentiment_score,
-            a.impact_score, a.urgency_score
+            a.item_id as analysis_id,
+            (a.sentiment_json->'overall'->>'label')::text as sentiment_label,
+            (a.sentiment_json->'overall'->>'score')::float as sentiment_score,
+            (a.impact_json->>'overall')::float as impact_score,
+            (a.sentiment_json->>'urgency')::float as urgency_score
         FROM items i
         LEFT JOIN feeds f ON i.feed_id = f.id
         LEFT JOIN item_analysis a ON i.id = a.item_id
@@ -63,8 +66,11 @@ class ItemsRepository(BaseRepository[ItemResponse, ItemCreate, ItemUpdate, ItemQ
             i.id, i.title, i.link, i.description, i.content, i.author,
             i.published, i.guid, i.content_hash, i.feed_id, i.created_at,
             f.title as feed_title, f.url as feed_url,
-            a.id as analysis_id, a.sentiment_label, a.sentiment_score,
-            a.impact_score, a.urgency_score
+            a.item_id as analysis_id,
+            (a.sentiment_json->'overall'->>'label')::text as sentiment_label,
+            (a.sentiment_json->'overall'->>'score')::float as sentiment_score,
+            (a.impact_json->>'overall')::float as impact_score,
+            (a.sentiment_json->>'urgency')::float as urgency_score
         FROM items i
         LEFT JOIN feeds f ON i.feed_id = f.id
         LEFT JOIN item_analysis a ON i.id = a.item_id
@@ -259,8 +265,11 @@ class ItemsRepository(BaseRepository[ItemResponse, ItemCreate, ItemUpdate, ItemQ
             i.id, i.title, i.link, i.description, i.content, i.author,
             i.published, i.guid, i.content_hash, i.feed_id, i.created_at,
             f.title as feed_title, f.url as feed_url,
-            a.id as analysis_id, a.sentiment_label, a.sentiment_score,
-            a.impact_score, a.urgency_score
+            a.item_id as analysis_id,
+            (a.sentiment_json->'overall'->>'label')::text as sentiment_label,
+            (a.sentiment_json->'overall'->>'score')::float as sentiment_score,
+            (a.impact_json->>'overall')::float as impact_score,
+            (a.sentiment_json->>'urgency')::float as urgency_score
         FROM items i
         LEFT JOIN feeds f ON i.feed_id = f.id
         LEFT JOIN item_analysis a ON i.id = a.item_id

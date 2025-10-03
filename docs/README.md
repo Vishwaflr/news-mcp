@@ -52,6 +52,7 @@ The following files are automatically maintained:
 ## 📁 Specialized Documentation
 
 ### Component-Specific
+- **[Sentiment Analysis Guide](./SENTIMENT_GUIDE.md)** - ✨ NEW: Understanding sentiment scores, impact, and urgency
 - **[Analysis Control Interface](./ANALYSIS_CONTROL_INTERFACE.md)** - ✨ NEW: Complete interface redesign documentation
 - **[UI Components Guide](./UI_COMPONENTS_GUIDE.md)** - ✨ NEW: Bootstrap 5 + Alpine.js + HTMX patterns
 - **[Schema Import Workaround](./SCHEMA_IMPORT_WORKAROUND.md)** - ✨ NEW: Current technical debt documentation

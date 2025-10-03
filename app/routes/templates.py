@@ -52,7 +52,7 @@ async def templates_list(request: Request, session: Session = Depends(get_sessio
         assignments_result = session.execute(
             text("""
             SELECT fta.id, fta.feed_id, fta.template_id, fta.is_active,
-                   fta.assigned_by, fta.assigned_at, fta.priority,
+                   fta.assigned_by, fta.created_at as assigned_at, fta.priority,
                    f.title, f.url
             FROM feed_template_assignments fta
             JOIN feeds f ON f.id = fta.feed_id

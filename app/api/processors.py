@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlmodel import Session
+from sqlmodel import Session, select
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 
@@ -7,6 +7,7 @@ from app.database import get_session
 from app.models import (
     ProcessorType, ProcessingStatus
 )
+from app.models.content import ContentProcessingLog
 from app.services.domain.processor_service import ProcessorService
 from app.dependencies import get_processor_service
 from app.processors.manager import ContentProcessingManager

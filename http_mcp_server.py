@@ -224,31 +224,13 @@ class HTTPMCPServerWrapper:
     async def _call_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Call a specific tool on the MCP server"""
         try:
-            # Map tool calls to the comprehensive server methods directly
-            # This bypasses the MCP protocol layer and calls methods directly
+            # Use dynamic tool lookup instead of hardcoded map
+            method = get_tool_method(tool_name)
 
-            tool_methods = {
-                "system_ping": self.comprehensive_server._system_ping,
-                "system_health": self.comprehensive_server._system_health,
-                "list_feeds": self.comprehensive_server._list_feeds,
-                "add_feed": self.comprehensive_server._add_feed,
-                "update_feed": self.comprehensive_server._update_feed,
-                "delete_feed": self.comprehensive_server._delete_feed,
-                "test_feed": self.comprehensive_server._test_feed,
-                "refresh_feed": self.comprehensive_server._refresh_feed,
-                "feed_performance": self.comprehensive_server._feed_performance,
-                "feed_diagnostics": self.comprehensive_server._feed_diagnostics,
-                "latest_articles": self.comprehensive_server._latest_articles,
-                "search_articles": self.comprehensive_server._search_articles,
-                "assign_template": self.comprehensive_server._assign_template,
-                "export_data": self.comprehensive_server._export_data
-            }
-
-            if tool_name not in tool_methods:
+            if method is None:
                 raise ValueError(f"Tool not found: {tool_name}")
 
             # Call the method directly
-            method = tool_methods[tool_name]
             result = await method(**arguments)
 
             # Format the result - result should be List[TextContent]
@@ -560,46 +542,41 @@ def register_compatibility_routes():
 
 # Dynamic MCP Tool Registry and Route Generator
 def get_tool_method(tool_name: str):
-    """Get method reference for a tool name"""
+    """
+    Get method reference for a tool name using dynamic lookup.
+
+    Lookup order:
+    1. v2_handlers.{tool_name} - for newer tools (items_recent, get_schemas, etc.)
+    2. _{tool_name} - for standard tools (get_dashboard, list_feeds, etc.)
+    3. Dotted name mapping - for namespace tools (feeds.list -> _list_feeds)
+    """
     global mcp_server_instance
 
     if mcp_server_instance is None:
         return None
 
-    # Map dotted tool names to method names
-    # E.g., "feeds.list" -> "_list_feeds", "system.ping" -> "_system_ping"
-    method_name_map = {
-        "system.ping": "_system_ping",
-        "system.health": "_system_health",
-        "feeds.list": "_list_feeds",
-        "feeds.add": "_add_feed",
-        "feeds.update": "_update_feed",
-        "feeds.delete": "_delete_feed",
-        "feeds.test": "_test_feed",
-        "feeds.refresh": "_refresh_feed",
-        "feeds.performance": "_feed_performance",
-        "feeds.diagnostics": "_feed_diagnostics",
-        "articles.latest": "_latest_articles",
-        "articles.search": "_search_articles",
-        "templates.assign": "_assign_template",
-        "data.export": "_export_data",
-    }
-
-    # Check if it's a mapped name
-    if tool_name in method_name_map:
-        method_name = method_name_map[tool_name]
-        return getattr(mcp_server_instance, method_name, None)
-
-    # Try direct attribute access (for tools like "categories_list")
-    method_name = f"_{tool_name}"
-    if hasattr(mcp_server_instance, method_name):
-        return getattr(mcp_server_instance, method_name)
-
-    # Try v2_handlers for newer tools
+    # 1. Try v2_handlers first (newer tools like items_recent, get_schemas)
     if hasattr(mcp_server_instance, 'v2_handlers'):
         v2_method = getattr(mcp_server_instance.v2_handlers, tool_name, None)
-        if v2_method:
+        if v2_method and callable(v2_method):
             return v2_method
+
+    # 2. Try direct method _{tool_name} (standard tools like _get_dashboard, _list_feeds)
+    method_name = f"_{tool_name}"
+    if hasattr(mcp_server_instance, method_name):
+        method = getattr(mcp_server_instance, method_name)
+        if callable(method):
+            return method
+
+    # 3. Try dotted name mapping (feeds.list -> _list_feeds, system.ping -> _system_ping)
+    if "." in tool_name:
+        namespace, action = tool_name.split(".", 1)
+        # Try both patterns: namespace.action -> _action_namespace OR _namespace_action
+        for pattern in [f"_{action}_{namespace}", f"_{namespace}_{action}"]:
+            if hasattr(mcp_server_instance, pattern):
+                method = getattr(mcp_server_instance, pattern)
+                if callable(method):
+                    return method
 
     return None
 

@@ -12,6 +12,11 @@ class AnalysisRepo:
         """Insert or update analysis data for an item"""
         with Session(engine) as session:
             try:
+                # Build sentiment JSON including geopolitical data if present
+                sentiment_data = result.sentiment.model_dump()
+                if result.geopolitical:
+                    sentiment_data["geopolitical"] = result.geopolitical.model_dump()
+
                 # Use the PostgreSQL function for efficient upsert
                 stmt = text("""
                     SELECT upsert_item_analysis(
@@ -23,7 +28,7 @@ class AnalysisRepo:
                     """)
                 session.execute(stmt, {
                     "item_id": item_id,
-                    "sentiment": json.dumps(result.sentiment.model_dump()),
+                    "sentiment": json.dumps(sentiment_data),
                     "impact": json.dumps(result.impact.model_dump()),
                     "model_tag": result.model_tag
                 })

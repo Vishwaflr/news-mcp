@@ -202,9 +202,19 @@ class AnalysisOrchestrator:
 
             impact = ImpactPayload(**llm_data["impact"])
 
+            # Parse geopolitical data (always present, may have zero values)
+            geopolitical = None
+            if "geopolitical" in llm_data:
+                from app.domain.analysis.schema import GeopoliticalPayload
+                try:
+                    geopolitical = GeopoliticalPayload(**llm_data["geopolitical"])
+                except Exception as e:
+                    logger.warning(f"Failed to parse geopolitical data for item {item_id}: {e}")
+
             result = AnalysisResult(
                 sentiment=sentiment,
                 impact=impact,
+                geopolitical=geopolitical,
                 model_tag=model_tag
             )
 
@@ -424,9 +434,19 @@ class AnalysisOrchestrator:
 
             impact = ImpactPayload(**llm_data["impact"])
 
+            # Parse geopolitical data (always present, may have zero values)
+            geopolitical = None
+            if "geopolitical" in llm_data:
+                from app.domain.analysis.schema import GeopoliticalPayload
+                try:
+                    geopolitical = GeopoliticalPayload(**llm_data["geopolitical"])
+                except Exception as e:
+                    logger.warning(f"Failed to parse geopolitical data for item {item_id}: {e}")
+
             result = AnalysisResult(
                 sentiment=sentiment,
                 impact=impact,
+                geopolitical=geopolitical,
                 model_tag=model_tag
             )
 

@@ -119,7 +119,7 @@ FeatureFlags.emergency_disable('use_feeds_repo')
 
 ### Dashboards
 
-- Feature Flag Status: `/admin/metrics`
+- Feature Flag Status: `/admin/manager`
 - Performance Metrics: `/api/metrics/feature-flags`
 - Shadow Comparison Results: `/api/metrics/shadow-comparison`
 

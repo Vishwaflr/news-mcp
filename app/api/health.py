@@ -3,6 +3,7 @@ from sqlmodel import Session, select
 from typing import List
 from app.database import get_session
 from app.models import FeedHealth, FetchLog, Feed
+from app.models.base import FeedStatus
 # from app.schemas import FeedHealthResponse, FetchLogResponse
 from typing import Any
 FeedHealthResponse = Any
@@ -39,8 +40,8 @@ def get_feed_logs(
 @router.get("/status")
 def get_system_status(session: Session = Depends(get_session)):
     total_feeds = len(session.exec(select(Feed)).all())
-    active_feeds = len(session.exec(select(Feed).where(Feed.status == "active")).all())
-    error_feeds = len(session.exec(select(Feed).where(Feed.status == "error")).all())
+    active_feeds = len(session.exec(select(Feed).where(Feed.status == FeedStatus.ACTIVE)).all())
+    error_feeds = len(session.exec(select(Feed).where(Feed.status == FeedStatus.ERROR)).all())
 
     return {
         "total_feeds": total_feeds,

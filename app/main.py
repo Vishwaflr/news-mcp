@@ -14,12 +14,12 @@ from app.api import (
     feature_flags_admin, templates as api_templates, scheduler,
     analysis_management, metrics, feed_limits, system,
     analysis_selection, auto_analysis_monitoring,
-    feeds_simple, analysis_jobs, websocket_endpoint
+    feeds_simple, analysis_jobs, websocket_endpoint, config
 )
 from app.api.v1 import analysis as analysis_v1, health as health_v1
 
 # View imports
-from app.routes import templates as template_routes
+from app.routes import templates as template_routes, processors_htmx
 from app.web.views import analysis, auto_analysis_views, manager_views
 
 # Core imports
@@ -124,6 +124,7 @@ app.include_router(processors.router, prefix="/api")
 app.include_router(statistics.router)
 app.include_router(database.router)
 app.include_router(htmx.router, prefix="/htmx")
+app.include_router(processors_htmx.router)
 app.include_router(template_routes.router)
 app.include_router(analysis_control.router, prefix="/api")
 app.include_router(user_settings.router, prefix="/api")
@@ -143,6 +144,7 @@ app.include_router(feed_limits.router)
 app.include_router(system.router, prefix="/api")
 app.include_router(analysis_selection.router)
 app.include_router(auto_analysis_monitoring.router)
+app.include_router(config.router)
 
 app.include_router(create_health_router())
 # app.include_router(create_metrics_router())  # Als nächstes
@@ -218,10 +220,6 @@ async def admin_auto_analysis(request: Request):
 @app.get("/admin/manager", response_class=HTMLResponse)
 async def admin_manager(request: Request):
     return templates.TemplateResponse("admin/analysis_manager.html", {"request": request})
-
-@app.get("/admin/metrics", response_class=HTMLResponse)
-async def admin_metrics(request: Request):
-    return templates.TemplateResponse("admin/metrics.html", {"request": request})
 
 if __name__ == "__main__":
     import uvicorn

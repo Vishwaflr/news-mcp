@@ -60,13 +60,6 @@ OpenAPI Version: 3.1.0
 
 - `200`: Successful Response
 
-### GET /admin/metrics
-**Admin Metrics**
-
-**Responses:**
-
-- `200`: Successful Response
-
 ### GET /admin/processors
 **Admin Processors**
 

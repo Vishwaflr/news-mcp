@@ -28,26 +28,46 @@ def get_auto_analysis_dashboard(session: Session = Depends(get_session)):
             Feed.auto_analyze_enabled == True
         ).count()
 
-        yesterday = datetime.utcnow() - timedelta(days=1)
-        completed_jobs = session.query(PendingAutoAnalysis).filter(
-            PendingAutoAnalysis.status == "completed",
-            PendingAutoAnalysis.processed_at >= yesterday
-        ).all()
+        # Use analysis_runs table (the actual runs) instead of pending_auto_analysis
+        today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
 
-        failed_jobs = session.query(PendingAutoAnalysis).filter(
-            PendingAutoAnalysis.status == "failed",
-            PendingAutoAnalysis.processed_at >= yesterday
-        ).all()
+        # Get today's completed runs
+        today_runs_result = session.execute(
+            text("""
+                SELECT
+                    COUNT(*) as total_runs,
+                    COUNT(*) FILTER (WHERE status = 'completed') as completed,
+                    COUNT(*) FILTER (WHERE status = 'failed') as failed
+                FROM analysis_runs
+                WHERE created_at >= :today_start
+            """),
+            {"today_start": today_start}
+        ).fetchone()
+
+        # Get items processed today
+        items_result = session.execute(
+            text("""
+                SELECT
+                    COUNT(DISTINCT ari.item_id) as total_items,
+                    COUNT(*) FILTER (WHERE ari.state = 'completed') as successful,
+                    COUNT(*) FILTER (WHERE ari.state = 'failed') as failed
+                FROM analysis_run_items ari
+                JOIN analysis_runs ar ON ari.run_id = ar.id
+                WHERE ar.created_at >= :today_start
+            """),
+            {"today_start": today_start}
+        ).fetchone()
 
         pending = stats.get("pending", 0)
-        completed_today = len(completed_jobs)
-        failed_today = len(failed_jobs)
+        completed_today = today_runs_result[1] if today_runs_result else 0
+        failed_today = today_runs_result[2] if today_runs_result else 0
 
-        total_items_analyzed = sum([
-            len(job.item_ids) for job in completed_jobs
-        ])
+        total_items_analyzed = items_result[0] if items_result else 0
+        items_successful = items_result[1] if items_result else 0
+        items_failed = items_result[2] if items_result else 0
 
-        success_rate = round((completed_today / (completed_today + failed_today) * 100), 1) if (completed_today + failed_today) > 0 else 100
+        # Calculate success rate based on items, not runs
+        success_rate = round((items_successful / total_items_analyzed * 100), 1) if total_items_analyzed > 0 else 100
 
         status_color = "success" if pending < 5 else "warning" if pending < 20 else "danger"
 
@@ -88,7 +108,7 @@ def get_auto_analysis_dashboard(session: Session = Depends(get_session)):
                     </div>
                     <div class="col-4">
                         <small class="text-danger">
-                            <strong>{failed_today}</strong><br>
+                            <strong>{items_failed}</strong><br>
                             Failed
                         </small>
                     </div>

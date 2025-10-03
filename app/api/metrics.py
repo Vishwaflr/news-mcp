@@ -147,6 +147,172 @@ async def get_all_feeds_summary() -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"Failed to get feeds summary: {str(e)}")
 
 
+@router.get("/storage/stats")
+async def get_storage_stats() -> Dict[str, Any]:
+    """Get database storage statistics"""
+    try:
+        from sqlalchemy import text
+        from app.database import engine
+        from sqlmodel import Session
+
+        with Session(engine) as session:
+            # Get table sizes
+            table_sizes_query = text("""
+                SELECT
+                    tablename,
+                    pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) AS total_size,
+                    pg_size_pretty(pg_relation_size(schemaname||'.'||tablename)) AS table_size,
+                    pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename) - pg_relation_size(schemaname||'.'||tablename)) AS indexes_size,
+                    pg_total_relation_size(schemaname||'.'||tablename) AS total_bytes
+                FROM pg_tables
+                WHERE schemaname = 'public'
+                ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC
+                LIMIT 10
+            """)
+            table_sizes = session.execute(table_sizes_query).fetchall()
+
+            # Get database size
+            db_size_query = text("SELECT pg_size_pretty(pg_database_size('news_db')) AS database_size")
+            db_size_result = session.execute(db_size_query).fetchone()
+            db_size = db_size_result[0] if db_size_result else "Unknown"
+
+            # Get item and analysis counts
+            item_count_query = text("SELECT COUNT(*) FROM items")
+            analysis_count_query = text("SELECT COUNT(*) FROM item_analysis")
+            item_count = session.execute(item_count_query).scalar() or 0
+            analysis_count = session.execute(analysis_count_query).scalar() or 0
+
+            # Get JSONB field sizes
+            jsonb_sizes_query = text("""
+                SELECT
+                    'sentiment_json' AS field_type,
+                    COUNT(*) AS entries,
+                    pg_size_pretty(SUM(pg_column_size(sentiment_json))::bigint) AS total_size,
+                    pg_size_pretty(AVG(pg_column_size(sentiment_json))::bigint) AS avg_size
+                FROM item_analysis
+                WHERE sentiment_json IS NOT NULL
+                UNION ALL
+                SELECT
+                    'impact_json' AS field_type,
+                    COUNT(*) AS entries,
+                    pg_size_pretty(SUM(pg_column_size(impact_json))::bigint) AS total_size,
+                    pg_size_pretty(AVG(pg_column_size(impact_json))::bigint) AS avg_size
+                FROM item_analysis
+                WHERE impact_json IS NOT NULL
+            """)
+            jsonb_sizes = session.execute(jsonb_sizes_query).fetchall()
+
+            # Get geopolitical data stats
+            geopolitical_query = text("""
+                SELECT
+                    COUNT(*) AS total_analyses,
+                    COUNT(*) FILTER (WHERE sentiment_json ? 'geopolitical') AS with_geopolitical,
+                    ROUND(100.0 * COUNT(*) FILTER (WHERE sentiment_json ? 'geopolitical') / NULLIF(COUNT(*), 0), 2) AS geopolitical_percentage,
+                    pg_size_pretty(SUM(pg_column_size(sentiment_json)) FILTER (WHERE sentiment_json ? 'geopolitical')::bigint) AS geopolitical_json_size
+                FROM item_analysis
+            """)
+            geopolitical_stats = session.execute(geopolitical_query).fetchone()
+
+            # Get category sizes
+            category_sizes_query = text("""
+                SELECT
+                    'RSS Feed Data' AS category,
+                    pg_size_pretty(
+                        pg_total_relation_size('items') +
+                        pg_total_relation_size('feeds') +
+                        pg_total_relation_size('fetch_log')
+                    ) AS size,
+                    (pg_total_relation_size('items') +
+                     pg_total_relation_size('feeds') +
+                     pg_total_relation_size('fetch_log')) AS bytes
+                UNION ALL
+                SELECT
+                    'Sentiment Analysis Data' AS category,
+                    pg_size_pretty(
+                        pg_total_relation_size('item_analysis') +
+                        pg_total_relation_size('analysis_runs') +
+                        pg_total_relation_size('analysis_run_items')
+                    ) AS size,
+                    (pg_total_relation_size('item_analysis') +
+                     pg_total_relation_size('analysis_runs') +
+                     pg_total_relation_size('analysis_run_items')) AS bytes
+                UNION ALL
+                SELECT
+                    'Auto-Analysis Queue' AS category,
+                    pg_size_pretty(pg_total_relation_size('pending_auto_analysis')) AS size,
+                    pg_total_relation_size('pending_auto_analysis') AS bytes
+            """)
+            category_sizes = session.execute(category_sizes_query).fetchall()
+
+            # Get growth stats
+            growth_query = text("""
+                WITH stats AS (
+                    SELECT
+                        COUNT(*) AS total_items,
+                        COUNT(*) FILTER (WHERE published >= NOW() - INTERVAL '7 days') AS items_last_7d,
+                        MIN(published) AS oldest_item,
+                        MAX(published) AS newest_item
+                    FROM items
+                )
+                SELECT
+                    total_items,
+                    items_last_7d,
+                    ROUND(items_last_7d * 52.0 / 1000, 1) AS estimated_items_per_year_k,
+                    EXTRACT(DAY FROM (newest_item - oldest_item))::int AS data_age_days
+                FROM stats
+            """)
+            growth_stats = session.execute(growth_query).fetchone()
+
+            return {
+                "success": True,
+                "data": {
+                    "database_size": db_size,
+                    "item_count": item_count,
+                    "analysis_count": analysis_count,
+                    "analysis_coverage_percent": round((analysis_count / item_count * 100) if item_count > 0 else 0, 2),
+                    "top_tables": [
+                        {
+                            "name": row[0],
+                            "total_size": row[1],
+                            "table_size": row[2],
+                            "indexes_size": row[3],
+                            "total_bytes": row[4]
+                        } for row in table_sizes
+                    ],
+                    "jsonb_fields": [
+                        {
+                            "field_type": row[0],
+                            "entries": row[1],
+                            "total_size": row[2],
+                            "avg_size": row[3]
+                        } for row in jsonb_sizes
+                    ],
+                    "geopolitical": {
+                        "total_analyses": geopolitical_stats[0] if geopolitical_stats else 0,
+                        "with_geopolitical": geopolitical_stats[1] if geopolitical_stats else 0,
+                        "percentage": float(geopolitical_stats[2]) if geopolitical_stats and geopolitical_stats[2] else 0.0,
+                        "size": geopolitical_stats[3] if geopolitical_stats else "0 kB"
+                    },
+                    "category_sizes": [
+                        {
+                            "category": row[0],
+                            "size": row[1],
+                            "bytes": row[2]
+                        } for row in category_sizes
+                    ],
+                    "growth": {
+                        "total_items": growth_stats[0] if growth_stats else 0,
+                        "items_per_week": growth_stats[1] if growth_stats else 0,
+                        "estimated_items_per_year_k": float(growth_stats[2]) if growth_stats and growth_stats[2] else 0.0,
+                        "data_age_days": growth_stats[3] if growth_stats else 0
+                    }
+                }
+            }
+    except Exception as e:
+        logger.error(f"Error getting storage stats: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get storage stats: {str(e)}")
+
+
 @router.post("/test/record")
 async def record_test_metrics(
     feed_id: int,

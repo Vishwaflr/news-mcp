@@ -54,11 +54,27 @@
 
 <!-- Load options on page load -->
 <script>
-    htmx.onLoad(function() {
-        // Load feed options
-        htmx.ajax('GET', '/htmx/feeds-options', {target: '#feed-selector', swap: 'beforeend'});
-        // Load category options
-        htmx.ajax('GET', '/htmx/categories-options', {target: '#category-selector', swap: 'beforeend'});
+    document.addEventListener('DOMContentLoaded', function() {
+        // Only load once
+        if (!document.getElementById('feed-selector').dataset.loaded) {
+            document.getElementById('feed-selector').dataset.loaded = 'true';
+
+            // Load feed options
+            htmx.ajax('GET', '/htmx/feeds-options', {
+                target: '#feed-selector',
+                swap: 'beforeend'
+            });
+        }
+
+        if (!document.getElementById('category-selector').dataset.loaded) {
+            document.getElementById('category-selector').dataset.loaded = 'true';
+
+            // Load category options
+            htmx.ajax('GET', '/htmx/categories-options', {
+                target: '#category-selector',
+                swap: 'beforeend'
+            });
+        }
     });
 </script>
 

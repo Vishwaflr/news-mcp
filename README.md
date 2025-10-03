@@ -13,7 +13,11 @@
 ### Core Functionality
 - **RSS Feed Management**: Automatic collection and processing of RSS feeds
 - **Auto-Analysis System**: Automatic AI analysis of new feed items (Phase 2 ✅)
-- **AI-Powered Analysis**: Sentiment analysis and categorization with OpenAI GPT
+- **AI-Powered Analysis**: Multi-dimensional sentiment analysis with OpenAI GPT
+  - **Sentiment Scoring**: Overall, market, and thematic sentiment (-1.0 to +1.0)
+  - **Geopolitical Analysis**: 13-field assessment including stability, security, diplomatic impact
+  - **Impact & Urgency**: Quantified metrics for prioritization (0.0 to 1.0)
+  - **Market Indicators**: Bullish/bearish/neutral sentiment, volatility assessment
 - **Real-time Dashboard**: Live monitoring of feed status and analysis runs
 - **Advanced Analytics**: Detailed statistics and performance metrics
 - **Template System**: Dynamic feed templates for flexible configuration
@@ -55,6 +59,7 @@ Get a visual overview of the system's capabilities:
 - [Configuration](#configuration)
 - [Usage](#usage)
 - [MCP Integration](#mcp-integration-model-context-protocol)
+- [Sentiment Analysis Guide](docs/SENTIMENT_GUIDE.md) - **Understanding sentiment scores and analysis**
 - [API Documentation](#api-documentation)
 - [Database Schema](#database-schema)
 - [Deployment](#deployment)
@@ -141,14 +146,41 @@ alembic upgrade head
 python -c "from app.database import create_tables; create_tables()"
 ```
 
-6. **Start Server**
+6. **Configure Environment**
 ```bash
-# Development server
-./scripts/start-web-server.sh
+# Create .env file (if not exists)
+cp .env.example .env
 
-# Or manually
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+# Edit .env and set required values:
+# - DATABASE_URL (PostgreSQL connection)
+# - OPENAI_API_KEY (for AI analysis)
+# - API_HOST (default: 0.0.0.0)
+# - API_PORT (default: 8000)
 ```
+
+7. **Start Server**
+```bash
+# Start all services (API + Worker + Scheduler)
+./scripts/start-all.sh
+
+# Or start individual services
+./scripts/start-api.sh       # Web server (Port 8000)
+./scripts/start-worker.sh    # Analysis worker
+./scripts/start-scheduler.sh # Feed scheduler
+
+# Check service status
+./scripts/status.sh
+
+# Stop all services
+./scripts/stop-all.sh
+```
+
+**Service Architecture:**
+- **API Server**: Web UI + REST API (Port 8000)
+- **Analysis Worker**: Background AI processing (Port 9090 metrics)
+- **Feed Scheduler**: Automatic RSS fetching
+
+Access the application at: `http://localhost:8000` (or your configured API_HOST:API_PORT)
 
 ## ⚙️ Configuration
 
@@ -204,17 +236,19 @@ http://localhost:8000/admin/manager
 ### CLI Tools
 
 ```bash
-# Service management
-./scripts/start-all-background.sh    # Start all services
-./scripts/stop-all.sh                # Stop all services
-./scripts/status.sh                  # Status of all services
+# Service Management
+./scripts/start-all.sh               # Start all services (API + Worker + Scheduler)
+./scripts/start-api.sh               # Start API server only (Port 8000)
+./scripts/start-worker.sh            # Start analysis worker only
+./scripts/start-scheduler.sh         # Start feed scheduler only
+./scripts/stop-all.sh                # Stop all services (graceful shutdown with timeout)
+./scripts/status.sh                  # Check service status and PIDs
 
-# Workers
-./scripts/start-worker.sh            # Start analysis worker
-./scripts/start-scheduler.sh         # Start feed scheduler
-
-# MCP Server
-./scripts/start_mcp_server.sh        # Start MCP server on port 8001
+# Service Architecture
+# - API Server: Web UI + REST API (logs/api.log)
+# - Analysis Worker: Background AI processing (logs/worker.log)
+# - Feed Scheduler: Automatic RSS fetching (logs/scheduler.log)
+# - All services use PID files in /tmp/news-mcp-*.pid
 ```
 
 ## 🔌 MCP Integration (Model Context Protocol)
@@ -223,13 +257,9 @@ News MCP provides a complete **Model Context Protocol** implementation, allowing
 
 ### Quick Start with Claude Desktop
 
-1. **Start MCP Server**
-```bash
-./scripts/start_mcp_server.sh
-# Server runs on http://localhost:8001
-```
+**Note**: MCP Server integration is available but requires separate setup. The main application (API + Web UI) works standalone without MCP.
 
-2. **Configure Claude Desktop**
+1. **Configure Claude Desktop**
 
 Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
 

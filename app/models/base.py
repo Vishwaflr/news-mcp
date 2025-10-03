@@ -14,9 +14,9 @@ class SourceType(str, Enum):
 
 
 class FeedStatus(str, Enum):
-    ACTIVE = "active"
-    INACTIVE = "inactive"
-    ERROR = "error"
+    ACTIVE = "ACTIVE"
+    INACTIVE = "INACTIVE"
+    ERROR = "ERROR"
 
 
 class ProcessorType(str, Enum):

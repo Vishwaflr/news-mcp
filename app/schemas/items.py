@@ -16,7 +16,7 @@ class ItemQuery(BaseModel):
     # Analysis filters
     sentiment: Optional[str] = None  # "positive", "negative", "neutral"
     impact_min: Optional[float] = None
-    urgency_min: Optional[int] = None
+    urgency_min: Optional[float] = None
     has_analysis: Optional[bool] = None
 
     # Sorting
@@ -46,7 +46,7 @@ class ItemResponse(BaseModel):
     sentiment_label: Optional[str] = None
     sentiment_score: Optional[float] = None
     impact_score: Optional[float] = None
-    urgency_score: Optional[int] = None
+    urgency_score: Optional[float] = None
     analysis_id: Optional[int] = None
 
 

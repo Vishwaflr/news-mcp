@@ -25,6 +25,7 @@ from app.services.pending_analysis_processor import PendingAnalysisProcessor
 from app.domain.analysis.control import MODEL_PRICING
 from app.utils.feature_flags import feature_flags
 from app.services.error_recovery import get_error_recovery_service, CircuitBreakerConfig
+from app.worker.metrics_server import MetricsServer
 
 # Configure structured logging
 setup_logging(log_level="INFO")
@@ -41,6 +42,9 @@ class AnalysisWorker:
         self.use_repository = False
         self.last_feature_flag_check = 0
         self.error_recovery = get_error_recovery_service()
+
+        # SPRINT 1 DAY 4: Metrics server for Prometheus scraping
+        self.metrics_server = None
 
         # Configure circuit breakers for different operations
         self.db_breaker = self.error_recovery.get_circuit_breaker(
@@ -85,6 +89,11 @@ class AnalysisWorker:
         logger.info("Starting Analysis Worker")
 
         try:
+            # SPRINT 1 DAY 4: Start metrics server for Prometheus
+            metrics_port = int(os.getenv('WORKER_METRICS_PORT', '9090'))
+            self.metrics_server = MetricsServer(port=metrics_port)
+            self.metrics_server.start()
+
             # Initialize orchestrator
             self.orchestrator = AnalysisOrchestrator(
                 chunk_size=self.config['chunk_size'],
@@ -142,6 +151,9 @@ class AnalysisWorker:
             logger.error(f"Worker failed: {e}", exc_info=True)
             raise
         finally:
+            # SPRINT 1 DAY 4: Stop metrics server
+            if self.metrics_server:
+                self.metrics_server.stop()
             logger.info("Analysis Worker stopped")
 
     def _process_work_cycle(self) -> bool:
