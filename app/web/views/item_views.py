@@ -125,6 +125,7 @@ def generate_sentiment_display(analysis):
     # Extract key values
     overall = sentiment_json.get('overall', {})
     market = sentiment_json.get('market', {})
+    geopolitical = sentiment_json.get('geopolitical', {})
     label = overall.get('label', 'neutral')
     score = overall.get('score', 0.0)
     confidence = overall.get('confidence', 0.0)
@@ -161,6 +162,14 @@ def generate_sentiment_display(analysis):
     time_horizon = market.get('time_horizon', 'medium').title()
     themes_display = ' • '.join([f"🏷️ {theme}" for theme in themes[:4]])  # Show max 4 themes
 
+    # Geopolitical display
+    geo_display = ""
+    if geopolitical and geopolitical.get("conflict_type"):
+        conflict_type = geopolitical.get("conflict_type", "N/A").replace("_", " ").title()
+        security = geopolitical.get("security_relevance", 0)
+        escalation = geopolitical.get("escalation_potential", 0)
+        geo_display = f'<div class="mb-2"><strong>🌍 Geopolitical:</strong> {conflict_type} • Security: {security:.1f} • Escalation: {escalation:.1f}</div>'
+
     detailed_html = f"""
         <div class="sentiment-details mt-2" style="display: none;">
             <div class="card border-light bg-light">
@@ -178,6 +187,7 @@ def generate_sentiment_display(analysis):
                             <div class="mb-2">
                                 <strong>Market:</strong> {market_display} • {time_horizon}-term
                             </div>
+                            {geo_display}
                         </div>
                         <div class="col-md-6">
                             <div class="mb-2">
