@@ -523,6 +523,9 @@ def build_article_selection_query(form_data: dict, max_articles: int = 20, inclu
 
     # Parse form data
     feed_ids = form_data.getlist('feed_ids') if hasattr(form_data, 'getlist') else form_data.get('feed_ids', [])
+    # Handle both list and single value (QueryParams can return string)
+    if isinstance(feed_ids, str):
+        feed_ids = [feed_ids] if feed_ids else []
     feed_ids = [int(fid) for fid in feed_ids if fid]
 
     timeframe_hours = int(form_data.get('timeframe_hours', 24))
@@ -627,6 +630,7 @@ def build_article_selection_query(form_data: dict, max_articles: int = 20, inclu
     return text(sql), params
 
 
+@router.get("/htmx/special_reports/{special_report_id}/articles", response_class=HTMLResponse)
 @router.post("/htmx/special_reports/{special_report_id}/articles", response_class=HTMLResponse)
 async def htmx_articles_list(
     request: Request,
@@ -634,7 +638,12 @@ async def htmx_articles_list(
     session: Session = Depends(get_session)
 ):
     """HTMX: Show article list matching current criteria (compact view for middle panel)."""
-    form_data = await request.form()
+    # Support both GET and POST (HTMX uses GET on initial load, POST on form changes)
+    if request.method == "POST":
+        form_data = await request.form()
+    else:
+        # GET request - use default values or query params
+        form_data = request.query_params
 
     # Use shared query builder
     sql, params = build_article_selection_query(form_data)
