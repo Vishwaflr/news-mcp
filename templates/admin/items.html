@@ -78,125 +78,23 @@
     });
 </script>
 
-<div class="row">
-    <!-- Left Column: Articles List -->
-    <div class="col-lg-8">
-        <div id="items-list" hx-get="/htmx/items-list" hx-trigger="load">
-            <div class="text-center">
-                <div class="spinner-border" role="status">
-                    <span class="visually-hidden">Loading articles...</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Load More Button -->
-        <div class="text-center mt-4">
-            <button class="btn btn-outline-primary" id="load-more-btn"
-                    hx-get="/htmx/items-list"
-                    hx-include="[name='search'], [name='category_id'], [name='feed_id']"
-                    hx-target="#items-list"
-                    hx-swap="beforeend"
-                    onclick="this.setAttribute('hx-vals', JSON.stringify({skip: document.querySelectorAll('#items-list .card').length.toString()}))">
-                Load More
-            </button>
-        </div>
-    </div>
-
-    <!-- Right Column: Sticky Analysis Sidebar -->
-    <div class="col-lg-4">
-        <div id="analysis-sidebar" style="position: sticky; top: 20px;">
-            <div class="text-muted text-center py-5">
-                <i class="bi bi-info-circle"></i> Hover over an article to see analysis
-            </div>
+<div id="items-list" hx-get="/htmx/items-list" hx-trigger="load">
+    <div class="text-center">
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading articles...</span>
         </div>
     </div>
 </div>
 
-<script>
-// Update sidebar with Finance/Geopolitical blocks on hover
-document.addEventListener('DOMContentLoaded', function() {
-    function updateSidebar(analysisData) {
-        const sidebar = document.getElementById('analysis-sidebar');
-        if (!analysisData || !analysisData.sentiment_json) {
-            sidebar.innerHTML = '<div class="text-muted text-center py-5"><i class="bi bi-info-circle"></i> No analysis available</div>';
-            return;
-        }
-
-        const sentiment = analysisData.sentiment_json;
-        const impact = analysisData.impact_json || {};
-        const market = sentiment.market || {};
-        const geo = sentiment.geopolitical || {};
-
-        // Market display
-        const marketDisplay = market.bearish > 0.6 ? `📉 Bearish (${market.bearish.toFixed(1)})` :
-                             market.bullish > 0.6 ? `📈 Bullish (${market.bullish.toFixed(1)})` :
-                             '➡️ Neutral';
-        const timeHorizon = (market.time_horizon || 'medium').charAt(0).toUpperCase() + (market.time_horizon || 'medium').slice(1);
-
-        // Finance Block
-        let html = `
-        <div class="finance-block p-3 mb-2" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; color: white;">
-            <h6 class="mb-2">💰 Finance</h6>
-            <div class="mb-1"><strong>Market:</strong> ${marketDisplay}</div>
-            <div class="mb-1"><strong>Horizon:</strong> ${timeHorizon}</div>
-            <div class="mb-1"><strong>Impact:</strong> ⚡ ${(impact.overall || 0).toFixed(1)}</div>
-            <div><strong>Volatility:</strong> 📈 ${(impact.volatility || 0).toFixed(1)}</div>
-        </div>`;
-
-        // Geopolitical Block
-        if (geo && geo.conflict_type) {
-            const conflictType = (geo.conflict_type || 'N/A').replace(/_/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-            const regions = (geo.regions_affected || []).slice(0, 3).join(', ') || 'N/A';
-
-            html += `
-        <div class="geopolitical-block p-3 mb-2" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 8px; color: white;">
-            <h6 class="mb-2">🌍 Geopolitical</h6>
-            <div class="mb-1"><strong>Type:</strong> ${conflictType}</div>
-            <div class="mb-1"><strong>Security:</strong> ${(geo.security_relevance || 0).toFixed(1)}</div>
-            <div class="mb-1"><strong>Escalation:</strong> ${(geo.escalation_potential || 0).toFixed(1)}</div>
-            <div class="mb-1"><strong>Stability:</strong> ${(geo.stability_score || 0).toFixed(1)}</div>
-            <div><strong>Regions:</strong> ${regions}</div>
-        </div>`;
-        }
-
-        sidebar.innerHTML = html;
-    }
-
-    // Add hover listeners to article cards using delegation
-    document.addEventListener('mouseover', function(e) {
-        const card = e.target && e.target.closest ? e.target.closest('.article-card') : null;
-        if (card) {
-            const analysisJson = card.getAttribute('data-analysis');
-            if (analysisJson && analysisJson !== '') {
-                try {
-                    const analysis = JSON.parse(analysisJson);
-                    updateSidebar(analysis);
-                } catch (err) {
-                    console.error('Failed to parse analysis:', err);
-                }
-            }
-        }
-    });
-
-    // Show first article's analysis after HTMX loads items
-    document.body.addEventListener('htmx:afterSwap', function(evt) {
-        if (evt.detail.target.id === 'items-list') {
-            setTimeout(() => {
-                const firstCard = document.querySelector('.article-card');
-                if (firstCard) {
-                    const analysisJson = firstCard.getAttribute('data-analysis');
-                    if (analysisJson && analysisJson !== '') {
-                        try {
-                            const analysis = JSON.parse(analysisJson);
-                            updateSidebar(analysis);
-                        } catch (err) {
-                            console.error('Failed to parse analysis:', err);
-                        }
-                    }
-                }
-            }, 100);
-        }
-    });
-});
-</script>
+<!-- Load More Button -->
+<div class="text-center mt-4">
+    <button class="btn btn-outline-primary" id="load-more-btn"
+            hx-get="/htmx/items-list"
+            hx-include="[name='search'], [name='category_id'], [name='feed_id']"
+            hx-target="#items-list"
+            hx-swap="beforeend"
+            onclick="this.setAttribute('hx-vals', JSON.stringify({skip: document.querySelectorAll('#items-list .card').length.toString()}))">
+        Load More
+    </button>
+</div>
 {% endblock %}

@@ -145,31 +145,73 @@ class ItemComponent(BaseComponent):
 
         author_info = f'<span><i class="bi bi-person me-1"></i>{item_data.get("author")}</span>' if item_data.get('author') else ''
 
-        # Get analysis data for sentiment display
+        # Get analysis data
         analysis = AnalysisRepo.get_by_item_id(item_data.get('id'))
-        analysis_display = ItemComponent.generate_sentiment_display(analysis)
+
+        # Build Finance and Geopolitical blocks
+        analysis_blocks = ''
+        if analysis and analysis.get('sentiment_json'):
+            sentiment = analysis.get('sentiment_json', {})
+            impact = analysis.get('impact_json', {})
+            market = sentiment.get('market', {})
+            geo = sentiment.get('geopolitical', {})
+
+            # Market display
+            bearish = market.get('bearish', 0)
+            bullish = market.get('bullish', 0)
+            market_display = f'📉 Bearish ({bearish:.1f})' if bearish > 0.6 else f'📈 Bullish ({bullish:.1f})' if bullish > 0.6 else '➡️ Neutral'
+            time_horizon = (market.get('time_horizon', 'medium') or 'medium').capitalize()
+
+            # Finance Block
+            finance_block = f'''
+            <div class="p-2" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; color: white; font-size: 0.85rem;">
+                <h6 class="mb-1" style="font-size: 0.9rem;">💰 Finance</h6>
+                <div style="font-size: 0.75rem;"><strong>Market:</strong> {market_display}</div>
+                <div style="font-size: 0.75rem;"><strong>Horizon:</strong> {time_horizon}</div>
+                <div style="font-size: 0.75rem;"><strong>Impact:</strong> ⚡ {impact.get('overall', 0):.1f}</div>
+                <div style="font-size: 0.75rem;"><strong>Volatility:</strong> 📈 {impact.get('volatility', 0):.1f}</div>
+            </div>
+            '''
+
+            # Geopolitical Block
+            geo_block = ''
+            if geo and geo.get('conflict_type'):
+                conflict_type = (geo.get('conflict_type', 'N/A') or 'N/A').replace('_', ' ').title()
+                regions = ', '.join((geo.get('regions_affected', []) or [])[:3]) or 'N/A'
+
+                geo_block = f'''
+                <div class="p-2" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 8px; color: white; font-size: 0.85rem;">
+                    <h6 class="mb-1" style="font-size: 0.9rem;">🌍 Geopolitical</h6>
+                    <div style="font-size: 0.75rem;"><strong>Type:</strong> {conflict_type}</div>
+                    <div style="font-size: 0.75rem;"><strong>Security:</strong> {geo.get('security_relevance', 0):.1f}</div>
+                    <div style="font-size: 0.75rem;"><strong>Escalation:</strong> {geo.get('escalation_potential', 0):.1f}</div>
+                    <div style="font-size: 0.75rem;"><strong>Stability:</strong> {geo.get('stability_score', 0):.1f}</div>
+                    <div style="font-size: 0.75rem;"><strong>Regions:</strong> {regions}</div>
+                </div>
+                '''
+
+            analysis_blocks = f'''
+            <div class="d-flex gap-2 mt-2">
+                {finance_block}
+                {geo_block}
+            </div>
+            '''
 
         return f'''
-        <div class="card mb-3 shadow-sm">
+        <div class="card mb-3 shadow-sm article-card" data-item-id="{item_data.get('id')}">
             <div class="card-body">
-                <div class="row">
-                    <div class="col-lg-8">
-                        <h5 class="card-title mb-2">
-                            <a href="{item_data.get('link', '#')}" target="_blank" class="text-decoration-none text-primary">
-                                {clean_title}
-                            </a>
-                        </h5>
-                        <div class="d-flex flex-wrap gap-3 text-muted small mb-2">
-                            <span><i class="bi bi-calendar me-1"></i>{published_date}</span>
-                            <span><i class="bi bi-rss me-1"></i>{feed_name}</span>
-                            {author_info}
-                        </div>
-                        {f'<p class="card-text text-body-secondary">{clean_description}</p>' if clean_description else ''}
-                    </div>
-                    <div class="col-lg-4">
-                        {analysis_display}
-                    </div>
+                <h5 class="card-title mb-2">
+                    <a href="{item_data.get('link', '#')}" target="_blank" class="text-decoration-none text-primary">
+                        {clean_title}
+                    </a>
+                </h5>
+                <div class="d-flex flex-wrap gap-3 text-muted small mb-2">
+                    <span><i class="bi bi-calendar me-1"></i>{published_date}</span>
+                    <span><i class="bi bi-rss me-1"></i>{feed_name}</span>
+                    {author_info}
                 </div>
+                {f'<p class="card-text text-body-secondary">{clean_description}</p>' if clean_description else ''}
+                {analysis_blocks}
             </div>
         </div>
         '''
