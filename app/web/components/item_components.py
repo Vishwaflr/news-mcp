@@ -191,7 +191,7 @@ class ItemComponent(BaseComponent):
                 '''
 
             analysis_blocks = f'''
-            <div class="d-flex flex-column gap-2">
+            <div class="d-flex gap-2">
                 {finance_block}
                 {geo_block}
             </div>
