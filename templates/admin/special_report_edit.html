@@ -299,105 +299,45 @@
                                    step="0.1" min="0" max="1">
                         </div>
                         <div class="col-md-6">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <label class="form-label mb-0">Min Sentiment (-1 to 1)</label>
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" name="enable_sentiment_filter"
-                                           id="enable_sentiment"
-                                           {% if selection_criteria.get('enable_sentiment_filter', True) %}checked{% endif %}
-                                           onchange="toggleFilter('sentiment')">
-                                    <label class="form-check-label text-muted" for="enable_sentiment" style="font-size:0.75em">
-                                        Enable
-                                    </label>
-                                </div>
-                            </div>
+                            <label class="form-label">Min Sentiment (-1 to 1)</label>
                             <input type="number" name="min_sentiment_score" class="form-control"
-                                   id="sentiment_input"
                                    value="{{ selection_criteria.get('min_sentiment_score', -1.0) }}"
-                                   step="0.1" min="-1" max="1"
-                                   {% if not selection_criteria.get('enable_sentiment_filter', True) %}disabled{% endif %}>
+                                   step="0.1" min="-1" max="1">
+                            <small class="text-muted">Use -1 to disable filter</small>
                         </div>
                     </div>
 
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <label class="form-label mb-0">Min Urgency (0-1)</label>
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" name="enable_urgency_filter"
-                                           id="enable_urgency"
-                                           {% if selection_criteria.get('enable_urgency_filter', False) %}checked{% endif %}
-                                           onchange="toggleFilter('urgency')">
-                                    <label class="form-check-label text-muted" for="enable_urgency" style="font-size:0.75em">
-                                        Enable
-                                    </label>
-                                </div>
-                            </div>
+                            <label class="form-label">Min Urgency (0-1)</label>
                             <input type="number" name="min_urgency" class="form-control"
-                                   id="urgency_input"
                                    value="{{ selection_criteria.get('min_urgency', 0.0) }}"
-                                   step="0.1" min="0" max="1"
-                                   {% if not selection_criteria.get('enable_urgency_filter', False) %}disabled{% endif %}>
+                                   step="0.1" min="0" max="1">
+                            <small class="text-muted">0 = disabled</small>
                         </div>
                         <div class="col-md-6">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <label class="form-label mb-0">Min Bearish (0-1)</label>
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" name="enable_bearish_filter"
-                                           id="enable_bearish"
-                                           {% if selection_criteria.get('enable_bearish_filter', False) %}checked{% endif %}
-                                           onchange="toggleFilter('bearish')">
-                                    <label class="form-check-label text-muted" for="enable_bearish" style="font-size:0.75em">
-                                        Enable
-                                    </label>
-                                </div>
-                            </div>
+                            <label class="form-label">Min Bearish (0-1)</label>
                             <input type="number" name="min_bearish" class="form-control"
-                                   id="bearish_input"
                                    value="{{ selection_criteria.get('min_bearish', 0.0) }}"
-                                   step="0.1" min="0" max="1"
-                                   {% if not selection_criteria.get('enable_bearish_filter', False) %}disabled{% endif %}>
+                                   step="0.1" min="0" max="1">
+                            <small class="text-muted">0 = disabled</small>
                         </div>
                     </div>
 
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <label class="form-label mb-0">Min Bullish (0-1)</label>
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" name="enable_bullish_filter"
-                                           id="enable_bullish"
-                                           {% if selection_criteria.get('enable_bullish_filter', False) %}checked{% endif %}
-                                           onchange="toggleFilter('bullish')">
-                                    <label class="form-check-label text-muted" for="enable_bullish" style="font-size:0.75em">
-                                        Enable
-                                    </label>
-                                </div>
-                            </div>
+                            <label class="form-label">Min Bullish (0-1)</label>
                             <input type="number" name="min_bullish" class="form-control"
-                                   id="bullish_input"
                                    value="{{ selection_criteria.get('min_bullish', 0.0) }}"
-                                   step="0.1" min="0" max="1"
-                                   {% if not selection_criteria.get('enable_bullish_filter', False) %}disabled{% endif %}>
+                                   step="0.1" min="0" max="1">
+                            <small class="text-muted">0 = disabled</small>
                         </div>
                         <div class="col-md-6">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <label class="form-label mb-0">Min Uncertainty (0-1)</label>
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" name="enable_uncertainty_filter"
-                                           id="enable_uncertainty"
-                                           {% if selection_criteria.get('enable_uncertainty_filter', False) %}checked{% endif %}
-                                           onchange="toggleFilter('uncertainty')">
-                                    <label class="form-check-label text-muted" for="enable_uncertainty" style="font-size:0.75em">
-                                        Enable
-                                    </label>
-                                </div>
-                            </div>
+                            <label class="form-label">Min Uncertainty (0-1)</label>
                             <input type="number" name="min_uncertainty" class="form-control"
-                                   id="uncertainty_input"
                                    value="{{ selection_criteria.get('min_uncertainty', 0.0) }}"
-                                   step="0.1" min="0" max="1"
-                                   {% if not selection_criteria.get('enable_uncertainty_filter', False) %}disabled{% endif %}>
+                                   step="0.1" min="0" max="1">
+                            <small class="text-muted">0 = disabled</small>
                         </div>
                     </div>
 
@@ -464,16 +404,6 @@
 </div>
 
 <script>
-    // Toggle filter enable/disable
-    function toggleFilter(filterName) {
-        const checkbox = document.getElementById(`enable_${filterName}`);
-        const input = document.getElementById(`${filterName}_input`);
-        input.disabled = !checkbox.checked;
-
-        // Trigger article list update
-        updateArticlesList();
-    }
-
     // Update articles list when config changes
     function updateArticlesList() {
         const formData = new FormData(document.getElementById('edit-form'));

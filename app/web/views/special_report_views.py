@@ -532,21 +532,12 @@ def build_article_selection_query(form_data: dict, max_articles: int = 20, inclu
     max_articles = int(form_data.get('max_articles', max_articles))
     min_impact = float(form_data.get('min_impact_score', 0.0))
 
-    # Sentiment filters with enable/disable toggles
-    min_sentiment = float(form_data.get('min_sentiment_score', -1.0)) if form_data.get('min_sentiment_score') else None
-    enable_sentiment = form_data.get('enable_sentiment_filter') == 'on'
-
-    min_urgency = float(form_data.get('min_urgency', 0.0)) if form_data.get('min_urgency') else None
-    enable_urgency = form_data.get('enable_urgency_filter') == 'on'
-
-    min_bearish = float(form_data.get('min_bearish', 0.0)) if form_data.get('min_bearish') else None
-    enable_bearish = form_data.get('enable_bearish_filter') == 'on'
-
-    min_bullish = float(form_data.get('min_bullish', 0.0)) if form_data.get('min_bullish') else None
-    enable_bullish = form_data.get('enable_bullish_filter') == 'on'
-
-    min_uncertainty = float(form_data.get('min_uncertainty', 0.0)) if form_data.get('min_uncertainty') else None
-    enable_uncertainty = form_data.get('enable_uncertainty_filter') == 'on'
+    # Sentiment filters (0 means disabled, -1 for sentiment means disabled)
+    min_sentiment = float(form_data.get('min_sentiment_score', -1.0)) if form_data.get('min_sentiment_score') else -1.0
+    min_urgency = float(form_data.get('min_urgency', 0.0)) if form_data.get('min_urgency') else 0.0
+    min_bearish = float(form_data.get('min_bearish', 0.0)) if form_data.get('min_bearish') else 0.0
+    min_bullish = float(form_data.get('min_bullish', 0.0)) if form_data.get('min_bullish') else 0.0
+    min_uncertainty = float(form_data.get('min_uncertainty', 0.0)) if form_data.get('min_uncertainty') else 0.0
 
     keywords = [k.strip() for k in form_data.get('keywords', '').split(',') if k.strip()]
     exclude_keywords = [k.strip() for k in form_data.get('exclude_keywords', '').split(',') if k.strip()]
@@ -569,24 +560,24 @@ def build_article_selection_query(form_data: dict, max_articles: int = 20, inclu
         where_clauses.append("COALESCE((a.impact_json->>'overall')::numeric, 0) >= :min_impact")
         params['min_impact'] = min_impact
 
-    # Sentiment filters (only apply if enabled)
-    if enable_sentiment and min_sentiment is not None:
+    # Sentiment filters (only apply if value > threshold: 0 for most, -1 for sentiment)
+    if min_sentiment > -1.0:
         where_clauses.append("COALESCE((a.sentiment_json->'overall'->>'score')::numeric, 0) >= :min_sentiment")
         params['min_sentiment'] = min_sentiment
 
-    if enable_urgency and min_urgency is not None and min_urgency > 0:
+    if min_urgency > 0:
         where_clauses.append("COALESCE((a.sentiment_json->>'urgency')::numeric, 0) >= :min_urgency")
         params['min_urgency'] = min_urgency
 
-    if enable_bearish and min_bearish is not None and min_bearish > 0:
+    if min_bearish > 0:
         where_clauses.append("COALESCE((a.sentiment_json->'market'->>'bearish')::numeric, 0) >= :min_bearish")
         params['min_bearish'] = min_bearish
 
-    if enable_bullish and min_bullish is not None and min_bullish > 0:
+    if min_bullish > 0:
         where_clauses.append("COALESCE((a.sentiment_json->'market'->>'bullish')::numeric, 0) >= :min_bullish")
         params['min_bullish'] = min_bullish
 
-    if enable_uncertainty and min_uncertainty is not None and min_uncertainty > 0:
+    if min_uncertainty > 0:
         where_clauses.append("COALESCE((a.sentiment_json->'market'->>'uncertainty')::numeric, 0) >= :min_uncertainty")
         params['min_uncertainty'] = min_uncertainty
 

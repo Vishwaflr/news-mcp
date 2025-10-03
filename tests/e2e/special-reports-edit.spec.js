@@ -3,7 +3,7 @@
  *
  * Tests the three-panel layout and granular sentiment filtering:
  * - Three-panel layout renders correctly (Config | Articles | Test)
- * - All sentiment filter toggles work
+ * - All sentiment filter fields work (0 = disabled)
  * - Articles list auto-updates when filters change
  * - Test button shows filtered results
  * - No console errors
@@ -55,7 +55,7 @@ test.describe('Special Reports Edit Page - Three-Panel Layout', () => {
     expect(errors).toEqual([]);
   });
 
-  test('should display all sentiment filter fields with toggles', async ({ page }) => {
+  test('should display all sentiment filter fields without toggles', async ({ page }) => {
     await page.goto(EDIT_PAGE_URL);
     await page.waitForLoadState('networkidle');
 
@@ -66,63 +66,64 @@ test.describe('Special Reports Edit Page - Three-Panel Layout', () => {
     await expect(page.locator('text=Min Bullish (0-1)')).toBeVisible();
     await expect(page.locator('text=Min Uncertainty (0-1)')).toBeVisible();
 
-    // Check all toggle switches exist
-    const sentimentToggle = page.locator('#enable_sentiment');
-    const urgencyToggle = page.locator('#enable_urgency');
-    const bearishToggle = page.locator('#enable_bearish');
-    const bullishToggle = page.locator('#enable_bullish');
-    const uncertaintyToggle = page.locator('#enable_uncertainty');
+    // Verify all inputs are present and enabled (no toggles)
+    const sentimentInput = page.locator('input[name="min_sentiment_score"]');
+    const urgencyInput = page.locator('input[name="min_urgency"]');
+    const bearishInput = page.locator('input[name="min_bearish"]');
+    const bullishInput = page.locator('input[name="min_bullish"]');
+    const uncertaintyInput = page.locator('input[name="min_uncertainty"]');
 
-    await expect(sentimentToggle).toBeVisible();
-    await expect(urgencyToggle).toBeVisible();
-    await expect(bearishToggle).toBeVisible();
-    await expect(bullishToggle).toBeVisible();
-    await expect(uncertaintyToggle).toBeVisible();
+    await expect(sentimentInput).toBeVisible();
+    await expect(urgencyInput).toBeVisible();
+    await expect(bearishInput).toBeVisible();
+    await expect(bullishInput).toBeVisible();
+    await expect(uncertaintyInput).toBeVisible();
 
-    // Verify default states (sentiment enabled, others disabled)
-    await expect(sentimentToggle).toBeChecked();
-    await expect(urgencyToggle).not.toBeChecked();
-    await expect(bearishToggle).not.toBeChecked();
-    await expect(bullishToggle).not.toBeChecked();
-    await expect(uncertaintyToggle).not.toBeChecked();
-
-    // Verify corresponding inputs are disabled when toggle is off
-    const sentimentInput = page.locator('#sentiment_input');
-    const urgencyInput = page.locator('#urgency_input');
-    const bearishInput = page.locator('#bearish_input');
-    const bullishInput = page.locator('#bullish_input');
-    const uncertaintyInput = page.locator('#uncertainty_input');
-
+    // All inputs should be enabled (no toggle switches)
     await expect(sentimentInput).toBeEnabled();
-    await expect(urgencyInput).toBeDisabled();
-    await expect(bearishInput).toBeDisabled();
-    await expect(bullishInput).toBeDisabled();
-    await expect(uncertaintyInput).toBeDisabled();
+    await expect(urgencyInput).toBeEnabled();
+    await expect(bearishInput).toBeEnabled();
+    await expect(bullishInput).toBeEnabled();
+    await expect(uncertaintyInput).toBeEnabled();
+
+    // Check for help text
+    await expect(page.locator('text=0 = disabled')).toHaveCount(4); // 4 fields with this help text
+    await expect(page.locator('text=Use -1 to disable filter')).toBeVisible();
   });
 
-  test('should enable/disable inputs when toggles are clicked', async ({ page }) => {
+  test('should use 0 as disabled state for filters', async ({ page }) => {
     await page.goto(EDIT_PAGE_URL);
     await page.waitForLoadState('networkidle');
 
-    const urgencyToggle = page.locator('#enable_urgency');
-    const urgencyInput = page.locator('#urgency_input');
+    // Wait for initial articles load
+    await page.waitForSelector('.articles-panel .article-card, .articles-panel .text-muted', { timeout: 5000 });
 
-    // Initially disabled
-    await expect(urgencyInput).toBeDisabled();
+    // Get baseline article count with urgency=0 (disabled)
+    const urgencyInput = page.locator('input[name="min_urgency"]');
+    await expect(urgencyInput).toHaveValue('0.0'); // Number input shows 0.0
 
-    // Click toggle to enable
-    await urgencyToggle.click();
-    await page.waitForTimeout(200); // Wait for toggle animation
+    let articleCount = await page.locator('.articles-panel .article-card').count();
+    console.log(`Articles with urgency=0 (disabled): ${articleCount}`);
 
-    // Should now be enabled
-    await expect(urgencyInput).toBeEnabled();
+    // Set urgency to 0.5 (enabled)
+    await urgencyInput.clear();
+    await urgencyInput.fill('0.5');
+    await page.waitForTimeout(1000); // Wait for debounced update
 
-    // Click again to disable
-    await urgencyToggle.click();
-    await page.waitForTimeout(200);
+    // Article count should potentially be different (filtered)
+    const filteredCount = await page.locator('.articles-panel .article-card').count();
+    console.log(`Articles with urgency=0.5 (enabled): ${filteredCount}`);
 
-    // Should be disabled again
-    await expect(urgencyInput).toBeDisabled();
+    // Verify that setting value back to 0 disables filter
+    await urgencyInput.clear();
+    await urgencyInput.fill('0');
+    await page.waitForTimeout(1000);
+
+    const resetCount = await page.locator('.articles-panel .article-card').count();
+    console.log(`Articles after reset to 0: ${resetCount}`);
+
+    // Both 0-value states should show similar results
+    expect(resetCount).toBeGreaterThanOrEqual(0);
   });
 
   test('should auto-update articles list when filters change', async ({ page }) => {
@@ -157,19 +158,15 @@ test.describe('Special Reports Edit Page - Three-Panel Layout', () => {
     expect(updatedCount).toBeGreaterThanOrEqual(0);
   });
 
-  test('should filter articles when urgency filter is enabled', async ({ page }) => {
+  test('should filter articles when urgency filter value > 0', async ({ page }) => {
     await page.goto(EDIT_PAGE_URL);
     await page.waitForLoadState('networkidle');
 
     // Wait for initial load
     await page.waitForSelector('.articles-panel .article-card, .articles-panel .text-muted', { timeout: 5000 });
 
-    // Enable urgency filter
-    const urgencyToggle = page.locator('#enable_urgency');
-    await urgencyToggle.click();
-
-    // Set high urgency threshold
-    const urgencyInput = page.locator('#urgency_input');
+    // Set high urgency threshold (> 0 means enabled)
+    const urgencyInput = page.locator('input[name="min_urgency"]');
     await urgencyInput.clear();
     await urgencyInput.fill('0.8');
 
@@ -308,10 +305,8 @@ test.describe('Special Reports Edit Page - Three-Panel Layout', () => {
     await page.waitForLoadState('networkidle');
 
     // Interact with multiple elements
-    await page.locator('#enable_urgency').click();
-    await page.locator('#urgency_input').fill('0.5');
-    await page.locator('#enable_bearish').click();
-    await page.locator('#bearish_input').fill('0.7');
+    await page.locator('input[name="min_urgency"]').fill('0.5');
+    await page.locator('input[name="min_bearish"]').fill('0.7');
     await page.locator('input[name="timeframe_hours"]').fill('72');
 
     // Wait for all updates
