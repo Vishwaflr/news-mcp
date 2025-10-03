@@ -191,7 +191,7 @@ class ItemComponent(BaseComponent):
                 '''
 
             analysis_blocks = f'''
-            <div class="d-flex gap-2 mt-2">
+            <div class="d-flex flex-column gap-2">
                 {finance_block}
                 {geo_block}
             </div>
@@ -200,18 +200,24 @@ class ItemComponent(BaseComponent):
         return f'''
         <div class="card mb-3 shadow-sm article-card" data-item-id="{item_data.get('id')}">
             <div class="card-body">
-                <h5 class="card-title mb-2">
-                    <a href="{item_data.get('link', '#')}" target="_blank" class="text-decoration-none text-primary">
-                        {clean_title}
-                    </a>
-                </h5>
-                <div class="d-flex flex-wrap gap-3 text-muted small mb-2">
-                    <span><i class="bi bi-calendar me-1"></i>{published_date}</span>
-                    <span><i class="bi bi-rss me-1"></i>{feed_name}</span>
-                    {author_info}
+                <div class="row">
+                    <div class="col-md-8">
+                        <h5 class="card-title mb-2">
+                            <a href="{item_data.get('link', '#')}" target="_blank" class="text-decoration-none text-primary">
+                                {clean_title}
+                            </a>
+                        </h5>
+                        <div class="d-flex flex-wrap gap-3 text-muted small mb-2">
+                            <span><i class="bi bi-calendar me-1"></i>{published_date}</span>
+                            <span><i class="bi bi-rss me-1"></i>{feed_name}</span>
+                            {author_info}
+                        </div>
+                        {f'<p class="card-text text-body-secondary">{clean_description}</p>' if clean_description else ''}
+                    </div>
+                    <div class="col-md-4">
+                        {analysis_blocks}
+                    </div>
                 </div>
-                {f'<p class="card-text text-body-secondary">{clean_description}</p>' if clean_description else ''}
-                {analysis_blocks}
             </div>
         </div>
         '''
