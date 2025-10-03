@@ -12,7 +12,7 @@ from typing import Any
 FeedCreate = Any
 FeedUpdate = Any
 FeedResponse = Any
-from app.services.feed_change_tracker import track_feed_changes
+from app.services.feed_change_tracker import track_feed_changes, FeedChangeTracker
 
 logger = get_logger(__name__)
 

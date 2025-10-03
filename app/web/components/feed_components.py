@@ -1,13 +1,13 @@
 """Feed management HTMX components."""
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse
 from sqlmodel import Session, select
 from typing import Optional
 from app.core.logging_config import get_logger
 
 from app.database import get_session
-from app.models import Feed, Source, Category, Item, FeedHealth, FeedCategory, FeedType
+from app.models import Feed, Source, Category, Item, FeedHealth, FeedCategory, FeedType, FeedStatus
 from app.utils.feed_detector import FeedTypeDetector
 from .base_component import BaseComponent
 import feedparser
@@ -20,7 +20,7 @@ class FeedComponent(BaseComponent):
     """Component for feed-related HTMX endpoints."""
 
     @staticmethod
-    def build_feed_card(feed: Feed, source: Source, categories: list, article_count: int, analysis_stats: dict = None, auto_analysis_only: str = None, latest_article_date = None) -> str:
+    def build_feed_card(feed: Feed, source: Source, categories: list, article_count: int, analysis_stats: dict = None, auto_analysis_only: str = None, latest_article_date = None, geopolitical_stats: dict = None) -> str:
         """Build HTML for a single feed card."""
         has_articles = article_count > 0
         status_badge = FeedComponent.status_badge(feed.status.value)
@@ -84,6 +84,8 @@ class FeedComponent(BaseComponent):
 
         toggle_status = 'inactive' if feed.status.value == 'active' else 'active'
         toggle_icon = 'pause' if feed.status.value == 'active' else 'play'
+        toggle_color = 'success' if feed.status.value == 'active' else 'warning'
+        toggle_title = 'Deactivate feed' if feed.status.value == 'active' else 'Activate feed'
 
         # Add fetch now, toggle and delete buttons
         action_buttons = f'''
@@ -95,11 +97,9 @@ class FeedComponent(BaseComponent):
                 title="Fetch new articles now">
             <i class="bi bi-download"></i>
         </button>
-        <button class="btn btn-sm btn-outline-warning"
-                hx-put="/api/feeds/{feed.id}"
-                hx-vals='{{"status": "{toggle_status}"}}'
-                hx-target="closest .card"
-                hx-swap="outerHTML">
+        <button class="btn btn-sm btn-outline-{toggle_color}"
+                hx-post="/htmx/feed-toggle-status/{feed.id}"
+                title="{toggle_title}">
             <i class="bi bi-{toggle_icon}"></i>
         </button>
         <button class="btn btn-sm btn-outline-danger"
@@ -146,6 +146,7 @@ class FeedComponent(BaseComponent):
                             <strong>Interval:</strong> {feed.fetch_interval_minutes} min
                         </p>
                         {FeedComponent.analysis_summary(analysis_stats)}
+                        {FeedComponent.geopolitical_summary(geopolitical_stats)}
                         {fetch_info}
                         <div id="fetch-status-{feed.id}"></div>
                     </div>
@@ -160,7 +161,7 @@ class FeedComponent(BaseComponent):
 
     @staticmethod
     def analysis_summary(analysis_stats: dict) -> str:
-        """Build HTML for analysis statistics summary."""
+        """Build HTML for financial analysis statistics summary."""
         # Always show analysis section, even when no data available
         stats = analysis_stats or {}
         sentiment_counts = stats.get('sentiment_counts', {})
@@ -183,7 +184,58 @@ class FeedComponent(BaseComponent):
 
         return f'''
         <p class="card-text small text-muted mb-1">
-            <strong>Analysis:</strong> {articles_badge} {sentiment_badges} {impact_badge}
+            <strong>Financial Analysis:</strong> {articles_badge} {sentiment_badges} {impact_badge}
+        </p>
+        '''
+
+    @staticmethod
+    def geopolitical_summary(geopolitical_stats: dict) -> str:
+        """Build HTML for geopolitical analysis summary."""
+        if not geopolitical_stats or geopolitical_stats.get('total_geo_articles', 0) == 0:
+            return ""
+
+        total_geo = geopolitical_stats['total_geo_articles']
+        conflict_types = geopolitical_stats.get('conflict_types', [])
+
+        # Total articles badge
+        articles_badge = f'<span class="badge bg-info me-1">Articles: {total_geo}</span>'
+
+        # Calculate aggregated metrics across all conflict types
+        total_count = sum(c['count'] for c in conflict_types)
+        avg_security = sum(c['avg_security'] * c['count'] for c in conflict_types) / total_count if total_count > 0 else 0
+        avg_escalation = sum(c['avg_escalation'] * c['count'] for c in conflict_types) / total_count if total_count > 0 else 0
+        avg_stability = sum(c['avg_stability'] * c['count'] for c in conflict_types) / total_count if total_count > 0 else 0
+
+        # Conflict type distribution badges
+        conflict_badges = ""
+        conflict_type_names = {
+            'diplomatic': 'Diplomatic',
+            'economic': 'Economic',
+            'interstate_war': 'Military',
+            'military': 'Military'
+        }
+
+        for conflict in conflict_types[:3]:  # Show max 3 conflict types
+            conflict_type = conflict_type_names.get(conflict['type'].lower(), conflict['type'].replace('_', ' ').title())
+            count = conflict['count']
+            conflict_badges += f'<span class="badge bg-secondary me-1">{conflict_type}: {count}</span>'
+
+        # Metric badges with color coding
+        # Security relevance: higher is more relevant (0-1 scale)
+        security_color = 'danger' if avg_security > 0.6 else 'warning' if avg_security > 0.3 else 'success'
+        security_badge = f'<span class="badge bg-{security_color} me-1" title="Relevance to security topics">Security: {avg_security:.1f}/1.0</span>'
+
+        # Escalation potential: higher is more dangerous (0-1 scale)
+        escalation_color = 'danger' if avg_escalation > 0.6 else 'warning' if avg_escalation > 0.3 else 'success'
+        escalation_badge = f'<span class="badge bg-{escalation_color} me-1" title="Risk of escalation">Risk: {avg_escalation:.1f}/1.0</span>'
+
+        # Stability score: more negative = less stable (-1 to +1 scale)
+        stability_color = 'danger' if avg_stability < -0.3 else 'warning' if avg_stability < 0 else 'success'
+        stability_badge = f'<span class="badge bg-{stability_color} me-1" title="Regional stability impact">Stability: {avg_stability:+.1f}</span>'
+
+        return f'''
+        <p class="card-text small text-muted mb-1">
+            <strong>Geopolitical Analysis:</strong> {articles_badge} {conflict_badges} {security_badge} {escalation_badge} {stability_badge}
         </p>
         '''
 
@@ -268,6 +320,41 @@ def fetch_feed_now_htmx(feed_id: int, session: Session = Depends(get_session)):
 
     except Exception as e:
         logger.error(f"Error in HTMX feed fetch: {e}")
+        return BaseComponent.alert_box(f'❌ Error: {str(e)}', 'danger')
+
+
+@router.post("/feed-toggle-status/{feed_id}", response_class=HTMLResponse)
+def toggle_feed_status(feed_id: int, request: Request, session: Session = Depends(get_session)):
+    """HTMX endpoint to toggle feed active/inactive status."""
+    try:
+        feed = session.get(Feed, feed_id)
+        if not feed:
+            return BaseComponent.alert_box('Feed not found', 'danger')
+
+        # Toggle status between ACTIVE and INACTIVE
+        if feed.status == FeedStatus.ACTIVE:
+            feed.status = FeedStatus.INACTIVE
+            new_status_text = "inactive"
+        else:
+            feed.status = FeedStatus.ACTIVE
+            new_status_text = "active"
+
+        session.commit()
+        session.refresh(feed)
+
+        logger.info(f"Toggled status for feed {feed_id} ({feed.title}) to {feed.status.value}")
+
+        # Return success message with HX-Refresh header to reload the page
+        from fastapi.responses import Response
+        response = Response(
+            content=BaseComponent.alert_box(f'✅ Feed status changed to {new_status_text}', 'success'),
+            media_type="text/html"
+        )
+        response.headers["HX-Refresh"] = "true"
+        return response
+
+    except Exception as e:
+        logger.error(f"Error toggling feed status: {e}")
         return BaseComponent.alert_box(f'❌ Error: {str(e)}', 'danger')
 
 
@@ -406,7 +493,41 @@ def get_feeds_list(
                         }
                     }
 
-            html += FeedComponent.build_feed_card(feed, source, feed_categories, article_count, analysis_stats, auto_analysis_only, latest_article_date)
+            # Get geopolitical analysis summary
+            geopolitical_stats = None
+            if article_count > 0:
+                geo_sql = """
+                SELECT
+                    COUNT(*) as geo_count,
+                    sentiment_json->'geopolitical'->>'conflict_type' as conflict_type,
+                    ROUND(AVG((sentiment_json->'geopolitical'->>'security_relevance')::numeric), 2) as avg_security,
+                    ROUND(AVG((sentiment_json->'geopolitical'->>'escalation_potential')::numeric), 2) as avg_escalation,
+                    ROUND(AVG((sentiment_json->'geopolitical'->>'stability_score')::numeric), 2) as avg_stability
+                FROM item_analysis ia
+                JOIN items i ON ia.item_id = i.id
+                WHERE i.feed_id = :feed_id
+                    AND ia.sentiment_json->'geopolitical'->>'conflict_type' IS NOT NULL
+                GROUP BY sentiment_json->'geopolitical'->>'conflict_type'
+                ORDER BY geo_count DESC
+                LIMIT 3
+                """
+                geo_results = session.execute(text(geo_sql), {"feed_id": feed.id}).fetchall()
+
+                if geo_results:
+                    geopolitical_stats = {
+                        'total_geo_articles': sum(row[0] for row in geo_results),
+                        'conflict_types': []
+                    }
+                    for row in geo_results:
+                        geopolitical_stats['conflict_types'].append({
+                            'type': row[1],
+                            'count': row[0],
+                            'avg_security': float(row[2]) if row[2] else 0,
+                            'avg_escalation': float(row[3]) if row[3] else 0,
+                            'avg_stability': float(row[4]) if row[4] else 0
+                        })
+
+            html += FeedComponent.build_feed_card(feed, source, feed_categories, article_count, analysis_stats, auto_analysis_only, latest_article_date, geopolitical_stats)
 
         if not html:
             html = BaseComponent.alert_box('No feeds found.', 'info')
