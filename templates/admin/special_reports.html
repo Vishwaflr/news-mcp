@@ -13,8 +13,13 @@
 
     <!-- Templates List -->
     <div class="card border-secondary">
-        <div class="card-header bg-dark border-secondary">
+        <div class="card-header bg-dark border-secondary d-flex justify-content-between align-items-center">
             <h5 class="mb-0 text-light">Available Templates</h5>
+            <button class="btn btn-success btn-sm"
+                    data-bs-toggle="modal"
+                    data-bs-target="#createSpecialReportModal">
+                <i class="fas fa-plus"></i> Create Template
+            </button>
         </div>
         <div class="card-body bg-dark">
             <div id="special-reports-list"
@@ -30,4 +35,130 @@
         </div>
     </div>
 </div>
+
+<!-- Edit Special Report Modal -->
+<div class="modal fade" id="editSpecialReportModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content bg-dark border-secondary">
+            <div class="modal-header bg-dark border-secondary">
+                <h5 class="modal-title text-light">Edit Special Report</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body bg-dark text-light" id="edit-form-modal-body">
+                <!-- Will be populated by HTMX -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create Special Report Modal -->
+<div class="modal fade" id="createSpecialReportModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content bg-dark border-secondary">
+            <div class="modal-header bg-dark border-secondary">
+                <h5 class="modal-title text-light">Create Special Report</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body bg-dark text-light">
+                <div class="alert alert-info bg-dark border-info text-light">
+                    <i class="fas fa-info-circle"></i>
+                    For now, use the <a href="/docs#17-content-distribution-system-v2-api" target="_blank" class="text-decoration-none">API</a> to create complex templates.
+                    This UI allows basic template creation.
+                </div>
+                <form id="createSpecialReportForm">
+                    <div class="mb-3">
+                        <label class="form-label">Name <span class="text-danger">*</span></label>
+                        <input type="text" name="name" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea name="description" class="form-control" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Target Audience</label>
+                        <input type="text" name="target_audience" class="form-control" placeholder="e.g., IT Managers, Executives">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">LLM Model</label>
+                        <select name="llm_model" class="form-select">
+                            <option value="gpt-4o-mini" selected>gpt-4o-mini (Recommended)</option>
+                            <option value="gpt-4o">gpt-4o (More capable, higher cost)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" name="is_active" class="form-check-input" checked>
+                        <label class="form-check-label">Active</label>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-success" onclick="createSpecialReport()">Create</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+async function createSpecialReport() {
+    const form = document.getElementById('createSpecialReportForm');
+    const formData = new FormData(form);
+
+    const data = {
+        name: formData.get('name'),
+        description: formData.get('description') || null,
+        target_audience: formData.get('target_audience') || null,
+        llm_model: formData.get('llm_model'),
+        is_active: formData.has('is_active'),
+        // Default minimal configuration
+        selection_criteria: {
+            timeframe_hours: 24,
+            max_results: 50
+        },
+        content_structure: {
+            output_format: "markdown",
+            sections: [
+                {"name": "summary", "format": "text"}
+            ]
+        },
+        llm_prompt_template: "Summarize the following articles:\n{articles}"
+    };
+
+    try {
+        const response = await fetch('/api/v2/special-reports/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+
+        if (response.ok) {
+            // Close modal first
+            const modal = bootstrap.Modal.getInstance(document.getElementById('createSpecialReportModal'));
+            modal.hide();
+
+            // Wait for modal to fully close, then refresh
+            document.getElementById('createSpecialReportModal').addEventListener('hidden.bs.modal', function handler() {
+                // Refresh list after modal is closed
+                htmx.trigger('#special-reports-list', 'load');
+
+                // Show success message
+                setTimeout(() => {
+                    alert('Special Report created successfully!');
+                }, 100);
+
+                // Remove listener after one use
+                this.removeEventListener('hidden.bs.modal', handler);
+            }, { once: true });
+        } else {
+            const error = await response.json();
+            alert('Error: ' + (error.detail || 'Failed to create template'));
+        }
+    } catch (err) {
+        alert('Network error: ' + err.message);
+    }
+}
+</script>
+
 {% endblock %}

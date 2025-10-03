@@ -94,9 +94,26 @@ async def htmx_special_reports_list(session: Session = Depends(get_session)):
                 <td>{special_report.generation_schedule or 'On-demand'}</td>
                 <td><span class="badge {status_badge}">{status_text}</span></td>
                 <td>
-                    <a href="/admin/special-reports/{special_report.id}" class="btn btn-sm btn-primary">
-                        <i class="fas fa-eye"></i> View
-                    </a>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <a href="/admin/special-reports/{special_report.id}" class="btn btn-sm btn-outline-primary" title="View">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        <button class="btn btn-sm btn-outline-warning"
+                                hx-get="/htmx/special_reports/{special_report.id}/edit-form"
+                                hx-target="#edit-form-modal-body"
+                                data-bs-toggle="modal"
+                                data-bs-target="#editSpecialReportModal"
+                                title="Edit">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger"
+                                hx-delete="/htmx/special_reports/{special_report.id}/delete"
+                                hx-target="#special-reports-list"
+                                hx-confirm="Are you sure you want to delete '{special_report.name}'?"
+                                title="Delete">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
                 </td>
             </tr>
         ''')
@@ -226,3 +243,237 @@ async def htmx_content_preview(
         ''')
 
     return ''.join(html_parts)
+
+
+@router.get("/htmx/special_reports/{special_report_id}/edit-form", response_class=HTMLResponse)
+async def htmx_edit_form(
+    special_report_id: int,
+    session: Session = Depends(get_session)
+):
+    """HTMX: Get comprehensive edit form for special report."""
+    from sqlmodel import select
+    from app.models.core import Feed
+
+    special_report = session.get(SpecialReport, special_report_id)
+    if not special_report:
+        return '<div class="alert alert-danger">Special Report not found</div>'
+
+    # Get all feeds for dropdown
+    feeds = session.exec(select(Feed).order_by(Feed.title)).all()
+
+    # Extract selection criteria
+    sc = special_report.selection_criteria or {}
+    selected_feed_ids = sc.get('feed_ids') or []
+
+    # Safely extract keywords (could be string or list)
+    keywords_raw = sc.get('keywords') or []
+    keywords_str = ','.join(keywords_raw) if isinstance(keywords_raw, list) else (keywords_raw if isinstance(keywords_raw, str) else '')
+
+    exclude_keywords_raw = sc.get('exclude_keywords') or []
+    exclude_keywords_str = ','.join(exclude_keywords_raw) if isinstance(exclude_keywords_raw, list) else (exclude_keywords_raw if isinstance(exclude_keywords_raw, str) else '')
+
+    # Build feed selection checkboxes
+    feed_options = []
+    for feed in feeds[:20]:  # Limit to first 20 feeds for UI
+        checked = 'checked' if feed.id in selected_feed_ids else ''
+        feed_options.append(f'''
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="feed_ids" value="{feed.id}" {checked} id="feed_{feed.id}">
+                <label class="form-check-label" for="feed_{feed.id}">{feed.title or feed.url[:50]}</label>
+            </div>
+        ''')
+
+    return f'''
+        <form hx-put="/htmx/special_reports/{special_report.id}/update"
+              hx-target="#special-reports-list"
+              hx-swap="innerHTML">
+
+            <!-- Basic Info -->
+            <h6 class="text-light mb-3">Basic Configuration</h6>
+            <div class="mb-3">
+                <label class="form-label">Name</label>
+                <input type="text" name="name" class="form-control" value="{special_report.name}" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Description</label>
+                <textarea name="description" class="form-control" rows="2">{special_report.description or ''}</textarea>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Target Audience</label>
+                <input type="text" name="target_audience" class="form-control" value="{special_report.target_audience or ''}" placeholder="e.g., IT Management, Security Teams">
+            </div>
+
+            <hr class="my-4">
+
+            <!-- LLM Configuration -->
+            <h6 class="text-light mb-3">LLM Configuration</h6>
+            <div class="mb-3">
+                <label class="form-label">LLM Model</label>
+                <select name="llm_model" class="form-select">
+                    <option value="gpt-4o" {'selected' if special_report.llm_model == 'gpt-4o' else ''}>GPT-4o (Best Quality)</option>
+                    <option value="gpt-4o-mini" {'selected' if special_report.llm_model == 'gpt-4o-mini' else ''}>GPT-4o-mini (Balanced)</option>
+                    <option value="gpt-3.5-turbo" {'selected' if special_report.llm_model == 'gpt-3.5-turbo' else ''}>GPT-3.5-turbo (Fast)</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Prompt Template</label>
+                <textarea name="llm_prompt_template" class="form-control" rows="4" required>{special_report.llm_prompt_template}</textarea>
+                <small class="text-muted">Use {{{{articles}}}} as placeholder for article content</small>
+            </div>
+
+            <hr class="my-4">
+
+            <!-- Article Selection Criteria -->
+            <h6 class="text-light mb-3">Article Selection Criteria</h6>
+
+            <div class="mb-3">
+                <label class="form-label">Feeds (select sources)</label>
+                <div style="max-height: 200px; overflow-y: auto; border: 1px solid #495057; border-radius: 4px; padding: 10px;">
+                    {''.join(feed_options)}
+                </div>
+                <small class="text-muted">Leave empty to use all feeds</small>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">Timeframe (hours)</label>
+                    <input type="number" name="timeframe_hours" class="form-control" value="{sc.get('timeframe_hours', 24)}" min="1" max="168">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Max Articles</label>
+                    <input type="number" name="max_articles" class="form-control" value="{sc.get('max_articles', 30)}" min="1" max="500">
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">Min Impact Score (0.0-1.0)</label>
+                    <input type="number" name="min_impact_score" class="form-control" step="0.1" value="{sc.get('min_impact_score', 0.0)}" min="0" max="1">
+                    <small class="text-muted">0 = all, 0.6+ = high impact only</small>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Min Sentiment Score (-1.0 to 1.0)</label>
+                    <input type="number" name="min_sentiment_score" class="form-control" step="0.1" value="{sc.get('min_sentiment_score') or ''}" min="-1" max="1" placeholder="optional">
+                    <small class="text-muted">-1 = negative, 0 = neutral, 1 = positive</small>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Keywords (comma-separated, optional)</label>
+                <input type="text" name="keywords" class="form-control" value="{keywords_str}" placeholder="security, breach, vulnerability">
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Exclude Keywords (comma-separated, optional)</label>
+                <input type="text" name="exclude_keywords" class="form-control" value="{exclude_keywords_str}" placeholder="spam, advertisement">
+            </div>
+
+            <hr class="my-4">
+
+            <!-- Status -->
+            <div class="mb-3 form-check">
+                <input type="checkbox" name="is_active" class="form-check-input" {'checked' if special_report.is_active else ''}>
+                <label class="form-check-label">Active</label>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            </div>
+        </form>
+    '''
+
+
+@router.put("/htmx/special_reports/{special_report_id}/update", response_class=HTMLResponse)
+async def htmx_update_special_report(
+    special_report_id: int,
+    request: Request,
+    session: Session = Depends(get_session)
+):
+    """HTMX: Update special report with comprehensive configuration."""
+    special_report = session.get(SpecialReport, special_report_id)
+    if not special_report:
+        return '<div class="alert alert-danger">Special Report not found</div>'
+
+    # Get form data
+    form_data = await request.form()
+
+    # Update basic fields
+    if 'name' in form_data:
+        special_report.name = form_data['name']
+    if 'description' in form_data:
+        special_report.description = form_data['description'] or None
+    if 'target_audience' in form_data:
+        special_report.target_audience = form_data['target_audience'] or None
+
+    # Update LLM configuration
+    if 'llm_model' in form_data:
+        special_report.llm_model = form_data['llm_model']
+    if 'llm_prompt_template' in form_data:
+        special_report.llm_prompt_template = form_data['llm_prompt_template']
+
+    # Update selection criteria (JSONB)
+    sc = special_report.selection_criteria or {}
+
+    # Feed IDs (multi-select checkbox)
+    feed_ids = form_data.getlist('feed_ids')
+    if feed_ids:
+        sc['feed_ids'] = [int(fid) for fid in feed_ids]
+    else:
+        sc['feed_ids'] = None  # Use all feeds
+
+    # Numeric criteria
+    if 'timeframe_hours' in form_data:
+        sc['timeframe_hours'] = int(form_data['timeframe_hours'])
+    if 'max_articles' in form_data:
+        sc['max_articles'] = int(form_data['max_articles'])
+    if 'min_impact_score' in form_data:
+        sc['min_impact_score'] = float(form_data['min_impact_score'])
+    if 'min_sentiment_score' in form_data and form_data['min_sentiment_score']:
+        sc['min_sentiment_score'] = float(form_data['min_sentiment_score'])
+    else:
+        sc['min_sentiment_score'] = None
+
+    # Keywords (comma-separated)
+    if 'keywords' in form_data and form_data['keywords']:
+        sc['keywords'] = [k.strip() for k in form_data['keywords'].split(',') if k.strip()]
+    else:
+        sc['keywords'] = []
+
+    if 'exclude_keywords' in form_data and form_data['exclude_keywords']:
+        sc['exclude_keywords'] = [k.strip() for k in form_data['exclude_keywords'].split(',') if k.strip()]
+    else:
+        sc['exclude_keywords'] = []
+
+    special_report.selection_criteria = sc
+
+    # Update status
+    special_report.is_active = 'is_active' in form_data
+
+    # Update timestamp
+    from datetime import datetime
+    special_report.updated_at = datetime.utcnow()
+
+    session.add(special_report)
+    session.commit()
+
+    # Return updated list
+    return await htmx_special_reports_list(session)
+
+
+@router.delete("/htmx/special_reports/{special_report_id}/delete", response_class=HTMLResponse)
+async def htmx_delete_special_report(
+    special_report_id: int,
+    session: Session = Depends(get_session)
+):
+    """HTMX: Delete special report."""
+    special_report = session.get(SpecialReport, special_report_id)
+
+    if not special_report:
+        return '<div class="alert alert-danger">Special Report not found</div>'
+
+    session.delete(special_report)
+    session.commit()
+
+    # Return updated list
+    return await htmx_special_reports_list(session)
