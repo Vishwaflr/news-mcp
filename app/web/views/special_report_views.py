@@ -516,23 +516,34 @@ async def htmx_delete_special_report(
     return await htmx_special_reports_list(session)
 
 
-@router.post("/htmx/special_reports/{special_report_id}/articles", response_class=HTMLResponse)
-async def htmx_articles_list(
-    request: Request,
-    special_report_id: int,
-    session: Session = Depends(get_session)
-):
-    """HTMX: Show article list matching current criteria (compact view for middle panel)."""
+def build_article_selection_query(form_data: dict, max_articles: int = 20, include_description: bool = False):
+    """Build SQL query for article selection based on form criteria."""
     from sqlmodel import text
     from datetime import datetime, timedelta
 
     # Parse form data
-    form_data = await request.form()
-    feed_ids = [int(fid) for fid in form_data.getlist('feed_ids') if fid]
+    feed_ids = form_data.getlist('feed_ids') if hasattr(form_data, 'getlist') else form_data.get('feed_ids', [])
+    feed_ids = [int(fid) for fid in feed_ids if fid]
+
     timeframe_hours = int(form_data.get('timeframe_hours', 24))
-    max_articles = int(form_data.get('max_articles', 20))
+    max_articles = int(form_data.get('max_articles', max_articles))
     min_impact = float(form_data.get('min_impact_score', 0.0))
+
+    # Sentiment filters with enable/disable toggles
     min_sentiment = float(form_data.get('min_sentiment_score', -1.0)) if form_data.get('min_sentiment_score') else None
+    enable_sentiment = form_data.get('enable_sentiment_filter') == 'on'
+
+    min_urgency = float(form_data.get('min_urgency', 0.0)) if form_data.get('min_urgency') else None
+    enable_urgency = form_data.get('enable_urgency_filter') == 'on'
+
+    min_bearish = float(form_data.get('min_bearish', 0.0)) if form_data.get('min_bearish') else None
+    enable_bearish = form_data.get('enable_bearish_filter') == 'on'
+
+    min_bullish = float(form_data.get('min_bullish', 0.0)) if form_data.get('min_bullish') else None
+    enable_bullish = form_data.get('enable_bullish_filter') == 'on'
+
+    min_uncertainty = float(form_data.get('min_uncertainty', 0.0)) if form_data.get('min_uncertainty') else None
+    enable_uncertainty = form_data.get('enable_uncertainty_filter') == 'on'
 
     keywords = [k.strip() for k in form_data.get('keywords', '').split(',') if k.strip()]
     exclude_keywords = [k.strip() for k in form_data.get('exclude_keywords', '').split(',') if k.strip()]
@@ -555,9 +566,26 @@ async def htmx_articles_list(
         where_clauses.append("COALESCE((a.impact_json->>'overall')::numeric, 0) >= :min_impact")
         params['min_impact'] = min_impact
 
-    if min_sentiment is not None:
+    # Sentiment filters (only apply if enabled)
+    if enable_sentiment and min_sentiment is not None:
         where_clauses.append("COALESCE((a.sentiment_json->'overall'->>'score')::numeric, 0) >= :min_sentiment")
         params['min_sentiment'] = min_sentiment
+
+    if enable_urgency and min_urgency is not None and min_urgency > 0:
+        where_clauses.append("COALESCE((a.sentiment_json->>'urgency')::numeric, 0) >= :min_urgency")
+        params['min_urgency'] = min_urgency
+
+    if enable_bearish and min_bearish is not None and min_bearish > 0:
+        where_clauses.append("COALESCE((a.sentiment_json->'market'->>'bearish')::numeric, 0) >= :min_bearish")
+        params['min_bearish'] = min_bearish
+
+    if enable_bullish and min_bullish is not None and min_bullish > 0:
+        where_clauses.append("COALESCE((a.sentiment_json->'market'->>'bullish')::numeric, 0) >= :min_bullish")
+        params['min_bullish'] = min_bullish
+
+    if enable_uncertainty and min_uncertainty is not None and min_uncertainty > 0:
+        where_clauses.append("COALESCE((a.sentiment_json->'market'->>'uncertainty')::numeric, 0) >= :min_uncertainty")
+        params['min_uncertainty'] = min_uncertainty
 
     if keywords:
         kw_clauses = []
@@ -572,14 +600,22 @@ async def htmx_articles_list(
 
     where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
 
+    # Build SELECT fields
+    select_fields = [
+        "i.id",
+        "i.title",
+        "i.link",
+        "i.published",
+        "COALESCE((a.impact_json->>'overall')::numeric, 0) as impact_score",
+        "COALESCE((a.sentiment_json->'overall'->>'score')::numeric, 0) as sentiment_score"
+    ]
+
+    if include_description:
+        select_fields.insert(3, "i.description")
+
     sql = f"""
         SELECT
-            i.id,
-            i.title,
-            i.link,
-            i.published,
-            COALESCE((a.impact_json->>'overall')::numeric, 0) as impact_score,
-            COALESCE((a.sentiment_json->'overall'->>'score')::numeric, 0) as sentiment_score
+            {', '.join(select_fields)}
         FROM items i
         LEFT JOIN item_analysis a ON i.id = a.item_id
         WHERE {where_sql}
@@ -588,9 +624,24 @@ async def htmx_articles_list(
     """
     params['limit'] = max_articles
 
+    return text(sql), params
+
+
+@router.post("/htmx/special_reports/{special_report_id}/articles", response_class=HTMLResponse)
+async def htmx_articles_list(
+    request: Request,
+    special_report_id: int,
+    session: Session = Depends(get_session)
+):
+    """HTMX: Show article list matching current criteria (compact view for middle panel)."""
+    form_data = await request.form()
+
+    # Use shared query builder
+    sql, params = build_article_selection_query(form_data)
+
     # Execute
     with session.connection() as conn:
-        result = conn.execute(text(sql), params)
+        result = conn.execute(sql, params)
         articles = result.fetchall()
 
     # Build compact HTML for middle panel
@@ -633,83 +684,14 @@ async def htmx_test_selection(
     session: Session = Depends(get_session)
 ):
     """HTMX: Test article selection with current criteria."""
-    from sqlmodel import text
-    from datetime import datetime, timedelta
-
-    # Parse form data from request
     form_data = await request.form()
 
-    # Parse form data to build selection criteria
-    feed_ids = form_data.getlist('feed_ids')
-    feed_ids = [int(fid) for fid in feed_ids if fid]
+    # Use shared query builder (with description for detailed test view)
+    sql, params = build_article_selection_query(form_data, include_description=True)
 
-    timeframe_hours = int(form_data.get('timeframe_hours', 24))
-    max_articles = int(form_data.get('max_articles', 20))
-    min_impact = float(form_data.get('min_impact_score', 0.0))
-    min_sentiment = float(form_data.get('min_sentiment_score', -1.0)) if form_data.get('min_sentiment_score') else None
-
-    keywords = [k.strip() for k in form_data.get('keywords', '').split(',') if k.strip()]
-    exclude_keywords = [k.strip() for k in form_data.get('exclude_keywords', '').split(',') if k.strip()]
-
-    # Build raw SQL query with JSONB extraction for scores
-    # Note: items table has no impact_score/sentiment_score columns
-    # These are in item_analysis table as JSONB: impact_json->>'overall' and sentiment_json->'overall'->>'score'
-
-    cutoff = datetime.now() - timedelta(hours=timeframe_hours)
-
-    # Build WHERE clauses
-    where_clauses = []
-    params = {'cutoff': cutoff}
-
-    if feed_ids:
-        placeholders = ','.join([f':feed_{i}' for i in range(len(feed_ids))])
-        where_clauses.append(f"i.feed_id IN ({placeholders})")
-        for idx, fid in enumerate(feed_ids):
-            params[f'feed_{idx}'] = fid
-
-    where_clauses.append("i.published >= :cutoff")
-
-    if min_impact > 0:
-        where_clauses.append("COALESCE((a.impact_json->>'overall')::numeric, 0) >= :min_impact")
-        params['min_impact'] = min_impact
-
-    if min_sentiment is not None:
-        where_clauses.append("COALESCE((a.sentiment_json->'overall'->>'score')::numeric, 0) >= :min_sentiment")
-        params['min_sentiment'] = min_sentiment
-
-    if keywords:
-        kw_clauses = []
-        for idx, kw in enumerate(keywords):
-            kw_clauses.append(f"(i.title ILIKE :kw_{idx} OR i.description ILIKE :kw_{idx})")
-            params[f'kw_{idx}'] = f'%{kw}%'
-        where_clauses.append(f"({' OR '.join(kw_clauses)})")
-
-    for idx, kw in enumerate(exclude_keywords):
-        where_clauses.append(f"NOT (i.title ILIKE :ex_kw_{idx} OR i.description ILIKE :ex_kw_{idx})")
-        params[f'ex_kw_{idx}'] = f'%{kw}%'
-
-    where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
-
-    sql = f"""
-        SELECT
-            i.id,
-            i.title,
-            i.link,
-            i.description,
-            i.published,
-            COALESCE((a.impact_json->>'overall')::numeric, 0) as impact_score,
-            COALESCE((a.sentiment_json->'overall'->>'score')::numeric, 0) as sentiment_score
-        FROM items i
-        LEFT JOIN item_analysis a ON i.id = a.item_id
-        WHERE {where_sql}
-        ORDER BY impact_score DESC, i.published DESC
-        LIMIT :limit
-    """
-    params['limit'] = max_articles
-
-    # Execute raw SQL using connection (for proper parameter binding)
+    # Execute
     with session.connection() as conn:
-        result = conn.execute(text(sql), params)
+        result = conn.execute(sql, params)
         articles = result.fetchall()
 
     # Build HTML response
