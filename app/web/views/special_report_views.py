@@ -524,7 +524,7 @@ async def htmx_test_selection(
 ):
     """HTMX: Test article selection with current criteria."""
     from sqlmodel import select, and_, or_
-    from app.models.content import Item
+    from app.models.core import Item
     from datetime import datetime, timedelta
 
     # Parse form data from request
