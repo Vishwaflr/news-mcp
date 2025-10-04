@@ -1,5 +1,5 @@
 {
-  "max_runs_per_day": 101,
+  "max_runs_per_day": 100,
   "max_items_per_run": 200,
   "ai_model": "gpt-4.1-nano",
   "check_interval": 30,

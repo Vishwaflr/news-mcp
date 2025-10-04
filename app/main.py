@@ -14,7 +14,8 @@ from app.api import (
     feature_flags_admin, templates as api_templates, scheduler,
     analysis_management, metrics, feed_limits, system,
     analysis_selection, auto_analysis_monitoring,
-    feeds_simple, analysis_jobs, websocket_endpoint, config
+    feeds_simple, analysis_jobs, websocket_endpoint, config,
+    semantic_network, research
 )
 from app.api.v2 import special_reports
 from app.api.v1 import analysis as analysis_v1, health as health_v1
@@ -150,6 +151,8 @@ app.include_router(system.router, prefix="/api")
 app.include_router(analysis_selection.router)
 app.include_router(auto_analysis_monitoring.router)
 app.include_router(config.router)
+app.include_router(semantic_network.router)
+app.include_router(research.router)
 
 app.include_router(create_health_router())
 # app.include_router(create_metrics_router())  # Als nächstes
@@ -173,20 +176,6 @@ async def root(request: Request):
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_dashboard(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
-
-@app.get("/admin/feeds", response_class=HTMLResponse)
-async def admin_feeds(request: Request, session: Session = Depends(get_session)):
-    from sqlmodel import select
-    from app.models.feeds import Source, Category
-
-    sources = session.exec(select(Source).order_by(Source.name)).all()
-    categories = session.exec(select(Category).order_by(Category.name)).all()
-
-    return templates.TemplateResponse("admin/feeds.html", {
-        "request": request,
-        "sources": sources,
-        "categories": categories
-    })
 
 @app.get("/admin/items", response_class=HTMLResponse)
 async def admin_items(request: Request):

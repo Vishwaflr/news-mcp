@@ -1,0 +1,16 @@
+                <!-- History -->
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h6 class="mb-0" style="color: var(--text-primary);">📊 History</h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="run-history"
+                             hx-get="/htmx/analysis/runs/history?limit=10"
+                             hx-trigger="load, every 30s"
+                             hx-swap="innerHTML">
+                            <div class="d-flex justify-content-center py-4">
+                                <div class="spinner-border text-primary" role="status"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>

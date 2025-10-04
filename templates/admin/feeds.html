@@ -39,9 +39,9 @@
 
         <!-- Sort -->
         <select class="form-select" id="sortSelect" style="max-width: 200px;">
-            <option value="health">Sort by Health</option>
-            <option value="name">Sort by Name</option>
-            <option value="activity">Sort by Activity</option>
+            <option value="name" selected>Sort by Name</option>
+            <option value="created">Sort by Created (Newest)</option>
+            <option value="volume">Sort by Most Articles</option>
         </select>
     </div>
 
@@ -222,7 +222,7 @@
 <script>
 // State
 let currentFilter = 'all';
-let currentSort = 'health';
+let currentSort = 'name';
 let searchTerm = '';
 
 // API Helpers

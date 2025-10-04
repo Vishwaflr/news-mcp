@@ -192,6 +192,17 @@ class AnalysisOrchestrator:
             self.metrics.api_request_duration.labels(model=model_tag).observe(api_duration)
             self.metrics.record_api_call(model_tag, "success")
 
+            # Extract category and semantic tags
+            from app.domain.analysis.schema import SemanticTags
+
+            category = llm_data.get("category", "panorama")
+            semantic_tags_data = llm_data.get("semantic_tags", {
+                "actor": "Unknown",
+                "theme": "General",
+                "region": "Global"
+            })
+            semantic_tags = SemanticTags(**semantic_tags_data)
+
             # Build analysis result
             sentiment = SentimentPayload(
                 overall=Overall(**llm_data["overall"]),
@@ -212,6 +223,8 @@ class AnalysisOrchestrator:
                     logger.warning(f"Failed to parse geopolitical data for item {item_id}: {e}")
 
             result = AnalysisResult(
+                category=category,
+                semantic_tags=semantic_tags,
                 sentiment=sentiment,
                 impact=impact,
                 geopolitical=geopolitical,
@@ -424,12 +437,22 @@ class AnalysisOrchestrator:
     def _save_analysis_result(self, queue_id: int, item_id: int, llm_data: Dict, model_tag: str) -> None:
         """Save successful analysis result"""
         try:
+            # NEW: Extract category and semantic tags
+            from app.domain.analysis.schema import SemanticTags
+
+            category = llm_data.get("category", "panorama")
+            semantic_tags_data = llm_data.get("semantic_tags", {
+                "actor": "Unknown",
+                "theme": "General",
+                "region": "Global"
+            })
+            semantic_tags = SemanticTags(**semantic_tags_data)
+
             # Build analysis result
             sentiment = SentimentPayload(
                 overall=Overall(**llm_data["overall"]),
                 market=Market(**llm_data["market"]),
-                urgency=float(llm_data["urgency"]),
-                themes=llm_data.get("themes", [])[:6]
+                urgency=float(llm_data["urgency"])
             )
 
             impact = ImpactPayload(**llm_data["impact"])
@@ -444,6 +467,8 @@ class AnalysisOrchestrator:
                     logger.warning(f"Failed to parse geopolitical data for item {item_id}: {e}")
 
             result = AnalysisResult(
+                category=category,  # NEW
+                semantic_tags=semantic_tags,  # NEW
                 sentiment=sentiment,
                 impact=impact,
                 geopolitical=geopolitical,

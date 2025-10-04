@@ -1,0 +1,493 @@
+    <script>
+        function analysisControlV4() {
+            return {
+                futureRun: {
+                    selection: {
+                        mode: 'latest',
+                        count: 10,
+                        days: 7,
+                        hours: 0,
+                        feed_id: null
+                    },
+                    model: {
+                        tag: 'gpt-4.1-nano',
+                        rate_per_second: 1.0,
+                        limit: 10
+                    },
+                    settings: {
+                        override_existing: false
+                    }
+                },
+
+                preview: {
+                    total_items: 0,
+                    already_analyzed_count: 0,
+                    new_items_count: 0,
+                    estimated_cost_usd: 0,
+                    estimated_duration_minutes: 0
+                },
+
+                currentJobStatus: {
+                    status: 'idle',
+                    message: '',
+                    id: null
+                },
+
+                pollIntervalId: null,
+
+                availableFeeds: [],
+                feedFilterEnabled: false,
+                loading: false,
+                selectionId: null,
+
+                articlesState: {
+                    full: [],
+                    page: 1,
+                    pageSize: 10
+                },
+
+                init() {
+                    console.log('Alpine.js: analysisControlV4 initialized');
+                    this.loadFeeds();
+                    this.loadSavedState();
+
+                    setTimeout(() => {
+                        this.createSelection();
+                    }, 100);
+                },
+
+                async loadFeeds() {
+                    try {
+                        const response = await fetch('/api/feeds-simple/list');
+                        const data = await response.json();
+                        this.availableFeeds = Array.isArray(data) ? data : [];
+                        console.log('Loaded feeds:', this.availableFeeds.length);
+                    } catch (error) {
+                        console.error('Failed to load feeds:', error);
+                        this.availableFeeds = [];
+                    }
+                },
+
+                loadSavedState() {
+                    try {
+                        const saved = localStorage.getItem('futureRun_v4');
+                        if (saved) {
+                            const savedState = JSON.parse(saved);
+
+                            // Merge saved state with current defaults
+                            // This ensures new default values override old localStorage values
+                            this.futureRun.selection.mode = savedState.selection?.mode || this.futureRun.selection.mode;
+                            this.futureRun.selection.days = savedState.selection?.days || this.futureRun.selection.days;
+                            this.futureRun.selection.hours = savedState.selection?.hours || this.futureRun.selection.hours;
+
+                            // Only restore feed_id if explicitly set AND feedFilterEnabled was saved as true
+                            const savedFeedFilterEnabled = localStorage.getItem('feedFilterEnabled_v4');
+                            if (savedFeedFilterEnabled === 'true' && savedState.selection?.feed_id) {
+                                this.futureRun.selection.feed_id = savedState.selection.feed_id;
+                                this.feedFilterEnabled = true;
+                            }
+
+                            this.futureRun.model.tag = savedState.model?.tag || this.futureRun.model.tag;
+                            this.futureRun.model.rate_per_second = savedState.model?.rate_per_second || this.futureRun.model.rate_per_second;
+
+                            // Always use current defaults for count and limit (don't restore from localStorage)
+                            // This allows the developer to change defaults without localStorage overriding them
+
+                            this.futureRun.settings.override_existing = savedState.settings?.override_existing || false;
+
+                            console.log('Merged saved state with current defaults from code');
+                        }
+
+                        const selectionId = localStorage.getItem('selection_id');
+                        if (selectionId) {
+                            this.selectionId = selectionId;
+                            console.log('Restored selection_id from localStorage:', selectionId);
+                        }
+                    } catch (error) {
+                        console.error('Failed to load saved state:', error);
+                    }
+                },
+
+                saveState() {
+                    try {
+                        localStorage.setItem('futureRun_v4', JSON.stringify(this.futureRun));
+                        localStorage.setItem('feedFilterEnabled_v4', this.feedFilterEnabled ? 'true' : 'false');
+                    } catch (error) {
+                        console.error('Failed to save state:', error);
+                    }
+                },
+
+                setMode(mode) {
+                    this.futureRun.selection.mode = mode;
+                    this.articlePage = 1;
+                    this.saveState();
+                    this.createSelection();
+                },
+
+                async createSelection() {
+                    console.log('Creating selection...');
+
+                    // Map frontend mode to API mode
+                    let apiMode = this.futureRun.selection.mode;
+                    if (apiMode === 'timeRange') {
+                        apiMode = 'time_range';
+                    }
+
+                    const request = {
+                        mode: apiMode,
+                        count: this.futureRun.selection.count,
+                        feed_id: this.feedFilterEnabled && this.futureRun.selection.feed_id ? this.futureRun.selection.feed_id : null,
+                        unanalyzed_only: !this.futureRun.settings.override_existing
+                    };
+
+                    if (this.futureRun.selection.mode === 'timeRange') {
+                        const totalHours = (this.futureRun.selection.days || 0) * 24 + (this.futureRun.selection.hours || 0);
+                        if (totalHours > 0) {
+                            request.hours = totalHours;
+                        }
+                    }
+
+                    try {
+                        const response = await fetch('/api/analysis/selection', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(request)
+                        });
+
+                        if (!response.ok) {
+                            console.error('Selection API failed:', response.statusText);
+                            return;
+                        }
+
+                        const data = await response.json();
+                        console.log('Selection created:', data);
+
+                        this.selectionId = data.selection_id;
+                        localStorage.setItem('selection_id', data.selection_id);
+
+                        const limitedToAnalyze = Math.min(data.to_analyze, this.futureRun.model.limit);
+
+                        this.preview = {
+                            total_items: data.total_items,
+                            already_analyzed_count: data.already_analyzed,
+                            new_items_count: limitedToAnalyze,
+                            estimated_cost_usd: (limitedToAnalyze * 0.0001),
+                            estimated_duration_minutes: Math.max(1, Math.floor(limitedToAnalyze / 60))
+                        };
+
+                        console.log('Selection ID set to:', this.selectionId);
+
+                        await this.loadArticlesIntoState();
+
+                    } catch (error) {
+                        console.error('Error creating selection:', error);
+                    }
+                },
+
+                async loadArticlesIntoState() {
+                    if (!this.selectionId) {
+                        console.warn('No selection ID available');
+                        return;
+                    }
+
+                    try {
+                        console.log('Loading articles into state for selection:', this.selectionId);
+                        const response = await fetch(`/api/analysis/selection/${this.selectionId}/articles`);
+
+                        if (!response.ok) {
+                            console.error('Failed to load articles:', response.statusText);
+                            return;
+                        }
+
+                        const data = await response.json();
+                        this.articlesState.full = data.articles || [];
+                        this.articlesState.page = 1;
+
+                        console.log('Articles loaded into state:', this.articlesState.full.length);
+                    } catch (error) {
+                        console.error('Error loading articles into state:', error);
+                    }
+                },
+
+                updatePreview() {
+                    console.log('Updating preview...');
+                    // Recalculate preview based on current settings
+                    this.updatePreviewFromLimit();
+                },
+
+                updatePreviewFromLimit() {
+                    console.log('Updating preview from limit change:', this.futureRun.model.limit);
+
+                    if (this.preview.total_items > 0) {
+                        const toAnalyze = this.preview.total_items - this.preview.already_analyzed_count;
+                        const limitedToAnalyze = Math.min(toAnalyze, this.futureRun.model.limit);
+
+                        this.preview.new_items_count = limitedToAnalyze;
+                        this.preview.estimated_cost_usd = limitedToAnalyze * 0.0001;
+                        this.preview.estimated_duration_minutes = Math.max(1, Math.floor(limitedToAnalyze / 60));
+
+                        console.log('Preview updated:', this.preview);
+                    }
+                },
+
+
+                async startRun() {
+                    console.log('Starting analysis run...');
+                    this.loading = true;
+
+                    try {
+                        const response = await fetch('/api/v1/analysis/runs', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                scope: this.buildScope(),
+                                params: this.buildParams()
+                            })
+                        });
+
+                        if (!response.ok) {
+                            // Parse backend error
+                            const errorData = await response.json();
+                            const errorMessage = errorData.error?.user_message || errorData.error?.message || 'Failed to start analysis run';
+                            const errorCode = errorData.error?.code || 'UNKNOWN_ERROR';
+                            const errorDetails = errorData.error?.details || {};
+
+                            console.error('Backend error:', { errorCode, errorMessage, errorDetails });
+
+                            // Categorize error type
+                            let errorType = 'system';
+                            if (errorCode.includes('LIMIT') || errorMessage.toLowerCase().includes('limit exceeded')) {
+                                errorType = 'limit';
+                            } else if (errorCode.includes('NOT_FOUND') || errorMessage.toLowerCase().includes('no items')) {
+                                errorType = 'data';
+                            } else if (errorCode.includes('VALIDATION')) {
+                                errorType = 'validation';
+                            }
+
+                            this.currentJobStatus = {
+                                status: 'error',
+                                message: errorMessage,
+                                errorCode: errorCode,
+                                errorType: errorType,
+                                errorDetails: errorDetails,
+                                id: null
+                            };
+
+                            this.loading = false;
+                            return;
+                        }
+
+                        const run = await response.json();
+                        console.log('Run started:', run);
+
+                        this.currentJobStatus = {
+                            status: 'running',
+                            message: `Analyzing ${run.total_items || this.preview.new_items_count} articles...`,
+                            id: run.id || run.run_id
+                        };
+
+                        this.pollRunStatus(run.id || run.run_id);
+
+                    } catch (error) {
+                        console.error('Error starting run:', error);
+                        this.currentJobStatus = {
+                            status: 'error',
+                            message: error.message || 'Unexpected error occurred',
+                            errorCode: 'CLIENT_ERROR',
+                            errorType: 'system',
+                            id: null
+                        };
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+
+                pollRunStatus(runId) {
+                    this.pollIntervalId = setInterval(async () => {
+                        const pollInterval = this.pollIntervalId;
+                        try {
+                            const response = await fetch(`/api/v1/analysis/runs/${runId}`);
+                            const run = await response.json();
+
+                            console.log('Poll status:', run.status);
+
+                            if (run.status === 'completed' || run.status === 'failed' || run.status === 'cancelled') {
+                                clearInterval(pollInterval);
+                                this.pollIntervalId = null;
+
+                                this.currentJobStatus = {
+                                    status: run.status === 'completed' ? 'done' : (run.status === 'cancelled' ? 'cancelled' : 'error'),
+                                    message: run.status === 'completed'
+                                        ? `Completed! Processed ${run.processed_count || run.total_items} items.`
+                                        : run.status === 'cancelled'
+                                        ? 'Run cancelled'
+                                        : 'Analysis run failed',
+                                    id: runId
+                                };
+
+                                setTimeout(() => {
+                                    this.currentJobStatus = { status: 'idle', message: '', id: null };
+                                    this.updatePreview();
+                                }, 5000);
+                            }
+                        } catch (error) {
+                            console.error('Error polling run status:', error);
+                            clearInterval(pollInterval);
+                            this.pollIntervalId = null;
+                        }
+                    }, 3000);
+                },
+
+                async cancelRun() {
+                    if (!this.currentJobStatus.id) {
+                        console.warn('No active run to cancel');
+                        return;
+                    }
+
+                    const runId = this.currentJobStatus.id;
+
+                    try {
+                        const response = await fetch(`/api/v1/analysis/runs/${runId}`, {
+                            method: 'DELETE'
+                        });
+
+                        if (!response.ok) {
+                            throw new Error('Failed to cancel run');
+                        }
+
+                        const result = await response.json();
+                        console.log('Run cancelled:', result);
+
+                        if (this.pollIntervalId) {
+                            clearInterval(this.pollIntervalId);
+                            this.pollIntervalId = null;
+                        }
+
+                        this.currentJobStatus = {
+                            status: 'cancelled',
+                            message: `Run ${runId} cancelled`,
+                            id: null
+                        };
+
+                        setTimeout(() => {
+                            this.currentJobStatus = { status: 'idle', message: '', id: null };
+                        }, 3000);
+
+                    } catch (error) {
+                        console.error('Error cancelling run:', error);
+                    }
+                },
+
+                buildScope() {
+                    const scope = {
+                        type: 'global',
+                        feed_ids: [],
+                        unanalyzed_only: !this.futureRun.settings.override_existing
+                    };
+
+                    if (this.futureRun.selection.mode === 'latest') {
+                        scope.type = 'global';
+                    } else if (this.futureRun.selection.mode === 'timeRange') {
+                        scope.type = 'timerange';
+                        const totalHours = (this.futureRun.selection.days || 0) * 24 + (this.futureRun.selection.hours || 0);
+                        if (totalHours > 0) {
+                            const endTime = new Date();
+                            const startTime = new Date(endTime.getTime() - totalHours * 60 * 60 * 1000);
+                            scope.start_time = startTime.toISOString();
+                            scope.end_time = endTime.toISOString();
+                        }
+                    } else if (this.futureRun.selection.mode === 'unanalyzed') {
+                        scope.type = 'global';
+                        scope.unanalyzed_only = true;
+                    }
+
+                    if (this.feedFilterEnabled && this.futureRun.selection.feed_id) {
+                        scope.feed_ids = [parseInt(this.futureRun.selection.feed_id)];
+                        scope.type = 'feeds';
+                    }
+
+                    return scope;
+                },
+
+                buildParams() {
+                    const unanalyzedCount = this.filteredArticles.length;
+                    const effectiveLimit = Math.min(unanalyzedCount, this.futureRun.model.limit);
+
+                    return {
+                        model_tag: this.futureRun.model.tag,
+                        rate_per_second: this.futureRun.model.rate_per_second,
+                        limit: effectiveLimit,
+                        override_existing: this.futureRun.settings.override_existing,
+                        newest_first: true
+                    };
+                },
+
+                get filteredArticles() {
+                    if (!this.articlesState.full || this.articlesState.full.length === 0) {
+                        return [];
+                    }
+
+                    const unanalyzed = this.articlesState.full.filter(a => !a.has_analysis);
+                    const limit = this.futureRun.model.limit || 10000;
+                    return unanalyzed.slice(0, limit);
+                },
+
+                get paginatedArticles() {
+                    const filtered = this.filteredArticles;
+                    const offset = (this.articlesState.page - 1) * this.articlesState.pageSize;
+                    return filtered.slice(offset, offset + this.articlesState.pageSize);
+                },
+
+                get totalFilteredPages() {
+                    const filtered = this.filteredArticles;
+                    return Math.ceil(filtered.length / this.articlesState.pageSize);
+                }
+            }
+        }
+    </script>
+
+    <!-- Analysis Config Script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('analysis-config-form');
+
+            if (!form) return;
+
+            // Load current config values from API
+            fetch('/api/config/analysis')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        const config = data.data;
+                        form.querySelector('[name="max_concurrent_runs"]').value = config.max_concurrent_runs || 5;
+                        form.querySelector('[name="max_daily_runs"]').value = config.max_daily_runs || 100;
+                        form.querySelector('[name="max_hourly_runs"]').value = config.max_hourly_runs || 10;
+                        form.querySelector('[name="analysis_batch_limit"]').value = config.analysis_batch_limit || 200;
+                        form.querySelector('[name="analysis_rps"]').value = config.analysis_rps || 1.0;
+                        form.querySelector('[name="analysis_model"]').value = config.analysis_model || 'gpt-4o-mini';
+                    }
+                })
+                .catch(err => console.error('Failed to load config:', err));
+
+            // Handle successful save
+            form.addEventListener('htmx:afterRequest', function(event) {
+                if (event.detail.successful) {
+                    // Show success toast
+                    const toast = document.createElement('div');
+                    toast.className = 'alert alert-success position-fixed top-0 end-0 m-3';
+                    toast.style.zIndex = '9999';
+                    toast.innerHTML = '<i class="bi bi-check-circle me-2"></i>Configuration saved successfully!';
+                    document.body.appendChild(toast);
+                    setTimeout(() => toast.remove(), 3000);
+                } else {
+                    // Show error toast
+                    const toast = document.createElement('div');
+                    toast.className = 'alert alert-danger position-fixed top-0 end-0 m-3';
+                    toast.style.zIndex = '9999';
+                    toast.innerHTML = '<i class="bi bi-exclamation-triangle me-2"></i>Failed to save configuration!';
+                    document.body.appendChild(toast);
+                    setTimeout(() => toast.remove(), 3000);
+                }
+            });
+        });
+    </script>

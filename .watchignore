@@ -1,0 +1,13 @@
+# Directories to exclude from uvicorn file watching
+data/
+logs/
+*.pyc
+__pycache__/
+.git/
+venv/
+.env
+*.db
+*.sqlite
+*.log
+tmp/
+temp/

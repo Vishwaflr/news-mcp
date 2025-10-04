@@ -1,0 +1,163 @@
+<!-- Target Selection Card -->
+<div class="card mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h6 class="mb-0"><i class="bi bi-bullseye"></i> Target Selection</h6>
+    </div>
+    <div class="card-body">
+        <div class="mb-4">
+
+        <!-- Mode Tabs -->
+        <div class="btn-group w-100 mb-3" role="group">
+            <button type="button"
+                    class="btn btn-tab"
+                    style="font-size: 0.95rem; font-weight: 500;"
+                    :class="futureRun.selection.mode === 'latest' ? 'btn-primary active' : 'btn-outline-light'"
+                    @click="setMode('latest')">
+                📰 Latest
+            </button>
+            <button type="button"
+                    class="btn btn-tab"
+                    style="font-size: 0.95rem; font-weight: 500;"
+                    :class="futureRun.selection.mode === 'timeRange' ? 'btn-primary active' : 'btn-outline-light'"
+                    @click="setMode('timeRange')">
+                🕐 Time Range
+            </button>
+            <button type="button"
+                    class="btn btn-tab"
+                    style="font-size: 0.95rem; font-weight: 500;"
+                    :class="futureRun.selection.mode === 'unanalyzed' ? 'btn-primary active' : 'btn-outline-light'"
+                    @click="setMode('unanalyzed')">
+                🔍 Unanalyzed
+            </button>
+        </div>
+
+        <!-- Latest Mode -->
+        <div x-show="futureRun.selection.mode === 'latest'" x-cloak class="mb-3">
+            <label class="form-label">Number of articles (1-1000)</label>
+            <input type="number"
+                   class="form-control"
+                   x-model.number="futureRun.selection.count"
+                   @blur="articlePage = 1; createSelection()"
+                   @keyup.enter="articlePage = 1; createSelection()"
+                   min="1"
+                   max="1000">
+            <small style="color: var(--text-muted);">Will select the N most recent articles</small>
+        </div>
+
+        <!-- Time Range Mode -->
+        <div x-show="futureRun.selection.mode === 'timeRange'" x-cloak class="mb-3">
+            <div class="row">
+                <div class="col-6">
+                    <label class="form-label">Days</label>
+                    <input type="number"
+                           class="form-control"
+                           x-model.number="futureRun.selection.days"
+                           @blur="articlePage = 1; createSelection()"
+                           @keyup.enter="articlePage = 1; createSelection()"
+                           min="0"
+                           max="365">
+                </div>
+                <div class="col-6">
+                    <label class="form-label">Hours</label>
+                    <input type="number"
+                           class="form-control"
+                           x-model.number="futureRun.selection.hours"
+                           @blur="articlePage = 1; createSelection()"
+                           @keyup.enter="articlePage = 1; createSelection()"
+                           min="0"
+                           max="23">
+                </div>
+            </div>
+            <small style="color: var(--text-muted);">Articles from the specified time period</small>
+        </div>
+
+        <!-- Unanalyzed Mode -->
+        <div x-show="futureRun.selection.mode === 'unanalyzed'" x-cloak class="mb-3">
+            <div class="alert alert-warning small mb-0">
+                Will select ALL unanalyzed articles. Use with caution for large datasets!
+            </div>
+        </div>
+    </div>
+
+    <!-- Feed Filter -->
+    <div class="mb-4">
+        <h6 class="mb-3" style="color: var(--text-primary);">📡 Feed Filter <small style="color: var(--text-muted);">(Optional)</small></h6>
+
+        <div class="form-check mb-2">
+            <input class="form-check-input"
+                   type="checkbox"
+                   x-model="feedFilterEnabled"
+                   @change="articlePage = 1; if (!feedFilterEnabled) { futureRun.selection.feed_id = null; } createSelection();"
+                   id="enableFeedFilter">
+            <label class="form-check-label" for="enableFeedFilter">
+                Limit to specific feed
+            </label>
+        </div>
+
+        <select class="form-select"
+                x-model="futureRun.selection.feed_id"
+                @change="articlePage = 1; createSelection()"
+                :disabled="!feedFilterEnabled"
+                x-show="feedFilterEnabled"
+                x-cloak>
+            <option value="">Select feed...</option>
+            <template x-for="feed in availableFeeds" :key="feed.id">
+                <option :value="feed.id" x-text="feed.title"></option>
+            </template>
+        </select>
+    </div>
+
+    <!-- Model & Parameters -->
+    <div class="mb-4">
+        <h6 class="mb-3" style="color: var(--text-primary);">🤖 Model & Parameters</h6>
+
+        <div class="mb-3">
+            <label class="form-label">Model</label>
+            <select class="form-select" x-model="futureRun.model.tag" @change="updatePreview()">
+                <option value="gpt-4.1-nano">GPT-4.1 Nano (US $0.40/1M tokens)</option>
+                <option value="gpt-4-mini">GPT-4 Mini (US $0.80/1M tokens)</option>
+            </select>
+        </div>
+
+        <div class="row">
+            <div class="col-6">
+                <label class="form-label">Rate/sec</label>
+                <input type="number"
+                       class="form-control"
+                       x-model.number="futureRun.model.rate_per_second"
+                       min="0.1"
+                       max="10"
+                       step="0.1">
+            </div>
+            <div class="col-6">
+                <label class="form-label">Limit</label>
+                <input type="number"
+                       class="form-control"
+                       x-model.number="futureRun.model.limit"
+                       @blur="updatePreviewFromLimit()"
+                       @keyup.enter="updatePreviewFromLimit()"
+                       min="1"
+                       max="10000">
+            </div>
+        </div>
+    </div>
+
+    <!-- Additional Settings -->
+    <div class="mb-4">
+        <h6 class="mb-3" style="color: var(--text-primary);">⚙️ Additional Settings</h6>
+
+        <div class="form-check">
+            <input class="form-check-input"
+                   type="checkbox"
+                   x-model="futureRun.settings.override_existing"
+                   @change="articlePage = 1; createSelection()"
+                   id="overrideExisting">
+            <label class="form-check-label" for="overrideExisting">
+                Re-analyze already processed articles
+            </label>
+        </div>
+        <small style="color: var(--text-muted);">Check to run analysis even for items that were already analyzed</small>
+        </div>
+    </div>
+</div>
+

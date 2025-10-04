@@ -61,13 +61,48 @@ class LLMClient:
 Title: {title}
 Summary: {summary}
 
+TASK 1 - CATEGORY (select ONE main category):
+- geopolitics_security (Wars, Conflicts, Crises, Diplomatic Relations, Military)
+- economy_markets (Financial Markets, Crypto/Blockchain, Trade, Industry, Business)
+- technology_science (Tech Innovation, AI/Automation, Research, Development, Space)
+- politics_society (Domestic Politics, Elections, Democracy, Social Movements, Law)
+- climate_environment_health (Climate Change, Natural Disasters, Medicine, Public Health, Environment)
+- panorama (Entertainment, Sport, Culture, Lifestyle, Human Interest)
+
+TASK 2 - SEMANTIC TAGS (exactly 3 for building article network):
+
+1. ACTOR (Who?): Up to 4 comma-separated entities (persons, organizations, countries) that appear FREQUENTLY in news
+   - Examples: "Trump", "EU, NATO", "Biden, Harris", "Israel, Hamas, Egypt"
+   - USE: Well-known entities that connect different topics (max 4)
+   - AVOID: Unknown persons, one-time mentions, very specific organizations
+   - FORMAT: Comma-separated if multiple (e.g. "US, China" or "Biden")
+
+2. THEME (What?): A topic cluster that spans MULTIPLE articles
+   - Examples: Immigration, Trade-War, Climate-Policy, AI-Regulation, Electoral-Process
+   - USE: Broad themes that recur across news
+   - AVOID: Very specific one-off events without repeat potential
+
+3. REGION (Where?): Geographic or political space that appears FREQUENTLY in news
+   - Examples: Middle-East, EU, South-Asia, US-China-Relations, Africa, Ukraine
+   - USE: Regions/relations that connect different actors and themes
+   - AVOID: Small cities unless major local event
+
+GOAL: Other articles should be linkable via these 3 tags to form a semantic network.
+
+TASK 3 - SENTIMENT & IMPACT (existing analysis):
+
 Return this exact JSON structure:
 {{
+  "category": "geopolitics_security|economy_markets|technology_science|politics_society|climate_environment_health|panorama",
+  "semantic_tags": {{
+    "actor": "string (max 100 chars)",
+    "theme": "string (max 100 chars)",
+    "region": "string (max 100 chars)"
+  }},
   "overall": {{"label": "positive|neutral|negative", "score": -1.0 to 1.0, "confidence": 0.0 to 1.0}},
   "market": {{"bullish": 0.0 to 1.0, "bearish": 0.0 to 1.0, "uncertainty": 0.0 to 1.0, "time_horizon": "short|medium|long"}},
   "urgency": 0.0 to 1.0,
   "impact": {{"overall": 0.0 to 1.0, "volatility": 0.0 to 1.0}},
-  "themes": ["max", "6", "strings"],
   "geopolitical": {{
     "stability_score": -1.0 to 1.0,
     "economic_impact": -1.0 to 1.0,
@@ -88,16 +123,63 @@ Return this exact JSON structure:
   }}
 }}
 
+EXAMPLES:
+Article: "Biden announces new sanctions on Russian oil exports"
+→ category: "geopolitics_security"
+→ actor: "Biden, US", theme: "Economic-Sanctions", region: "US-Russia-Relations"
+
+Article: "Tesla stock surges on new AI chip announcement"
+→ category: "economy_markets"
+→ actor: "Tesla", theme: "AI-Technology", region: "US"
+
+Article: "EU agrees on Gaza ceasefire resolution"
+→ category: "geopolitics_security"
+→ actor: "EU, Israel, Hamas", theme: "Peace-Process", region: "Middle-East"
+
 Entity Standards:
 - Countries: ISO 3166-1 Alpha-2 (US, DE, FR, CN, RU, UA, etc.)
 - Blocs: EU, NATO, ASEAN, BRICS, G7, UN, OPEC
 - Regions: Middle_East, Eastern_Europe, Asia_Pacific, Latin_America, Sub_Saharan_Africa
-- Markets: Energy_Markets, Financial_Markets, Global_Trade, Commodity_Markets
 - Max 3 entries for impact_beneficiaries and impact_affected
 - If news is not geopolitically relevant, set all geopolitical scores to 0.0 and arrays to []"""
 
     def _validate_and_normalize_result(self, result: Dict) -> Dict:
         try:
+            # NEW: Validate category
+            valid_categories = [
+                "geopolitics_security", "economy_markets", "technology_science",
+                "politics_society", "climate_environment_health", "panorama"
+            ]
+            category = result.get("category", "panorama")
+            if category not in valid_categories:
+                logger.warning(f"Invalid category '{category}', using 'panorama'")
+                category = "panorama"
+
+            # NEW: Validate semantic tags
+            semantic_tags = result.get("semantic_tags", {})
+            actor = str(semantic_tags.get("actor", "Unknown")).strip()
+            theme = str(semantic_tags.get("theme", "General")).strip()[:100]
+            region = str(semantic_tags.get("region", "Global")).strip()[:100]
+
+            # Validate actor count (max 4)
+            if ',' in actor:
+                actors = [a.strip() for a in actor.split(',')]
+                if len(actors) > 4:
+                    logger.warning(f"Too many actors ({len(actors)}), limiting to 4")
+                    actor = ', '.join(actors[:4])
+
+            # Ensure max length
+            if len(actor) > 250:
+                actor = actor[:250]
+
+            # Ensure not empty
+            if not actor or actor == "":
+                actor = "Unknown"
+            if not theme or theme == "":
+                theme = "General"
+            if not region or region == "":
+                region = "Global"
+
             # Ensure required keys exist with fallbacks
             overall = result.get("overall", {})
             if "label" not in overall:
@@ -139,20 +221,20 @@ Entity Standards:
 
             urgency = max(0.0, min(1.0, float(result.get("urgency", 0.0))))
 
-            themes = result.get("themes", [])
-            if not isinstance(themes, list):
-                themes = []
-            themes = [str(theme) for theme in themes[:6]]
-
             # Validate geopolitical fields (optional, backward compatible)
             geopolitical = self._validate_geopolitical(result.get("geopolitical", {}))
 
             return {
+                "category": category,  # NEW
+                "semantic_tags": {  # NEW
+                    "actor": actor,
+                    "theme": theme,
+                    "region": region
+                },
                 "overall": overall,
                 "market": market,
                 "urgency": urgency,
                 "impact": impact,
-                "themes": themes,
                 "geopolitical": geopolitical
             }
 
@@ -256,10 +338,15 @@ Entity Standards:
 
     def _get_fallback_result(self) -> Dict:
         return {
+            "category": "panorama",  # NEW
+            "semantic_tags": {  # NEW
+                "actor": "Unknown",
+                "theme": "General",
+                "region": "Global"
+            },
             "overall": {"label": "neutral", "score": 0.0, "confidence": 0.0},
             "market": {"bullish": 0.5, "bearish": 0.5, "uncertainty": 0.5, "time_horizon": "medium"},
             "urgency": 0.0,
             "impact": {"overall": 0.0, "volatility": 0.0},
-            "themes": [],
             "geopolitical": self._get_empty_geopolitical()
         }

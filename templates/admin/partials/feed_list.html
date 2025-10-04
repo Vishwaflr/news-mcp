@@ -59,6 +59,14 @@
                 <i class="bi bi-clock-history"></i>
                 <span>{{ feed.articles_24h or 0 }} last 24h</span>
             </div>
+            <div class="feed-meta-item" title="Latest Article Date">
+                <i class="bi bi-calendar-event"></i>
+                {% if feed.latest_article_at %}
+                <span>{{ feed.latest_article_at.strftime("%d.%m.%Y %H:%M") }}</span>
+                {% else %}
+                <span class="text-muted">No articles</span>
+                {% endif %}
+            </div>
             <div class="feed-meta-item" title="Analysis Coverage">
                 <i class="bi bi-graph-up"></i>
                 <span>{{ "%.1f"|format(feed.analyzed_percentage or 0) }}% analyzed</span>

@@ -1,0 +1,558 @@
+{% extends "base.html" %}
+
+{% block title %}Research Templates{% endblock %}
+
+{% block content %}
+<style>
+    .split-view {
+        display: grid;
+        grid-template-columns: 450px 1fr;
+        gap: 20px;
+        height: calc(100vh - 120px);
+        overflow: hidden;
+    }
+
+    .filter-panel, .results-panel {
+        background: var(--bs-dark);
+        border-radius: 8px;
+        padding: 20px;
+        overflow-y: auto;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .results-panel {
+        border-left: 2px solid #667eea;
+    }
+
+    .sticky-header {
+        position: sticky;
+        top: -20px;
+        background: var(--bs-dark);
+        z-index: 10;
+        padding: 10px 0 20px 0;
+        margin: -10px 0 20px 0;
+        border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .section-divider {
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        margin: 25px 0;
+    }
+
+    .btn-test {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        font-weight: 600;
+        width: 100%;
+    }
+
+    .btn-test:hover {
+        background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+    }
+
+    .article-card {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 6px;
+        padding: 12px;
+        margin-bottom: 10px;
+        border-left: 3px solid #667eea;
+    }
+
+    .article-title {
+        font-size: 0.95em;
+        font-weight: 500;
+        margin-bottom: 8px;
+        color: #e2e8f0;
+    }
+
+    .article-meta {
+        font-size: 0.8em;
+        color: #a0aec0;
+        margin-top: 8px;
+    }
+
+    .badge-metric {
+        font-size: 0.75em;
+        padding: 4px 8px;
+        border-radius: 4px;
+        margin-right: 5px;
+    }
+
+    .form-label {
+        font-weight: 600;
+        color: #a0aec0;
+        font-size: 0.85em;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 8px;
+    }
+
+    .form-control, .form-select {
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: white;
+        font-size: 0.9em;
+    }
+
+    .form-control:focus, .form-select:focus {
+        background: rgba(0, 0, 0, 0.4);
+        border-color: #667eea;
+        color: white;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    }
+
+    .form-check-input {
+        background-color: rgba(0, 0, 0, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .form-check-input:checked {
+        background-color: #667eea;
+        border-color: #667eea;
+    }
+
+    .form-check-label {
+        font-size: 0.9em;
+        color: #cbd5e0;
+    }
+
+    .result-summary {
+        background: rgba(102, 126, 234, 0.2);
+        border: 1px solid #667eea;
+        border-radius: 6px;
+        padding: 15px;
+        margin-bottom: 20px;
+        text-align: center;
+    }
+
+    .result-count {
+        font-size: 2em;
+        font-weight: 700;
+        color: #667eea;
+    }
+
+    @media (max-width: 1200px) {
+        .split-view {
+            grid-template-columns: 1fr;
+            height: auto;
+        }
+    }
+
+    .htmx-swapping {
+        opacity: 0.5;
+        transition: opacity 0.3s;
+    }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="mb-1">🔬 Research Templates</h1>
+        <p class="text-muted mb-0">Filter articles and test research queries</p>
+    </div>
+    <a href="/admin" class="btn btn-outline-secondary">← Back to Admin</a>
+</div>
+
+<div class="split-view">
+    <!-- Left Panel: Filter Configuration -->
+    <div class="filter-panel">
+        <div class="sticky-header">
+            <h4>📊 Article Filter</h4>
+            <p class="text-muted small mb-0">Configure filter criteria for article selection</p>
+        </div>
+
+        <form id="filterForm">
+            <!-- Categories -->
+            <div class="mb-4">
+                <label class="form-label">Categories</label>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="categories" value="geopolitics_security" id="cat1">
+                    <label class="form-check-label" for="cat1">🛡️ Geopolitics & Security</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="categories" value="economy_markets" id="cat2">
+                    <label class="form-check-label" for="cat2">💹 Economy & Markets</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="categories" value="technology_science" id="cat3">
+                    <label class="form-check-label" for="cat3">🔬 Technology & Science</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="categories" value="politics_society" id="cat4">
+                    <label class="form-check-label" for="cat4">⚖️ Politics & Society</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="categories" value="climate_environment_health" id="cat5">
+                    <label class="form-check-label" for="cat5">🌍 Climate, Environment & Health</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="categories" value="panorama" id="cat6">
+                    <label class="form-check-label" for="cat6">📰 Panorama</label>
+                </div>
+            </div>
+
+            <div class="section-divider"></div>
+
+            <!-- Semantic Tags -->
+            <div class="mb-3">
+                <label for="actors" class="form-label">Actors (comma-separated)</label>
+                <input type="text" class="form-control" id="actors" placeholder="e.g., Trump, Biden, EU">
+                <small class="text-muted">Partial match, e.g., "Trump" finds "Donald Trump"</small>
+            </div>
+
+            <div class="mb-3">
+                <label for="themes" class="form-label">Themes (comma-separated)</label>
+                <input type="text" class="form-control" id="themes" placeholder="e.g., Trade-War, Electoral-Process">
+            </div>
+
+            <div class="mb-3">
+                <label for="regions" class="form-label">Regions (comma-separated)</label>
+                <input type="text" class="form-control" id="regions" placeholder="e.g., US-China-Relations, Middle-East">
+            </div>
+
+            <div class="section-divider"></div>
+
+            <!-- Impact & Sentiment -->
+            <div class="row mb-3">
+                <div class="col-6">
+                    <label for="impactMin" class="form-label">Min Impact</label>
+                    <input type="number" class="form-control" id="impactMin" min="0" max="1" step="0.1" placeholder="0.0">
+                </div>
+                <div class="col-6">
+                    <label for="impactMax" class="form-label">Max Impact</label>
+                    <input type="number" class="form-control" id="impactMax" min="0" max="1" step="0.1" placeholder="1.0">
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Sentiment</label>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="sentiment" value="positive" id="sent1">
+                    <label class="form-check-label" for="sent1">😊 Positive</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="sentiment" value="neutral" id="sent2">
+                    <label class="form-check-label" for="sent2">😐 Neutral</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="sentiment" value="negative" id="sent3">
+                    <label class="form-check-label" for="sent3">😞 Negative</label>
+                </div>
+            </div>
+
+            <div class="section-divider"></div>
+
+            <!-- Timeframe -->
+            <div class="mb-3">
+                <label for="timeframe" class="form-label">Timeframe</label>
+                <select class="form-select" id="timeframe">
+                    <option value="last_24h" selected>Last 24 hours</option>
+                    <option value="last_7d">Last 7 days</option>
+                    <option value="last_30d">Last 30 days</option>
+                </select>
+            </div>
+
+            <!-- Max Articles -->
+            <div class="mb-3">
+                <label for="maxArticles" class="form-label">Max Articles</label>
+                <input type="number" class="form-control" id="maxArticles" min="1" max="100" value="20">
+            </div>
+
+            <div class="mb-3">
+                <label for="orderBy" class="form-label">Order By</label>
+                <select class="form-select" id="orderBy">
+                    <option value="published_desc" selected>Published (newest first)</option>
+                    <option value="impact_desc">Impact (highest first)</option>
+                    <option value="created_desc">Created (newest first)</option>
+                </select>
+            </div>
+
+            <!-- Test Button -->
+            <button type="button" class="btn btn-test btn-lg mt-3" onclick="testFilter()">
+                🔍 Test Filter
+            </button>
+
+            <div class="section-divider"></div>
+
+            <!-- LLM Prompt -->
+            <div class="mb-3">
+                <label for="llmPrompt" class="form-label">🤖 LLM Prompt</label>
+                <textarea class="form-control" id="llmPrompt" rows="6" placeholder="Enter your research prompt here...
+Example: Based on these articles, generate 3-5 focused research questions about the geopolitical implications.">Based on the following news articles, generate 3-5 insightful research questions that would help understand the broader context and implications of these events.</textarea>
+                <small class="text-muted">The filtered articles will be sent to the LLM along with this prompt.</small>
+            </div>
+
+            <!-- Generate Button -->
+            <button type="button" class="btn btn-success btn-lg w-100" onclick="generateQueries()">
+                ✨ Generate Research Queries
+            </button>
+        </form>
+    </div>
+
+    <!-- Right Panel: Results -->
+    <div class="results-panel">
+        <div class="sticky-header">
+            <h4>📋 Filter Results & LLM Output</h4>
+            <p class="text-muted small mb-0">Articles matching your filter criteria and generated research queries</p>
+        </div>
+
+        <div id="testResults">
+            <div class="text-center text-muted py-5">
+                <i class="bi bi-funnel" style="font-size: 3em;"></i>
+                <p class="mt-3">Configure filters and click "Test Filter" to see results</p>
+            </div>
+        </div>
+
+        <div id="llmOutput" class="mt-4" style="display: none;">
+            <div class="section-divider"></div>
+            <h5>🤖 Generated Research Queries</h5>
+            <div id="llmResults"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+function testFilter() {
+    // Collect form data
+    const categories = Array.from(document.querySelectorAll('input[name="categories"]:checked')).map(cb => cb.value);
+    const sentiment = Array.from(document.querySelectorAll('input[name="sentiment"]:checked')).map(cb => cb.value);
+
+    const actors = document.getElementById('actors').value
+        .split(',')
+        .map(s => s.trim())
+        .filter(s => s.length > 0);
+
+    const themes = document.getElementById('themes').value
+        .split(',')
+        .map(s => s.trim())
+        .filter(s => s.length > 0);
+
+    const regions = document.getElementById('regions').value
+        .split(',')
+        .map(s => s.trim())
+        .filter(s => s.length > 0);
+
+    const filterConfig = {
+        max_articles: parseInt(document.getElementById('maxArticles').value),
+        timeframe: document.getElementById('timeframe').value,
+        order_by: document.getElementById('orderBy').value
+    };
+
+    if (categories.length > 0) filterConfig.categories = categories;
+    if (actors.length > 0) filterConfig.actors = actors;
+    if (themes.length > 0) filterConfig.themes = themes;
+    if (regions.length > 0) filterConfig.regions = regions;
+    if (sentiment.length > 0) filterConfig.sentiment = sentiment;
+
+    const impactMin = document.getElementById('impactMin').value;
+    const impactMax = document.getElementById('impactMax').value;
+    if (impactMin) filterConfig.impact_min = parseFloat(impactMin);
+    if (impactMax) filterConfig.impact_max = parseFloat(impactMax);
+
+    // Show loading state
+    const resultsDiv = document.getElementById('testResults');
+    resultsDiv.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><p class="mt-3 text-muted">Testing filter...</p></div>';
+
+    // Send request
+    fetch('/api/research/filter/test', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(filterConfig)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (!data.ok) {
+            resultsDiv.innerHTML = `<div class="alert alert-danger">Error: ${data.error}</div>`;
+            return;
+        }
+
+        // Display results
+        let html = `
+            <div class="result-summary">
+                <div class="result-count">${data.total_count}</div>
+                <div class="text-muted">articles found</div>
+            </div>
+        `;
+
+        if (data.sample_articles.length === 0) {
+            html += '<div class="alert alert-warning">No articles match your filter criteria. Try adjusting the filters.</div>';
+        } else {
+            html += `<p class="text-muted mb-3">Showing first ${data.sample_articles.length} articles:</p>`;
+
+            data.sample_articles.forEach(article => {
+                const categoryColors = {
+                    'geopolitics_security': 'danger',
+                    'economy_markets': 'success',
+                    'technology_science': 'info',
+                    'politics_society': 'warning',
+                    'climate_environment_health': 'primary',
+                    'panorama': 'secondary'
+                };
+
+                const categoryIcons = {
+                    'geopolitics_security': '🛡️',
+                    'economy_markets': '💹',
+                    'technology_science': '🔬',
+                    'politics_society': '⚖️',
+                    'climate_environment_health': '🌍',
+                    'panorama': '📰'
+                };
+
+                const categoryColor = categoryColors[article.category] || 'secondary';
+                const categoryIcon = categoryIcons[article.category] || '📰';
+                const categoryLabel = article.category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
+                const sentimentEmoji = {
+                    'positive': '😊',
+                    'neutral': '😐',
+                    'negative': '😞'
+                };
+
+                const publishedDate = new Date(article.published).toLocaleString();
+
+                // Handle impact (can be number or object)
+                const impactOverall = typeof article.impact === 'object' ? article.impact.overall : (article.impact || 0);
+                const impactDetails = typeof article.impact === 'object'
+                    ? `Economic: ${(article.impact.economic || 0).toFixed(2)} | Geopolitical: ${(article.impact.geopolitical || 0).toFixed(2)} | Social: ${(article.impact.social || 0).toFixed(2)}`
+                    : '';
+
+                // Safe access to optional fields
+                const feedName = article.feed_name || `Feed #${article.feed_id}`;
+                const urgency = article.urgency || 0;
+                const credibility = article.credibility || 0;
+                const sentimentConf = article.sentiment_confidence || 0;
+
+                html += `
+                    <div class="article-card">
+                        <div class="article-title">${article.title}</div>
+                        <div class="mb-2">
+                            <span class="badge bg-${categoryColor} badge-metric">${categoryIcon} ${categoryLabel}</span>
+                            <span class="badge bg-light text-dark badge-metric">👤 ${article.semantic_tags.actor}</span>
+                            <span class="badge bg-light text-dark badge-metric">🏷️ ${article.semantic_tags.theme}</span>
+                            <span class="badge bg-light text-dark badge-metric">🌐 ${article.semantic_tags.region}</span>
+                        </div>
+                        <div class="mb-2" style="font-size: 0.85em;">
+                            <strong>📡 Feed:</strong> ${feedName}
+                        </div>
+                        <div class="mb-2" style="font-size: 0.85em;">
+                            <strong>💭 Sentiment:</strong> ${sentimentEmoji[article.sentiment] || '😐'} ${article.sentiment}
+                            ${sentimentConf > 0 ? `(${(sentimentConf * 100).toFixed(0)}% conf)` : ''} |
+                            <strong>🔥 Urgency:</strong> ${urgency.toFixed(2)} |
+                            <strong>✅ Credibility:</strong> ${credibility.toFixed(2)}
+                        </div>
+                        <div class="mb-2" style="font-size: 0.85em;">
+                            <strong>📊 Impact:</strong> Overall: ${impactOverall.toFixed(2)}
+                            ${impactDetails ? ` | ${impactDetails}` : ''}
+                        </div>
+                        <div class="article-meta">
+                            📅 ${publishedDate} |
+                            <a href="${article.link}" target="_blank" style="color: #6ea8fe;">🔗 Read Article</a>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        resultsDiv.innerHTML = html;
+    })
+    .catch(error => {
+        resultsDiv.innerHTML = `<div class="alert alert-danger">Network error: ${error.message}</div>`;
+    });
+}
+
+function generateQueries() {
+    // First, get filtered articles
+    const filterConfig = collectFilterConfig();
+    const llmPrompt = document.getElementById('llmPrompt').value.trim();
+
+    if (!llmPrompt) {
+        alert('Please enter an LLM prompt');
+        return;
+    }
+
+    // Show loading state
+    const llmOutput = document.getElementById('llmOutput');
+    const llmResults = document.getElementById('llmResults');
+    llmOutput.style.display = 'block';
+    llmResults.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary" role="status"></div><p class="mt-3 text-muted">Generating research queries with LLM...</p></div>';
+
+    // Send request
+    fetch('/api/research/generate-queries', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            filter_config: filterConfig,
+            prompt: llmPrompt
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (!data.ok) {
+            llmResults.innerHTML = `<div class="alert alert-danger">Error: ${data.error}</div>`;
+            return;
+        }
+
+        // Display generated queries
+        let html = '<div class="alert alert-success">✅ Successfully generated research queries!</div>';
+        html += '<div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 6px; white-space: pre-wrap; font-family: monospace;">';
+        html += data.generated_queries;
+        html += '</div>';
+
+        if (data.metadata) {
+            html += '<div class="mt-3" style="font-size: 0.85em; color: #a0aec0;">';
+            html += `<strong>Model:</strong> ${data.metadata.model || 'N/A'} | `;
+            html += `<strong>Articles processed:</strong> ${data.metadata.articles_count || 0} | `;
+            html += `<strong>Tokens:</strong> ${data.metadata.tokens_used || 'N/A'}`;
+            html += '</div>';
+        }
+
+        llmResults.innerHTML = html;
+    })
+    .catch(error => {
+        llmResults.innerHTML = `<div class="alert alert-danger">Network error: ${error.message}</div>`;
+    });
+}
+
+function collectFilterConfig() {
+    const categories = Array.from(document.querySelectorAll('input[name="categories"]:checked')).map(cb => cb.value);
+    const sentiment = Array.from(document.querySelectorAll('input[name="sentiment"]:checked')).map(cb => cb.value);
+
+    const actors = document.getElementById('actors').value
+        .split(',')
+        .map(s => s.trim())
+        .filter(s => s.length > 0);
+
+    const themes = document.getElementById('themes').value
+        .split(',')
+        .map(s => s.trim())
+        .filter(s => s.length > 0);
+
+    const regions = document.getElementById('regions').value
+        .split(',')
+        .map(s => s.trim())
+        .filter(s => s.length > 0);
+
+    const filterConfig = {
+        max_articles: parseInt(document.getElementById('maxArticles').value),
+        timeframe: document.getElementById('timeframe').value,
+        order_by: document.getElementById('orderBy').value
+    };
+
+    if (categories.length > 0) filterConfig.categories = categories;
+    if (actors.length > 0) filterConfig.actors = actors;
+    if (themes.length > 0) filterConfig.themes = themes;
+    if (regions.length > 0) filterConfig.regions = regions;
+    if (sentiment.length > 0) filterConfig.sentiment = sentiment;
+
+    const impactMin = document.getElementById('impactMin').value;
+    const impactMax = document.getElementById('impactMax').value;
+    if (impactMin) filterConfig.impact_min = parseFloat(impactMin);
+    if (impactMax) filterConfig.impact_max = parseFloat(impactMax);
+
+    return filterConfig;
+}
+</script>
+{% endblock %}

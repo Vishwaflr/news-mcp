@@ -43,6 +43,7 @@ class Feed(SQLModel, table=True):
     analyzed_count: int = Field(default=0)
     analyzed_percentage: float = Field(default=0.0)
     source_label: Optional[str] = None
+    latest_article_at: Optional[datetime] = None  # Date of latest article (for health checks)
 
     # Lifecycle columns (Phase 2)
     archived_at: Optional[datetime] = None

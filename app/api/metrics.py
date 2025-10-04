@@ -206,9 +206,9 @@ async def get_storage_stats() -> Dict[str, Any]:
             geopolitical_query = text("""
                 SELECT
                     COUNT(*) AS total_analyses,
-                    COUNT(*) FILTER (WHERE sentiment_json ? 'geopolitical') AS with_geopolitical,
-                    ROUND(100.0 * COUNT(*) FILTER (WHERE sentiment_json ? 'geopolitical') / NULLIF(COUNT(*), 0), 2) AS geopolitical_percentage,
-                    pg_size_pretty(SUM(pg_column_size(sentiment_json)) FILTER (WHERE sentiment_json ? 'geopolitical')::bigint) AS geopolitical_json_size
+                    COUNT(*) FILTER (WHERE sentiment_json::jsonb ? 'geopolitical') AS with_geopolitical,
+                    ROUND(100.0 * COUNT(*) FILTER (WHERE sentiment_json::jsonb ? 'geopolitical') / NULLIF(COUNT(*), 0), 2) AS geopolitical_percentage,
+                    pg_size_pretty(SUM(pg_column_size(sentiment_json)) FILTER (WHERE sentiment_json::jsonb ? 'geopolitical')::bigint) AS geopolitical_json_size
                 FROM item_analysis
             """)
             geopolitical_stats = session.execute(geopolitical_query).fetchone()

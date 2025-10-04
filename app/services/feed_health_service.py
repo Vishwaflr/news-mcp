@@ -72,6 +72,66 @@ class FeedHealthScorer:
             "recommendation": recommendation
         }
 
+    def update_feed_statistics(self, feed_id: int) -> bool:
+        """Update feed statistics (article counts, analysis percentage).
+
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            from app.models import ItemAnalysis
+
+            feed = self.session.get(Feed, feed_id)
+            if not feed:
+                return False
+
+            # Count total articles
+            total_articles = self.session.exec(
+                select(func.count(Item.id)).where(Item.feed_id == feed_id)
+            ).one()
+
+            # Count articles in last 24 hours
+            cutoff_24h = datetime.utcnow() - timedelta(hours=24)
+            articles_24h = self.session.exec(
+                select(func.count(Item.id)).where(
+                    Item.feed_id == feed_id,
+                    Item.published >= cutoff_24h
+                )
+            ).one()
+
+            # Count analyzed articles
+            analyzed_count = self.session.exec(
+                select(func.count(ItemAnalysis.item_id))
+                .select_from(Item)
+                .join(ItemAnalysis, Item.id == ItemAnalysis.item_id)
+                .where(Item.feed_id == feed_id)
+            ).one()
+
+            # Calculate percentage
+            analyzed_percentage = 0.0
+            if total_articles > 0:
+                analyzed_percentage = round((analyzed_count * 100.0) / total_articles, 2)
+
+            # Update feed
+            feed.total_articles = total_articles
+            feed.articles_24h = articles_24h
+            feed.analyzed_count = analyzed_count
+            feed.analyzed_percentage = analyzed_percentage
+            feed.updated_at = datetime.utcnow()
+
+            self.session.commit()
+
+            logger.info(
+                f"Updated feed {feed_id} stats: {total_articles} articles, "
+                f"{analyzed_count} analyzed ({analyzed_percentage}%)"
+            )
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to update feed statistics for feed {feed_id}: {e}")
+            self.session.rollback()
+            return False
+
     def update_feed_health_score(self, feed_id: int) -> bool:
         """Calculate and persist health score to database.
 

@@ -1,12 +1,131 @@
 services:
   postgres:
+    container_name: news-mcp-postgres
     image: postgres:15-alpine
-    restart: always
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: news_user
-      POSTGRES_PASSWORD: ***YOUR_DB_PASSWORD***
       POSTGRES_DB: news_db
+      POSTGRES_USER: news_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-news_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init:/docker-entrypoint-initdb.d:ro
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U news_user -d news_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - news-mcp-network
+
+  redis:
+    container_name: news-mcp-redis
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
     volumes:
-      - ./data/postgres:/var/lib/postgresql/data
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - news-mcp-network
+
+  api:
+    container_name: news-mcp-api
+    build:
+      context: .
+      dockerfile: docker/api/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://news_user:${DB_PASSWORD:-news_password}@postgres:5432/news_db
+      REDIS_URL: redis://redis:6379/0
+      PYTHONPATH: /app
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      - ./logs:/app/logs
+      - ./static:/app/static:ro
+      - ./templates:/app/templates:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - news-mcp-network
+    labels:
+      - "com.news-mcp.service=api"
+      - "com.news-mcp.managed=true"
+
+  scheduler:
+    container_name: news-mcp-scheduler
+    build:
+      context: .
+      dockerfile: docker/scheduler/Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://news_user:${DB_PASSWORD:-news_password}@postgres:5432/news_db
+      REDIS_URL: redis://redis:6379/0
+      PYTHONPATH: /app
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      - ./logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_started
+    networks:
+      - news-mcp-network
+    labels:
+      - "com.news-mcp.service=scheduler"
+      - "com.news-mcp.managed=true"
+
+  worker:
+    container_name: news-mcp-worker
+    build:
+      context: .
+      dockerfile: docker/worker/Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://news_user:${DB_PASSWORD:-news_password}@postgres:5432/news_db
+      REDIS_URL: redis://redis:6379/0
+      PYTHONPATH: /app
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+    volumes:
+      - ./logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_started
+    networks:
+      - news-mcp-network
+    labels:
+      - "com.news-mcp.service=worker"
+      - "com.news-mcp.managed=true"
+
+networks:
+  news-mcp-network:
+    driver: bridge
+    name: news-mcp-network
+
+volumes:
+  postgres_data:
+    name: news-mcp-postgres-data
+  redis_data:
+    name: news-mcp-redis-data

@@ -187,8 +187,9 @@ class SyncFeedFetcher:
                     log.items_new = items_new
                     log_session.commit()
 
-            # Update health
+            # Update health and statistics
             self._update_health_sync(feed_id, True)
+            self._update_feed_statistics_sync(feed_id)
 
             return True, items_new
 
@@ -288,3 +289,16 @@ class SyncFeedFetcher:
 
         except Exception as e:
             logger.error(f"Error updating health: {e}")
+
+    def _update_feed_statistics_sync(self, feed_id: int):
+        """Update feed statistics (article counts, analysis percentage) synchronously"""
+        try:
+            from app.database import engine
+            from app.services.feed_health_service import FeedHealthScorer
+
+            with Session(engine) as session:
+                scorer = FeedHealthScorer(session)
+                scorer.update_feed_statistics(feed_id)
+
+        except Exception as e:
+            logger.error(f"Error updating feed statistics: {e}")

@@ -1,0 +1,17 @@
+<!-- Active Runs -->
+<div class="card mb-3">
+    <div class="card-header">
+        <h6 class="mb-0" style="color: var(--text-primary);">⚡ Active Runs</h6>
+    </div>
+    <div class="card-body">
+        <div id="active-runs"
+             hx-get="/htmx/analysis/runs/active"
+             hx-trigger="load, every 3s"
+             hx-swap="innerHTML">
+            <div class="d-flex justify-content-center py-4">
+                <div class="spinner-border text-primary" role="status"></div>
+            </div>
+        </div>
+    </div>
+</div>
+

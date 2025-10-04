@@ -698,6 +698,8 @@ def get_feeds_list_v2(
         query = query.order_by(Feed.last_fetched.desc().nulls_last())
     elif sort == "volume":
         query = query.order_by(Feed.articles_24h.desc().nulls_last())
+    elif sort == "created":
+        query = query.order_by(Feed.created_at.desc().nulls_last())
 
     feeds = session.exec(query).all()
 
@@ -980,6 +982,11 @@ async def get_feed_edit_data(
     if not feed:
         raise HTTPException(status_code=404, detail="Feed not found")
 
+    # Get source name
+    from app.models.feeds import Source
+    source = session.get(Source, feed.source_id) if feed.source_id else None
+    source_name = source.name if source else (feed.source_label or "")
+
     # Get category_id if exists
     category_stmt = select(FeedCategory.category_id).where(FeedCategory.feed_id == feed_id)
     category_result = session.exec(category_stmt).first()
@@ -988,7 +995,7 @@ async def get_feed_edit_data(
         "id": feed.id,
         "url": feed.url,
         "title": feed.title,
-        "source_label": feed.source_label,
+        "source_label": source_name,
         "description": feed.description,
         "fetch_interval_minutes": feed.fetch_interval_minutes,
         "auto_analyze_enabled": feed.auto_analyze_enabled,
@@ -1025,10 +1032,13 @@ async def update_feed_v2(
     if not result.success:
         raise HTTPException(status_code=400, detail=result.error)
 
-    # Update is_critical separately (not in FeedUpdate schema yet)
+    # Update is_critical and source_label separately (not in FeedUpdate schema yet)
     feed = session.get(Feed, feed_id)
     if feed:
         feed.is_critical = bool(data.get("is_critical", False))
+        # Update source_label if provided
+        if "source_label" in data and data["source_label"]:
+            feed.source_label = data["source_label"]
         session.commit()
 
     # Return updated detail panel

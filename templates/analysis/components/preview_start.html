@@ -1,0 +1,106 @@
+<div class="card mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h6 class="mb-0"><i class="bi bi-rocket-takeoff"></i> Preview & Start</h6>
+    </div>
+    <div class="card-body">
+
+        <!-- Preview Metrics -->
+        <div class="row g-2 mb-3">
+            <div class="col-4">
+                <div class="card text-center p-2">
+                    <div class="h4 mb-0" style="color: var(--text-primary);" x-text="preview.total_items"></div>
+                    <small style="color: var(--text-muted);">TOTAL</small>
+                </div>
+            </div>
+            <div class="col-4">
+                <div class="card text-center p-2">
+                    <div class="h4 mb-0 text-success" style="color: #198754 !important;" x-text="preview.already_analyzed_count"></div>
+                    <small style="color: var(--text-muted);">ANALYZED</small>
+                </div>
+            </div>
+            <div class="col-4">
+                <div class="card text-center p-2">
+                    <div class="h4 mb-0 text-warning" style="color: #ffc107 !important;" x-text="preview.new_items_count"></div>
+                    <small style="color: var(--text-muted);">TO ANALYZE</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-2 mb-3">
+            <div class="col-6">
+                <div class="card text-center p-2">
+                    <div class="small" style="color: var(--text-primary);">💰 <span x-text="'$' + preview.estimated_cost_usd.toFixed(4)"></span></div>
+                    <small style="color: var(--text-muted);">EST. COST</small>
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="card text-center p-2">
+                    <div class="small" style="color: var(--text-primary);">⏱️ <span x-text="preview.estimated_duration_minutes + ' min'"></span></div>
+                    <small style="color: var(--text-muted);">EST. TIME</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="d-grid gap-2">
+            <button class="btn btn-success btn-lg"
+                    @click="startRun()"
+                    :disabled="loading || currentJobStatus.status === 'running'">
+                <span x-show="!loading">🚀 Start Analysis</span>
+                <span x-show="loading" class="spinner-border spinner-border-sm"></span>
+            </button>
+
+            <button class="btn btn-outline-secondary"
+                    @click="updatePreview()"
+                    :disabled="loading">
+                🔄 Refresh Preview
+            </button>
+        </div>
+
+        <!-- Job Status -->
+        <div x-show="currentJobStatus.status !== 'idle'"
+             class="alert mt-3 mb-0"
+             :class="{
+                 'alert-info': currentJobStatus.status === 'running',
+                 'alert-success': currentJobStatus.status === 'done',
+                 'alert-warning': currentJobStatus.status === 'cancelled' || (currentJobStatus.status === 'error' && currentJobStatus.errorType === 'data'),
+                 'alert-danger': currentJobStatus.status === 'error' && ['limit', 'system'].includes(currentJobStatus.errorType),
+                 'alert-primary': currentJobStatus.status === 'error' && currentJobStatus.errorType === 'validation'
+             }"
+             x-cloak>
+            <div class="d-flex justify-content-between align-items-center">
+                <small>
+                    <!-- Error Icon based on type -->
+                    <span x-show="currentJobStatus.status === 'error'">
+                        <span x-show="currentJobStatus.errorType === 'limit'">🚫</span>
+                        <span x-show="currentJobStatus.errorType === 'data'">⚠️</span>
+                        <span x-show="currentJobStatus.errorType === 'validation'">ℹ️</span>
+                        <span x-show="currentJobStatus.errorType === 'system'">⛔</span>
+                    </span>
+                    <strong x-text="currentJobStatus.message"></strong>
+                    <span x-show="currentJobStatus.id"> (Job ID: <span x-text="currentJobStatus.id"></span>)</span>
+                    <!-- Error Code Badge -->
+                    <span x-show="currentJobStatus.status === 'error' && currentJobStatus.errorCode"
+                          class="badge bg-secondary ms-2"
+                          x-text="currentJobStatus.errorCode"
+                          style="font-size: 0.7em;"></span>
+                </small>
+                <button x-show="currentJobStatus.status === 'running'"
+                        @click="cancelRun()"
+                        class="btn btn-sm btn-outline-danger">
+                    ✕ Cancel
+                </button>
+            </div>
+            <!-- Error Details (expandable) -->
+            <div x-show="currentJobStatus.status === 'error' && currentJobStatus.errorDetails && Object.keys(currentJobStatus.errorDetails).length > 0"
+                 class="mt-2 pt-2 border-top">
+                <details>
+                    <summary class="text-muted small" style="cursor: pointer;">
+                        🔍 Error Details
+                    </summary>
+                    <pre class="mt-2 mb-0 small text-muted" style="font-size: 0.8em;" x-text="JSON.stringify(currentJobStatus.errorDetails, null, 2)"></pre>
+                </details>
+            </div>
+        </div>
+    </div>
+</div>

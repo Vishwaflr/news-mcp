@@ -12,8 +12,14 @@ class AnalysisRepo:
         """Insert or update analysis data for an item"""
         with Session(engine) as session:
             try:
-                # Build sentiment JSON including geopolitical data if present
+                # Build sentiment JSON including category, semantic_tags, and geopolitical data
                 sentiment_data = result.sentiment.model_dump()
+
+                # NEW: Add category and semantic tags
+                sentiment_data["category"] = result.category
+                sentiment_data["semantic_tags"] = result.semantic_tags.model_dump()
+
+                # Add geopolitical data if present
                 if result.geopolitical:
                     sentiment_data["geopolitical"] = result.geopolitical.model_dump()
 
