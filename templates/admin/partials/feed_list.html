@@ -1,0 +1,77 @@
+<!-- Feed List Partial -->
+{% if feeds %}
+    {% for feed in feeds %}
+    <div class="feed-card" data-feed-id="{{ feed.id }}"
+         style="cursor: pointer;"
+         hx-get="/htmx/feeds/{{ feed.id }}/detail"
+         hx-target="#feedDetailContainer"
+         hx-swap="innerHTML">
+        <div class="feed-card-header">
+            <div>
+                <h6 class="feed-title">{{ feed.title or feed.url }}</h6>
+                {% if feed.source_label %}
+                <small class="text-muted">{{ feed.source_label }}</small>
+                {% endif %}
+            </div>
+            <div class="feed-badges">
+                <!-- Status Badge -->
+                {% if feed.status.value == 'ACTIVE' %}
+                <span class="badge bg-success">
+                    <i class="bi bi-check-circle"></i> Active
+                </span>
+                {% elif feed.status.value == 'ERROR' %}
+                <span class="badge bg-danger">
+                    <i class="bi bi-exclamation-triangle"></i> Error
+                </span>
+                {% else %}
+                <span class="badge bg-warning">
+                    <i class="bi bi-pause-circle"></i> Inactive
+                </span>
+                {% endif %}
+
+                <!-- Health Status Badge -->
+                {% if feed.status.value == 'ACTIVE' and not feed.last_error_at %}
+                <span class="badge bg-success" title="Feed is working">
+                    <i class="bi bi-check-circle-fill"></i> OK
+                </span>
+                {% else %}
+                <span class="badge bg-danger" title="Feed has errors">
+                    <i class="bi bi-x-circle-fill"></i> Error
+                </span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Feed Meta Information -->
+        <div class="feed-meta">
+            <div class="feed-meta-item" title="Total Articles">
+                <i class="bi bi-file-text"></i>
+                <span>{{ feed.total_articles or 0 }} articles</span>
+            </div>
+            <div class="feed-meta-item" title="Articles in Last 24h">
+                <i class="bi bi-clock-history"></i>
+                <span>{{ feed.articles_24h or 0 }} today</span>
+            </div>
+            <div class="feed-meta-item" title="Analysis Coverage">
+                <i class="bi bi-graph-up"></i>
+                <span>{{ "%.1f"|format(feed.analyzed_percentage or 0) }}% analyzed</span>
+            </div>
+            {% if feed.last_error_at %}
+            <div class="feed-meta-item text-danger" title="Last Error: {{ feed.last_error_at }}">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+                <span>Error</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+    <!-- Empty State -->
+    <div class="text-center py-5">
+        <i class="bi bi-inbox" style="font-size: 3rem; opacity: 0.3;"></i>
+        <p class="text-muted mt-3">No feeds found</p>
+        <button class="btn btn-primary btn-sm">
+            <i class="bi bi-plus-lg"></i> Add Your First Feed
+        </button>
+    </div>
+{% endif %}

@@ -56,34 +56,34 @@ async def get_manager_queue_view(request: Request):
         queue = data["queue_breakdown"]
 
         total_queued = data["queued_runs"]
-        queue_color = "text-green-600" if total_queued == 0 else "text-yellow-600" if total_queued < 5 else "text-red-600"
+        queue_color = "text-success" if total_queued == 0 else "text-warning" if total_queued < 5 else "text-danger"
 
         html = f"""
-        <div>
-            <h3 class="text-lg font-semibold text-gray-200 mb-3">Queue Status</h3>
-            <div class="space-y-2">
-                <div class="flex justify-between">
-                    <span class="text-gray-400">Total Queued:</span>
-                    <span class="{queue_color} font-bold">{total_queued}</span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-gray-400">High Priority:</span>
-                    <span class="font-semibold text-gray-100">{queue['high']}</span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-gray-400">Medium Priority:</span>
-                    <span class="font-semibold text-gray-100">{queue['medium']}</span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-gray-400">Low Priority:</span>
-                    <span class="font-semibold text-gray-100">{queue['low']}</span>
-                </div>
-            </div>
+        <div class="card-body">
+            <h5 class="card-title">Queue Status</h5>
+            <ul class="list-unstyled mb-0">
+                <li class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">Total Queued:</span>
+                    <span class="{queue_color} fw-bold">{total_queued}</span>
+                </li>
+                <li class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">High Priority:</span>
+                    <span class="fw-semibold">{queue['high']}</span>
+                </li>
+                <li class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">Medium Priority:</span>
+                    <span class="fw-semibold">{queue['medium']}</span>
+                </li>
+                <li class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">Low Priority:</span>
+                    <span class="fw-semibold">{queue['low']}</span>
+                </li>
+            </ul>
         </div>
         """
         return html
     except Exception as e:
-        return f'<div class="text-red-500">Error: {str(e)}</div>'
+        return f'<div class="text-danger">Error: {str(e)}</div>'
 
 
 @router.get("/htmx/manager-daily-stats", response_class=HTMLResponse)
@@ -99,42 +99,40 @@ async def get_manager_daily_stats_view(request: Request):
         hourly_percent = (hourly['runs_last_hour'] / hourly['limit']) * 100 if hourly['limit'] > 0 else 0
 
         html = f"""
-        <div>
-            <h3 class="text-lg font-semibold text-gray-200 mb-3">Usage Statistics</h3>
-            <div class="space-y-3">
-                <div>
-                    <div class="flex justify-between mb-1">
-                        <span class="text-gray-400 text-sm">Daily Manual:</span>
-                        <span class="text-sm">{daily['total_runs']} / {daily['limit_total']}</span>
-                    </div>
-                    <div class="w-full bg-gray-600 rounded-full h-2">
-                        <div class="bg-blue-600 h-2 rounded-full" style="width: {min(daily_percent, 100):.1f}%"></div>
-                    </div>
+        <div class="card-body">
+            <h5 class="card-title">Usage Statistics</h5>
+            <div class="mb-3">
+                <div class="d-flex justify-content-between mb-1">
+                    <small class="text-muted">Daily Manual:</small>
+                    <small>{daily['total_runs']} / {daily['limit_total']}</small>
                 </div>
-                <div>
-                    <div class="flex justify-between mb-1">
-                        <span class="text-gray-400 text-sm">Daily Auto:</span>
-                        <span class="text-sm">{daily['auto_runs']} / {daily['limit_auto']}</span>
-                    </div>
-                    <div class="w-full bg-gray-600 rounded-full h-2">
-                        <div class="bg-green-600 h-2 rounded-full" style="width: {min((daily['auto_runs'] / daily['limit_auto']) * 100, 100):.1f}%"></div>
-                    </div>
+                <div class="progress" style="height: 8px;">
+                    <div class="progress-bar bg-primary" role="progressbar" style="width: {min(daily_percent, 100):.1f}%" aria-valuenow="{daily_percent:.1f}" aria-valuemin="0" aria-valuemax="100"></div>
                 </div>
-                <div>
-                    <div class="flex justify-between mb-1">
-                        <span class="text-gray-400 text-sm">Last Hour:</span>
-                        <span class="text-sm">{hourly['runs_last_hour']} / {hourly['limit']}</span>
-                    </div>
-                    <div class="w-full bg-gray-600 rounded-full h-2">
-                        <div class="bg-yellow-600 h-2 rounded-full" style="width: {min(hourly_percent, 100):.1f}%"></div>
-                    </div>
+            </div>
+            <div class="mb-3">
+                <div class="d-flex justify-content-between mb-1">
+                    <small class="text-muted">Daily Auto:</small>
+                    <small>{daily['auto_runs']} / {daily['limit_auto']}</small>
+                </div>
+                <div class="progress" style="height: 8px;">
+                    <div class="progress-bar bg-success" role="progressbar" style="width: {min((daily['auto_runs'] / daily['limit_auto']) * 100, 100):.1f}%" aria-valuenow="{(daily['auto_runs'] / daily['limit_auto']) * 100:.1f}" aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+            </div>
+            <div class="mb-0">
+                <div class="d-flex justify-content-between mb-1">
+                    <small class="text-muted">Last Hour:</small>
+                    <small>{hourly['runs_last_hour']} / {hourly['limit']}</small>
+                </div>
+                <div class="progress" style="height: 8px;">
+                    <div class="progress-bar bg-warning" role="progressbar" style="width: {min(hourly_percent, 100):.1f}%" aria-valuenow="{hourly_percent:.1f}" aria-valuemin="0" aria-valuemax="100"></div>
                 </div>
             </div>
         </div>
         """
         return html
     except Exception as e:
-        return f'<div class="text-red-500">Error: {str(e)}</div>'
+        return f'<div class="text-danger">Error: {str(e)}</div>'
 
 
 @router.get("/htmx/manager-config", response_class=HTMLResponse)
@@ -204,3 +202,98 @@ async def get_manager_active_runs_view(request: Request):
         return html
     except Exception as e:
         return f'<div class="text-red-500">Error: {str(e)}</div>'
+
+
+@router.get("/htmx/services-status", response_class=HTMLResponse)
+async def get_services_status_view(request: Request):
+    """Get system services status as HTML component."""
+    import subprocess
+
+    try:
+        def check_process(pattern: str) -> bool:
+            """Check if a process is running."""
+            try:
+                result = subprocess.run(
+                    ["pgrep", "-f", pattern],
+                    capture_output=True,
+                    text=True,
+                    timeout=2
+                )
+                return result.returncode == 0
+            except:
+                return False
+
+        def check_port(port: int) -> bool:
+            """Check if a port is listening."""
+            try:
+                # Try ss first (modern replacement for netstat)
+                result = subprocess.run(
+                    ["ss", "-tuln"],
+                    capture_output=True,
+                    text=True,
+                    timeout=2
+                )
+                return f":{port}" in result.stdout
+            except:
+                return False
+
+        # Check services
+        services = [
+            {
+                "name": "API Server",
+                "icon": "🌐",
+                "status": check_port(8000),
+                "description": "FastAPI (Port 8000)"
+            },
+            {
+                "name": "MCP Server",
+                "icon": "🔌",
+                "status": check_process("mcp_server.py"),
+                "description": "Model Context Protocol"
+            },
+            {
+                "name": "Scheduler",
+                "icon": "⏰",
+                "status": check_process("scheduler_runner.py"),
+                "description": "Scheduled Tasks"
+            },
+            {
+                "name": "Worker",
+                "icon": "⚙️",
+                "status": check_process("analysis_worker.py"),
+                "description": "Analysis Worker"
+            }
+        ]
+
+        html = '<div class="row g-2">'
+
+        for service in services:
+            status_badge = "success" if service["status"] else "danger"
+            status_text = "Running" if service["status"] else "Stopped"
+            status_icon = "✓" if service["status"] else "✗"
+
+            html += f'''
+            <div class="col-md-6">
+                <div class="card border-{status_badge}">
+                    <div class="card-body py-2 px-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="fs-5 me-2">{service["icon"]}</span>
+                                <strong>{service["name"]}</strong>
+                                <br>
+                                <small class="text-muted">{service["description"]}</small>
+                            </div>
+                            <div class="text-end">
+                                <span class="badge bg-{status_badge}">{status_icon} {status_text}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            '''
+
+        html += '</div>'
+        return html
+
+    except Exception as e:
+        return f'<div class="text-danger">Error: {str(e)}</div>'

@@ -559,3 +559,161 @@
     background-size: 200% 100%;
   }
 }
+/* ==========================================================================
+   FEED MANAGEMENT V2 STYLES
+   ========================================================================== */
+
+/* Feed Card */
+.feed-card {
+  background: var(--bs-card-bg, #fff);
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  border-radius: var(--card-border-radius);
+  padding: var(--spacing-lg);
+  margin-bottom: var(--spacing-md);
+  transition: all var(--transition-base);
+}
+
+.feed-card:hover {
+  box-shadow: var(--card-shadow-hover);
+  transform: translateY(-2px);
+  border-color: var(--color-primary);
+}
+
+.feed-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--spacing-sm);
+}
+
+.feed-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--bs-body-color);
+}
+
+.feed-badges {
+  display: flex;
+  gap: var(--spacing-xs);
+  align-items: center;
+}
+
+.feed-meta {
+  display: flex;
+  gap: var(--spacing-lg);
+  flex-wrap: wrap;
+  margin-top: var(--spacing-md);
+  font-size: 0.875rem;
+}
+
+.feed-meta-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  color: var(--bs-secondary-color, #6c757d);
+}
+
+/* Health Badges */
+.health-badge {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.health-excellent {
+  background: var(--bg-success-subtle);
+  color: var(--color-success);
+}
+
+.health-good {
+  background: var(--bg-info-subtle);
+  color: var(--color-info);
+}
+
+.health-warning {
+  background: var(--bg-warning-subtle);
+  color: var(--color-warning);
+}
+
+.health-critical {
+  background: var(--bg-danger-subtle);
+  color: var(--color-danger);
+}
+
+/* Detail Panel */
+.detail-empty {
+  background: var(--bs-card-bg, #fff);
+  border: 2px dashed var(--bs-border-color, #dee2e6);
+  border-radius: var(--card-border-radius);
+  padding: var(--spacing-xl);
+}
+
+.feed-detail {
+  background: var(--bs-card-bg, #fff);
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  border-radius: var(--card-border-radius);
+  padding: var(--spacing-lg);
+}
+
+.detail-section {
+  margin-bottom: var(--spacing-xl);
+  padding-bottom: var(--spacing-lg);
+  border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+}
+
+.detail-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.detail-section h5 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin-bottom: var(--spacing-md);
+  color: var(--bs-body-color);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-sm) 0;
+}
+
+.detail-label {
+  font-size: 0.875rem;
+  color: var(--bs-secondary-color, #6c757d);
+}
+
+.detail-value {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--bs-body-color);
+}
+
+/* Dark mode adjustments */
+@media (prefers-color-scheme: dark) {
+  .feed-card {
+    background: #1e1e1e;
+    border-color: #333;
+  }
+  
+  .feed-detail {
+    background: #1e1e1e;
+    border-color: #333;
+  }
+  
+  .detail-empty {
+    background: #1e1e1e;
+    border-color: #333;
+  }
+}

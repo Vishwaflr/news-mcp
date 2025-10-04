@@ -34,6 +34,20 @@ class Feed(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
+    # Analytics columns (Phase 1.1)
+    health_score: Optional[int] = Field(default=50)
+    last_error_message: Optional[str] = None
+    last_error_at: Optional[datetime] = None
+    total_articles: int = Field(default=0)
+    articles_24h: int = Field(default=0)
+    analyzed_count: int = Field(default=0)
+    analyzed_percentage: float = Field(default=0.0)
+    source_label: Optional[str] = None
+
+    # Lifecycle columns (Phase 2)
+    archived_at: Optional[datetime] = None
+    is_critical: bool = Field(default=False)
+
     # Relationships
     source: "Source" = Relationship(back_populates="feeds")
     feed_type: Optional["FeedType"] = Relationship(back_populates="feeds")

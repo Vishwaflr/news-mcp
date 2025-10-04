@@ -124,12 +124,27 @@
 - Feed Scheduler
 - Feed Health Monitoring
 - Feed Limits Service
+- **Feed Management UI V2** (Redesign 2025-10-03)
+
+**UI V2 Features (Complete Rebuild):**
+- ✅ Pure JavaScript (NO HTMX conflicts)
+- ✅ Bootstrap 5 Modern UI
+- ✅ Search with debouncing (300ms)
+- ✅ Filter by status (All/Active/Inactive/Errors)
+- ✅ Sort by Health/Name/Activity
+- ✅ Add Feed Modal with validation
 
 **Metriken:**
 - 41 aktive Feeds
 - 16,843 Items total
 - Fetch Success Rate: >95%
 - 13 Feeds mit Auto-Analysis
+
+**Wichtige Lessons Learned:**
+- ❌ **NEVER mix HTMX attributes with JavaScript fetch()** - Führt zu Konflikten
+- ✅ **ALWAYS enable auto_reload=True für Jinja2Templates** - Template-Caching verhindert sonst Updates
+- ✅ **Complete Rebuild > Incremental Fixes** - Bei fundamentalen Architektur-Problemen
+- ✅ **Pure JavaScript State Management** - Klarer als Mixed HTMX/JS Approach
 
 ---
 
@@ -219,6 +234,53 @@
 3. app/api/feeds.py
 4. app/api/health.py
 ```
+
+---
+
+### Workset 4: Feed Management UI V2 ✅ ABGESCHLOSSEN
+**Status:** ✅ Completed (2025-10-03)
+**Zweck:** Complete Rebuild of Feed Management Interface
+
+**Problem History:**
+- ❌ Initial approach: Modified old template with HTMX attributes
+- ❌ Mixed HTMX + JavaScript caused conflicts
+- ❌ Template caching prevented updates (missing auto_reload=True)
+- ❌ False diagnoses and debugging difficulties
+
+**Solution: Complete Rebuild**
+```
+1. templates/admin/feeds_v2.html       (Deleted + Rebuilt from scratch)
+2. app/web/views/admin_views.py        (Fixed: auto_reload=True)
+3. app/web/views/feed_views.py         (HTMX Backend Routes)
+4. app/main.py                         (Router Registration + auto_reload)
+```
+
+**Key Architectural Decisions:**
+- ✅ **Pure JavaScript** (NO HTMX attributes in template)
+- ✅ **State Management:** `currentFilter`, `currentSort`, `searchTerm`
+- ✅ **Async/Await:** Modern fetch() API
+- ✅ **Debounced Search:** 300ms delay
+- ✅ **Bootstrap 5 Modal:** Add Feed form with validation
+
+**Critical Fixes Applied:**
+1. **Router Registration:** Added `feed_views.router` to `main.py:138`
+2. **Template Auto-Reload:** Set `auto_reload=True` in both `main.py` and `admin_views.py`
+3. **Removed HTMX Conflicts:** Deleted all `hx-*` attributes from search/filter inputs
+4. **Clean Architecture:** Separation of HTML structure, state, API helpers, event handlers
+
+**Testing Checklist:**
+- [ ] Load page: http://localhost:8000/admin/feeds-v2
+- [ ] Search: Type in search box → debounced API call
+- [ ] Filter: Click All/Active/Inactive/Errors → re-render list
+- [ ] Sort: Change dropdown → re-render list
+- [ ] Add Feed: Click button → modal opens with form
+- [ ] Save Feed: Fill form → POST to /htmx/feeds/create
+
+**Lessons Learned:**
+1. **NEVER mix HTMX attributes with JavaScript fetch()** - Creates attribute conflicts
+2. **ALWAYS set auto_reload=True for Jinja2Templates** - Template caching prevents updates
+3. **Complete Rebuild > Incremental Fixes** - When fundamental architecture is broken
+4. **Pure JavaScript State Management** - Clearer than mixed HTMX/JS approach
 
 ---
 

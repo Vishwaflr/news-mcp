@@ -2,6 +2,7 @@
 
 from typing import Dict, Any, Optional, List
 from datetime import datetime
+import re
 
 
 class BaseComponent:
@@ -39,8 +40,18 @@ class BaseComponent:
 
     @staticmethod
     def clean_html_attr(text: str) -> str:
-        """Clean text for use in HTML attributes."""
-        return text.replace('"', '&quot;') if text else ''
+        """Clean text for use in HTML attributes - removes HTML tags and escapes quotes."""
+        if not text:
+            return ''
+        # Remove all HTML tags
+        text = re.sub(r'<[^>]+>', '', text)
+        # Replace HTML entities
+        text = text.replace('&quot;', '"').replace('&lt;', '<').replace('&gt;', '>').replace('&amp;', '&')
+        # Escape quotes for HTML attributes
+        text = text.replace('"', '&quot;')
+        # Remove extra whitespace
+        text = ' '.join(text.split())
+        return text
 
     @staticmethod
     def truncate_text(text: str, max_length: int = 200) -> str:

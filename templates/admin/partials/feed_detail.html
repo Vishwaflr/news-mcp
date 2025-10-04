@@ -1,0 +1,360 @@
+<!-- Feed Detail Panel -->
+{% if feed %}
+<div class="feed-detail">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-start mb-3">
+        <div>
+            <h4>{{ feed.title or feed.url }}</h4>
+            {% if feed.source_label %}
+            <p class="text-muted mb-0">{{ feed.source_label }}</p>
+            {% endif %}
+        </div>
+        <div class="btn-group btn-group-sm">
+            <button class="btn btn-outline-primary"
+                    title="Edit Feed"
+                    onclick="loadEditFeedModal({{ feed.id }})">
+                <i class="bi bi-pencil"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Section 1: Overview -->
+    <div class="detail-section">
+        <h5><i class="bi bi-info-circle"></i> Overview</h5>
+        <div class="detail-row">
+            <span class="detail-label">Status</span>
+            <span class="detail-value">
+                {% if feed.status.value == 'ACTIVE' %}
+                <span class="badge bg-success">Active</span>
+                {% elif feed.status.value == 'ERROR' %}
+                <span class="badge bg-danger">Error</span>
+                {% else %}
+                <span class="badge bg-warning">Inactive</span>
+                {% endif %}
+            </span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Feed URL</span>
+            <span class="detail-value">
+                <a href="{{ feed.url }}" target="_blank" class="text-truncate d-inline-block" style="max-width: 200px;">
+                    {{ feed.url }}
+                </a>
+            </span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Fetch Interval</span>
+            <span class="detail-value">{{ feed.fetch_interval_minutes }} min</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Created</span>
+            <span class="detail-value">{{ feed.created_at.strftime('%Y-%m-%d %H:%M') if feed.created_at else 'N/A' }}</span>
+        </div>
+    </div>
+
+    <!-- Section 2: Activity & Volume -->
+    <div class="detail-section">
+        <h5><i class="bi bi-activity"></i> Activity & Volume</h5>
+        <div class="detail-row">
+            <span class="detail-label">Total Articles</span>
+            <span class="detail-value"><strong>{{ feed.total_articles or 0 }}</strong></span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Articles (24h)</span>
+            <span class="detail-value">
+                <span class="badge bg-info">{{ feed.articles_24h or 0 }}</span>
+            </span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Last Fetched</span>
+            <span class="detail-value">
+                {% if feed.last_fetched %}
+                {{ feed.last_fetched.strftime('%Y-%m-%d %H:%M') }}
+                {% else %}
+                <span class="text-muted">Never</span>
+                {% endif %}
+            </span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Next Fetch</span>
+            <span class="detail-value">
+                {% if feed.next_fetch_scheduled %}
+                {{ feed.next_fetch_scheduled.strftime('%H:%M') }}
+                {% else %}
+                <span class="text-muted">Not scheduled</span>
+                {% endif %}
+            </span>
+        </div>
+    </div>
+
+    <!-- Section 3: Quality & Analysis -->
+    <div class="detail-section">
+        <h5><i class="bi bi-graph-up"></i> Quality & Analysis</h5>
+        <div class="detail-row">
+            <span class="detail-label">Analyzed Articles</span>
+            <span class="detail-value">{{ feed.analyzed_count or 0 }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Analysis Coverage</span>
+            <span class="detail-value">
+                {% set coverage = feed.analyzed_percentage or 0 %}
+                <div class="progress" style="width: 80px; height: 20px;">
+                    <div class="progress-bar {% if coverage >= 80 %}bg-success{% elif coverage >= 50 %}bg-info{% else %}bg-warning{% endif %}"
+                         style="width: {{ coverage }}%">
+                        {{ "%.0f"|format(coverage) }}%
+                    </div>
+                </div>
+            </span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Auto-Analyze</span>
+            <span class="detail-value">
+                {% if feed.auto_analyze_enabled %}
+                <i class="bi bi-check-circle-fill text-success"></i> Enabled
+                {% else %}
+                <i class="bi bi-x-circle text-muted"></i> Disabled
+                {% endif %}
+            </span>
+        </div>
+    </div>
+
+    <!-- Section 4: Health Status -->
+    <div class="detail-section">
+        <h5><i class="bi bi-heart-pulse"></i> Feed Health</h5>
+        <div class="detail-row">
+            <span class="detail-label">Status</span>
+            <span class="detail-value">
+                {% if feed.status.value == 'ACTIVE' and not feed.last_error_at %}
+                <span class="badge bg-success">
+                    <i class="bi bi-check-circle-fill"></i> Working
+                </span>
+                {% else %}
+                <span class="badge bg-danger">
+                    <i class="bi bi-x-circle-fill"></i> Has Errors
+                </span>
+                {% endif %}
+            </span>
+        </div>
+        {% if feed.last_error_at %}
+        <div class="detail-row">
+            <span class="detail-label">Last Error</span>
+            <span class="detail-value">
+                <small class="text-danger">{{ feed.last_error_at.strftime('%Y-%m-%d %H:%M') }}</small>
+            </span>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Section 5: Diagnostics -->
+    <div class="detail-section">
+        <h5><i class="bi bi-tools"></i> Diagnostics</h5>
+        <div class="detail-row">
+            <span class="detail-label">Last Error</span>
+            <span class="detail-value">
+                {% if feed.last_error_at %}
+                <span class="text-danger" title="{{ feed.last_error_message }}">
+                    {{ feed.last_error_at.strftime('%Y-%m-%d %H:%M') }}
+                </span>
+                {% else %}
+                <span class="text-success">No errors</span>
+                {% endif %}
+            </span>
+        </div>
+        {% if feed.last_error_message %}
+        <div class="alert alert-danger alert-sm mt-2 mb-0">
+            <small><strong>Error:</strong> {{ feed.last_error_message[:100] }}...</small>
+        </div>
+        {% endif %}
+        <div class="detail-row">
+            <span class="detail-label">ETag</span>
+            <span class="detail-value">
+                {% if feed.etag %}
+                <code class="text-truncate d-inline-block" style="max-width: 150px;">{{ feed.etag }}</code>
+                {% else %}
+                <span class="text-muted">None</span>
+                {% endif %}
+            </span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Last Modified</span>
+            <span class="detail-value">
+                {% if feed.last_modified %}
+                {{ feed.last_modified }}
+                {% else %}
+                <span class="text-muted">N/A</span>
+                {% endif %}
+            </span>
+        </div>
+    </div>
+
+    <!-- Section 6: Quick Actions -->
+    <div class="detail-section">
+        <h5><i class="bi bi-lightning"></i> Quick Actions</h5>
+        <div class="d-grid gap-2">
+            <button class="btn btn-primary btn-sm"
+                    hx-post="/htmx/feeds/{{ feed.id }}/fetch"
+                    hx-target="#feedDetailContainer"
+                    hx-swap="outerHTML">
+                <i class="bi bi-arrow-clockwise"></i> Fetch Now
+            </button>
+            <button class="btn btn-outline-secondary btn-sm"
+                    hx-post="/htmx/feeds/{{ feed.id }}/toggle-status"
+                    hx-target="#feedDetailContainer"
+                    hx-swap="outerHTML">
+                {% if feed.status.value == 'ACTIVE' %}
+                <i class="bi bi-pause"></i> Pause Feed
+                {% else %}
+                <i class="bi bi-play"></i> Activate Feed
+                {% endif %}
+            </button>
+            <button class="btn btn-outline-info btn-sm"
+                    hx-get="/htmx/feeds/{{ feed.id }}/preview"
+                    hx-target="#previewModal .modal-body"
+                    data-bs-toggle="modal"
+                    data-bs-target="#previewModal">
+                <i class="bi bi-eye"></i> Preview Articles
+            </button>
+        </div>
+    </div>
+
+    <!-- Section 7: Lifecycle Management -->
+    <div class="detail-section">
+        <h5><i class="bi bi-life-preserver"></i> Lifecycle</h5>
+
+        {% if feed.archived_at %}
+        <!-- Already Archived -->
+        <div class="alert alert-warning mb-3">
+            <i class="bi bi-archive-fill"></i> Archived on {{ feed.archived_at.strftime('%Y-%m-%d %H:%M') }}
+        </div>
+        {% endif %}
+
+        {% if feed.is_critical %}
+        <div class="alert alert-info mb-3">
+            <i class="bi bi-shield-fill-check"></i> Critical Feed (deletion protected)
+        </div>
+        {% endif %}
+
+        <div class="d-grid gap-2">
+            {% if not feed.archived_at %}
+            <!-- Archive Button (only if not archived) -->
+            <button class="btn btn-warning btn-sm"
+                    hx-post="/htmx/feeds/{{ feed.id }}/archive"
+                    hx-target="#feedDetailContainer"
+                    hx-swap="innerHTML"
+                    hx-confirm="Archive this feed? This will deactivate it and mark it as archived (one-way action).">
+                <i class="bi bi-archive"></i> Archive Feed
+            </button>
+            {% endif %}
+
+            <!-- Delete Button (with preflight check) -->
+            <button class="btn btn-danger btn-sm"
+                    onclick="confirmDelete({{ feed.id }})">
+                <i class="bi bi-trash"></i> Delete Feed
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+// Delete with Preflight Check
+async function confirmDelete(feedId) {
+    try {
+        // Get preflight data
+        const response = await fetch(`/htmx/feeds/${feedId}/delete-preflight`);
+        const data = await response.json();
+
+        // Build confirmation message
+        let message = `Delete Feed: ${data.feed_title}\n\n`;
+        message += `References to be removed:\n`;
+        message += `- Articles: ${data.references.items}\n`;
+        message += `- Processor Configs: ${data.references.processor_configs}\n`;
+        message += `- Categories: ${data.references.categories}\n`;
+        message += `- Health Records: ${data.references.health_records}\n`;
+        message += `Total: ${data.references.total}\n\n`;
+
+        if (data.is_critical) {
+            message += `⚠️ This feed is marked as CRITICAL\n`;
+        }
+
+        if (data.is_archived) {
+            message += `✓ Feed is archived (recommended before deletion)\n\n`;
+        } else {
+            message += `⚠️ Feed is NOT archived (consider archiving first)\n\n`;
+        }
+
+        // Check if blocked
+        if (!data.can_delete) {
+            alert(`Cannot delete feed:\n${data.block_reason}\n\nReferences: ${data.references.total}`);
+            return;
+        }
+
+        // Final confirmation
+        if (confirm(message + "Proceed with deletion? This cannot be undone.")) {
+            // Execute delete
+            const deleteResp = await fetch(`/htmx/feeds/${feedId}`, {
+                method: 'DELETE'
+            });
+
+            if (!deleteResp.ok) {
+                const error = await deleteResp.text();
+                alert('Delete failed: ' + error);
+                return;
+            }
+
+            // Clear detail panel
+            document.getElementById('feedDetailContainer').innerHTML = `
+                <div class="detail-empty text-center py-5">
+                    <i class="bi bi-rss" style="font-size: 3rem; opacity: 0.3;"></i>
+                    <p class="text-muted mt-3">Select a feed to view details</p>
+                </div>
+            `;
+
+            // Refresh feed list
+            if (typeof renderFeeds === 'function') {
+                renderFeeds();
+            } else {
+                location.reload();
+            }
+        }
+    } catch (error) {
+        alert('Error checking delete: ' + error.message);
+    }
+}
+</script>
+
+<!-- Health Report Modal -->
+<div class="modal fade" id="healthReportModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Health Report</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Content loaded via HTMX -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Preview Modal -->
+<div class="modal fade" id="previewModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Article Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Content loaded via HTMX -->
+            </div>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<!-- Empty State (shown when no feed selected) -->
+<div class="detail-empty">
+    <i class="bi bi-rss"></i>
+    <p>Select a feed to view details</p>
+</div>
+{% endif %}

@@ -97,6 +97,54 @@
         </div>
     </div>
 
+    <!-- System Stats Cards (from Manager) -->
+    <div class="row g-4 mb-4">
+        <!-- Storage Statistics -->
+        <div class="col-lg-3">
+            <div class="card h-100" id="storage-stats-card">
+                <div class="card-body" id="storage-stats-content">
+                    <div class="text-muted">Loading storage stats...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Status -->
+        <div class="col-lg-3">
+            <div class="card h-100"
+                 hx-get="/htmx/manager-status"
+                 hx-trigger="load, every 5s"
+                 hx-swap="innerHTML">
+                <div class="card-body">
+                    <div class="text-muted">Loading status...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Queue Status -->
+        <div class="col-lg-3">
+            <div class="card h-100"
+                 hx-get="/htmx/manager-queue"
+                 hx-trigger="load, every 5s"
+                 hx-swap="innerHTML">
+                <div class="card-body">
+                    <div class="text-muted">Loading queue...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Usage Statistics -->
+        <div class="col-lg-3">
+            <div class="card h-100"
+                 hx-get="/htmx/manager-daily-stats"
+                 hx-trigger="load, every 10s"
+                 hx-swap="innerHTML">
+                <div class="card-body">
+                    <div class="text-muted">Loading stats...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Auto-Analysis Dashboard & System Overview -->
     <div class="row g-4">
         <!-- Auto-Analysis Widget -->
@@ -118,33 +166,54 @@
             </div>
         </div>
 
-        <!-- System Overview -->
+        <!-- Services Status -->
         <div class="col-lg-8">
             <div class="nmc-card">
                 <div class="card-body py-lg px-lg">
-                    <div class="d-flex justify-content-between align-items-center mb-lg">
-                        <h6 class="mb-0">System Overview</h6>
-                        <small class="nmc-text-muted">Last updated: <span id="last-updated">Just now</span></small>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="mb-0">🔧 System Services</h6>
+                        <small class="nmc-text-muted">Auto-refresh every 10s</small>
                     </div>
-                    <div id="system-overview" hx-get="/htmx/system-overview" hx-trigger="load, every 30s">
-                        <!-- Enhanced Skeleton loading -->
-                        <div class="nmc-skeleton-card">
-                            <div class="row">
-                                <div class="col-md-3 text-center">
-                                    <div class="nmc-skeleton skeleton-text"></div>
-                                    <small class="nmc-text-muted d-block">Database Status</small>
+                    <div id="services-status"
+                         hx-get="/htmx/services-status"
+                         hx-trigger="load, every 10s"
+                         hx-swap="innerHTML">
+                        <!-- Loading skeleton -->
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-body py-2 px-3">
+                                        <div class="placeholder-glow">
+                                            <span class="placeholder col-6"></span>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="col-md-3 text-center">
-                                    <div class="nmc-skeleton skeleton-text"></div>
-                                    <small class="nmc-text-muted d-block">Active Feeds</small>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-body py-2 px-3">
+                                        <div class="placeholder-glow">
+                                            <span class="placeholder col-6"></span>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="col-md-3 text-center">
-                                    <div class="nmc-skeleton skeleton-text"></div>
-                                    <small class="nmc-text-muted d-block">Analysis Queue</small>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-body py-2 px-3">
+                                        <div class="placeholder-glow">
+                                            <span class="placeholder col-6"></span>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="col-md-3 text-center">
-                                    <div class="nmc-skeleton skeleton-text"></div>
-                                    <small class="nmc-text-muted d-block">Repository Status</small>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-body py-2 px-3">
+                                        <div class="placeholder-glow">
+                                            <span class="placeholder col-6"></span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -154,5 +223,60 @@
         </div>
     </div>
 </div>
+
+<script>
+// Storage Statistics Functions
+async function loadStorageStats() {
+    try {
+        const response = await fetch('/api/metrics/storage/stats');
+        const result = await response.json();
+
+        if (result.success && result.data) {
+            displayStorageStats(result.data);
+        } else {
+            throw new Error(result.error || 'Failed to load storage stats');
+        }
+    } catch (error) {
+        document.getElementById('storage-stats-content').innerHTML =
+            `<div class="alert alert-danger p-2 m-0"><small>Error: ${error.message}</small></div>`;
+    }
+}
+
+function displayStorageStats(data) {
+    const content = document.getElementById('storage-stats-content');
+
+    let html = `
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="card-title mb-0">💾 Storage Stats</h6>
+            <button class="btn btn-sm btn-outline-primary" onclick="loadStorageStats()" title="Refresh">
+                <i class="bi bi-arrow-clockwise"></i>
+            </button>
+        </div>
+        <div class="d-flex justify-content-between mb-2">
+            <small class="text-muted">Database Size:</small>
+            <strong>${data.database_size}</strong>
+        </div>
+        <div class="d-flex justify-content-between mb-2">
+            <small class="text-muted">Total Items:</small>
+            <strong>${data.item_count.toLocaleString()}</strong>
+        </div>
+        <div class="d-flex justify-content-between mb-2">
+            <small class="text-muted">Analyzed:</small>
+            <strong>${data.analysis_count.toLocaleString()} (${data.analysis_coverage_percent}%)</strong>
+        </div>
+        <div class="d-flex justify-content-between mb-2">
+            <small class="text-muted">Growth:</small>
+            <strong>${data.growth.items_per_week.toLocaleString()}/week</strong>
+        </div>
+    `;
+
+    content.innerHTML = html;
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadStorageStats();
+});
+</script>
 
 {% endblock %}
