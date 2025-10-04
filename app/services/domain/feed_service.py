@@ -205,7 +205,13 @@ class FeedService(BaseService[Feed, FeedCreate, FeedUpdate]):
             for config_change in config_changes_to_delete:
                 self.session.delete(config_change)
 
-            # 7. Finally delete the feed itself
+            # 7. Delete feed processor configs
+            from app.models.processors import FeedProcessorConfig
+            processor_configs_to_delete = self.session.exec(select(FeedProcessorConfig).where(FeedProcessorConfig.feed_id == feed_id)).all()
+            for processor_config in processor_configs_to_delete:
+                self.session.delete(processor_config)
+
+            # 8. Finally delete the feed itself
             self.session.delete(feed)
             self.session.commit()
 

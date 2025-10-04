@@ -665,9 +665,9 @@ def get_feed_edit_form(feed_id: int, session: Session = Depends(get_session)):
 @router.get("/feeds/list", response_class=HTMLResponse)
 def get_feeds_list_v2(
     request: Request,
-    filter: str = Query("all"),
-    sort: str = Query("health"),
-    search: str = Query(None),
+    filter: str = "all",
+    sort: str = "health",
+    search: str = None,
     session: Session = Depends(get_session)
 ):
     """V2 feed list with filters and sorting"""
@@ -710,8 +710,8 @@ def get_feeds_list_v2(
 @router.get("/feeds/search", response_class=HTMLResponse)
 def search_feeds_v2(
     request: Request,
-    search: str = Query(""),
-    filter: str = Query("all"),
+    search: str = "",
+    filter: str = "all",
     session: Session = Depends(get_session)
 ):
     """Search feeds endpoint"""
