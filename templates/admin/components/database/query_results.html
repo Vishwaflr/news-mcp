@@ -1,0 +1,24 @@
+<!-- Query Results -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h6 class="mb-0"><i class="fas fa-table"></i> Query Results</h6>
+        <div class="btn-group btn-group-sm">
+            <button class="btn btn-outline-success" onclick="exportResults('csv')"
+                    id="export-csv-btn" disabled>
+                <i class="fas fa-file-csv"></i> CSV
+            </button>
+            <button class="btn btn-outline-primary" onclick="exportResults('json')"
+                    id="export-json-btn" disabled>
+                <i class="fas fa-file-code"></i> JSON
+            </button>
+        </div>
+    </div>
+    <div class="card-body">
+        <div id="query-status" class="alert alert-info">
+            <i class="fas fa-info-circle"></i> Enter a SELECT query above and click Execute to see results.
+        </div>
+        <div id="query-results" class="query-result" style="display: none;">
+            <!-- Results will be populated here -->
+        </div>
+    </div>
+</div>

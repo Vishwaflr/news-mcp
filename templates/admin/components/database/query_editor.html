@@ -1,0 +1,44 @@
+<!-- Query Editor -->
+<div class="card mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h6 class="mb-0"><i class="fas fa-code"></i> SQL Query Editor</h6>
+        <div class="btn-group btn-group-sm">
+            <button class="btn btn-success" onclick="executeQuery()">
+                <i class="fas fa-play"></i> Execute
+            </button>
+            <button class="btn btn-outline-secondary" onclick="clearEditor()">
+                <i class="fas fa-trash"></i> Clear
+            </button>
+            <button class="btn btn-outline-info" onclick="formatQuery()">
+                <i class="fas fa-magic"></i> Format
+            </button>
+        </div>
+    </div>
+    <div class="card-body">
+        <form id="query-form">
+            <div class="mb-3">
+                <textarea class="form-control query-editor" id="sql-query" name="query"
+                          placeholder="SELECT * FROM feeds LIMIT 10;" rows="8"></textarea>
+            </div>
+            <div class="row">
+                <div class="col-md-6">
+                    <label for="result-limit" class="form-label">Result Limit:</label>
+                    <select class="form-select form-select-sm" id="result-limit" name="limit">
+                        <option value="50">50 rows</option>
+                        <option value="100" selected>100 rows</option>
+                        <option value="500">500 rows</option>
+                        <option value="1000">1000 rows</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-check mt-4">
+                        <input class="form-check-input" type="checkbox" id="auto-execute" checked>
+                        <label class="form-check-label" for="auto-execute">
+                            Auto-execute on query selection
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
