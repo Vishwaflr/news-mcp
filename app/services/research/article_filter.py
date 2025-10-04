@@ -330,13 +330,11 @@ class ArticleFilterService:
     def _get_filter_count(self, filter_config: Dict[str, Any]) -> int:
         """Get total count of articles matching filter (without limit)"""
         try:
-            # Similar to filter_by_criteria but only COUNT
+            # Build WHERE conditions (same logic as filter_by_criteria)
             where_conditions = ["1=1"]
             params = {}
 
-            # Copy-paste WHERE logic from filter_by_criteria
-            # (Simplified for brevity - use same logic as above)
-
+            # Timeframe filter
             timeframe = filter_config.get("timeframe")
             if timeframe:
                 from_dt, to_dt = self._parse_timeframe(timeframe)
@@ -347,10 +345,56 @@ class ArticleFilterService:
                     where_conditions.append("i.published <= :to_dt")
                     params['to_dt'] = to_dt
 
+            # Category filter
             categories = filter_config.get("categories")
             if categories:
                 where_conditions.append("a.sentiment_json::jsonb->>'category' = ANY(:categories)")
                 params['categories'] = categories
+
+            # Semantic Tag Filters (substring match)
+            actors = filter_config.get("actors")
+            if actors:
+                actor_conditions = []
+                for idx, actor in enumerate(actors):
+                    param_name = f"actor_{idx}"
+                    actor_conditions.append(f"a.sentiment_json::jsonb->'semantic_tags'->>'actor' ILIKE :{param_name}")
+                    params[param_name] = f"%{actor}%"
+                where_conditions.append(f"({' OR '.join(actor_conditions)})")
+
+            themes = filter_config.get("themes")
+            if themes:
+                theme_conditions = []
+                for idx, theme in enumerate(themes):
+                    param_name = f"theme_{idx}"
+                    theme_conditions.append(f"a.sentiment_json::jsonb->'semantic_tags'->>'theme' ILIKE :{param_name}")
+                    params[param_name] = f"%{theme}%"
+                where_conditions.append(f"({' OR '.join(theme_conditions)})")
+
+            regions = filter_config.get("regions")
+            if regions:
+                region_conditions = []
+                for idx, region in enumerate(regions):
+                    param_name = f"region_{idx}"
+                    region_conditions.append(f"a.sentiment_json::jsonb->'semantic_tags'->>'region' ILIKE :{param_name}")
+                    params[param_name] = f"%{region}%"
+                where_conditions.append(f"({' OR '.join(region_conditions)})")
+
+            # Impact filter
+            impact_min = filter_config.get("impact_min")
+            if impact_min is not None:
+                where_conditions.append("(a.sentiment_json::jsonb->'impact'->>'overall')::float >= :impact_min")
+                params['impact_min'] = impact_min
+
+            impact_max = filter_config.get("impact_max")
+            if impact_max is not None:
+                where_conditions.append("(a.sentiment_json::jsonb->'impact'->>'overall')::float <= :impact_max")
+                params['impact_max'] = impact_max
+
+            # Sentiment filter
+            sentiments = filter_config.get("sentiment")
+            if sentiments:
+                where_conditions.append("a.sentiment_json::jsonb->'overall'->>'label' = ANY(:sentiments)")
+                params['sentiments'] = sentiments
 
             where_clause = " AND ".join(where_conditions)
 
