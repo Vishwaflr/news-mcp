@@ -2,6 +2,7 @@
 HTMX Views for Analysis Manager UI
 """
 
+import os
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import HTMLResponse
 from app.api.analysis_management import get_manager_status, get_queue_status
@@ -243,25 +244,31 @@ async def get_services_status_view(request: Request):
                 "name": "API Server",
                 "icon": "🌐",
                 "status": check_port(8000),
-                "description": "FastAPI (Port 8000)"
+                "description": "FastAPI (Port 8000)",
+                "controllable": False
             },
             {
                 "name": "MCP Server",
                 "icon": "🔌",
                 "status": check_process("mcp_server.py"),
-                "description": "Model Context Protocol"
+                "description": "Model Context Protocol",
+                "controllable": False
             },
             {
                 "name": "Scheduler",
                 "icon": "⏰",
                 "status": check_process("scheduler_runner.py"),
-                "description": "Scheduled Tasks"
+                "description": "Scheduled Tasks",
+                "controllable": True,
+                "service_key": "scheduler"
             },
             {
                 "name": "Worker",
                 "icon": "⚙️",
                 "status": check_process("analysis_worker.py"),
-                "description": "Analysis Worker"
+                "description": "Analysis Worker",
+                "controllable": True,
+                "service_key": "worker"
             }
         ]
 
@@ -271,6 +278,29 @@ async def get_services_status_view(request: Request):
             status_badge = "success" if service["status"] else "danger"
             status_text = "Running" if service["status"] else "Stopped"
             status_icon = "✓" if service["status"] else "✗"
+
+            # Build control buttons if service is controllable
+            control_buttons = ""
+            if service.get("controllable"):
+                service_key = service.get("service_key")
+                if service["status"]:
+                    control_buttons = f'''
+                    <button class="btn btn-sm btn-outline-danger mt-1"
+                            hx-post="/htmx/services/{service_key}/stop"
+                            hx-target="#services-status"
+                            hx-swap="innerHTML">
+                        <i class="bi bi-stop-circle"></i> Stop
+                    </button>
+                    '''
+                else:
+                    control_buttons = f'''
+                    <button class="btn btn-sm btn-outline-success mt-1"
+                            hx-post="/htmx/services/{service_key}/start"
+                            hx-target="#services-status"
+                            hx-swap="innerHTML">
+                        <i class="bi bi-play-circle"></i> Start
+                    </button>
+                    '''
 
             html += f'''
             <div class="col-md-6">
@@ -282,6 +312,7 @@ async def get_services_status_view(request: Request):
                                 <strong>{service["name"]}</strong>
                                 <br>
                                 <small class="text-muted">{service["description"]}</small>
+                                {control_buttons}
                             </div>
                             <div class="text-end">
                                 <span class="badge bg-{status_badge}">{status_icon} {status_text}</span>
@@ -297,3 +328,84 @@ async def get_services_status_view(request: Request):
 
     except Exception as e:
         return f'<div class="text-danger">Error: {str(e)}</div>'
+
+
+@router.post("/htmx/services/{service}/start", response_class=HTMLResponse)
+async def start_service(service: str, request: Request):
+    """Start a service."""
+    import subprocess
+    import os
+
+    try:
+        project_dir = "/home/cytrex/news-mcp"
+
+        if service == "scheduler":
+            script = os.path.join(project_dir, "scripts", "start-scheduler.sh")
+        elif service == "worker":
+            script = os.path.join(project_dir, "scripts", "start-worker.sh")
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown service: {service}")
+
+        # Execute start script
+        result = subprocess.run(
+            [script],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            cwd=project_dir
+        )
+
+        # Return updated status view after brief delay
+        import asyncio
+        await asyncio.sleep(2)
+        return await get_services_status_view(request)
+
+    except Exception as e:
+        return f'<div class="alert alert-danger">Failed to start {service}: {str(e)}</div>'
+
+
+@router.post("/htmx/services/{service}/stop", response_class=HTMLResponse)
+async def stop_service(service: str, request: Request):
+    """Stop a service."""
+    import subprocess
+
+    try:
+        if service == "scheduler":
+            pid_file = "/tmp/news-mcp-scheduler.pid"
+            pattern = "python.*scheduler_runner"
+        elif service == "worker":
+            pid_file = "/tmp/news-mcp-worker.pid"
+            pattern = "python.*analysis_worker"
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown service: {service}")
+
+        # Try to stop using PID file first
+        if os.path.exists(pid_file):
+            with open(pid_file, 'r') as f:
+                pid = int(f.read().strip())
+
+            # Send SIGTERM (graceful shutdown)
+            subprocess.run(["kill", str(pid)], timeout=2)
+
+            # Wait a moment for graceful shutdown
+            import asyncio
+            await asyncio.sleep(1)
+
+            # Check if still running, force kill if needed
+            check = subprocess.run(["ps", "-p", str(pid)], capture_output=True, timeout=2)
+            if check.returncode == 0:
+                subprocess.run(["kill", "-9", str(pid)], timeout=2)
+
+            # Remove PID file
+            os.remove(pid_file)
+        else:
+            # Fallback: use pkill
+            subprocess.run(["pkill", "-f", pattern], timeout=2)
+
+        # Return updated status view after brief delay
+        import asyncio
+        await asyncio.sleep(1)
+        return await get_services_status_view(request)
+
+    except Exception as e:
+        return f'<div class="alert alert-danger">Failed to stop {service}: {str(e)}</div>'
