@@ -162,14 +162,19 @@ class ItemComponent(BaseComponent):
             market_display = f'📉 Bearish ({bearish:.1f})' if bearish > 0.6 else f'📈 Bullish ({bullish:.1f})' if bullish > 0.6 else '➡️ Neutral'
             time_horizon = (market.get('time_horizon', 'medium') or 'medium').capitalize()
 
+            market_confidence = market.get('confidence', 0)
+            impact_timeframe = impact.get('timeframe', 'N/A')
+
             finance_col = f'''
             <div class="card shadow-sm h-100">
-                <div class="card-body p-2" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; color: white; font-size: 0.85rem;">
-                    <h6 class="mb-1" style="font-size: 0.9rem;">💰 Finance</h6>
-                    <div style="font-size: 0.75rem;"><strong>Market:</strong> {market_display}</div>
-                    <div style="font-size: 0.75rem;"><strong>Horizon:</strong> {time_horizon}</div>
-                    <div style="font-size: 0.75rem;"><strong>Impact:</strong> ⚡ {impact.get('overall', 0):.1f}</div>
-                    <div style="font-size: 0.75rem;"><strong>Volatility:</strong> 📈 {impact.get('volatility', 0):.1f}</div>
+                <div class="card-body p-1" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; color: white; font-size: 0.7rem; max-height: 250px; overflow-y: auto;">
+                    <h6 class="mb-1" style="font-size: 0.8rem;">💰 Finance</h6>
+                    <div style="font-size: 0.65rem;"><strong>Market:</strong> {market_display}</div>
+                    <div style="font-size: 0.65rem;"><strong>Horizon:</strong> {time_horizon}</div>
+                    <div style="font-size: 0.65rem;"><strong>Confidence:</strong> {market_confidence:.1f}</div>
+                    <div style="font-size: 0.65rem;"><strong>Impact:</strong> ⚡ {impact.get('overall', 0):.1f}</div>
+                    <div style="font-size: 0.65rem;"><strong>Volatility:</strong> 📈 {impact.get('volatility', 0):.1f}</div>
+                    <div style="font-size: 0.65rem;"><strong>Timeframe:</strong> {impact_timeframe}</div>
                 </div>
             </div>
             '''
@@ -177,17 +182,21 @@ class ItemComponent(BaseComponent):
             geo = sentiment.get('geopolitical', {})
             if geo and geo.get('conflict_type'):
                 conflict_type = (geo.get('conflict_type', 'N/A') or 'N/A').replace('_', ' ').title()
+                geo_time_horizon = (geo.get('time_horizon', 'N/A') or 'N/A').replace('_', ' ').title()
+                geo_confidence = geo.get('confidence', 0)
                 regions = ', '.join((geo.get('regions_affected', []) or [])[:3]) or 'N/A'
 
                 geo_col = f'''
                 <div class="card shadow-sm h-100">
-                    <div class="card-body p-2" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 8px; color: white; font-size: 0.85rem;">
-                        <h6 class="mb-1" style="font-size: 0.9rem;">🌍 Geopolitical</h6>
-                        <div style="font-size: 0.75rem;"><strong>Type:</strong> {conflict_type}</div>
-                        <div style="font-size: 0.75rem;"><strong>Security:</strong> {geo.get('security_relevance', 0):.1f}</div>
-                        <div style="font-size: 0.75rem;"><strong>Escalation:</strong> {geo.get('escalation_potential', 0):.1f}</div>
-                        <div style="font-size: 0.75rem;"><strong>Stability:</strong> {geo.get('stability_score', 0):.1f}</div>
-                        <div style="font-size: 0.75rem;"><strong>Regions:</strong> {regions}</div>
+                    <div class="card-body p-1" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 8px; color: white; font-size: 0.7rem; max-height: 250px; overflow-y: auto;">
+                        <h6 class="mb-1" style="font-size: 0.8rem;">🌍 Geopolitical</h6>
+                        <div style="font-size: 0.65rem;"><strong>Type:</strong> {conflict_type}</div>
+                        <div style="font-size: 0.65rem;"><strong>Horizon:</strong> {geo_time_horizon}</div>
+                        <div style="font-size: 0.65rem;"><strong>Confidence:</strong> {geo_confidence:.1f}</div>
+                        <div style="font-size: 0.65rem;"><strong>Security:</strong> {geo.get('security_relevance', 0):.1f}</div>
+                        <div style="font-size: 0.65rem;"><strong>Escalation:</strong> {geo.get('escalation_potential', 0):.1f}</div>
+                        <div style="font-size: 0.65rem;"><strong>Stability:</strong> {geo.get('stability_score', 0):.1f}</div>
+                        <div style="font-size: 0.65rem;"><strong>Regions:</strong> {regions}</div>
                     </div>
                 </div>
                 '''
