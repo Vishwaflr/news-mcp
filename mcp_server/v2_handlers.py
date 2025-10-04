@@ -385,32 +385,64 @@ class MCPv2Handlers:
         """Get recent items with deduplication"""
         try:
             with Session(engine) as session:
-                query = select(Item).join(Feed)
+                # Query items with analysis data
+                query = text("""
+                    SELECT
+                        i.id, i.title, i.description, i.link, i.published, i.feed_id,
+                        a.sentiment_json::jsonb->>'category' as category,
+                        a.sentiment_json::jsonb->'semantic_tags'->>'actor' as actor,
+                        a.sentiment_json::jsonb->'semantic_tags'->>'theme' as theme,
+                        a.sentiment_json::jsonb->'semantic_tags'->>'region' as region,
+                        a.sentiment_json::jsonb->'overall'->>'label' as sentiment,
+                        (a.sentiment_json::jsonb->'impact'->>'overall')::float as impact
+                    FROM items i
+                    LEFT JOIN item_analysis a ON a.item_id = i.id
+                    WHERE 1=1
+                        {since_filter}
+                        {feed_filter}
+                    ORDER BY i.published DESC
+                    LIMIT :limit
+                """)
+
+                params = {"limit": limit}
+                since_filter = ""
+                feed_filter = ""
 
                 if since:
                     from datetime import datetime
                     since_dt = datetime.fromisoformat(since.replace('Z', '+00:00'))
-                    query = query.where(Item.published > since_dt)
+                    since_filter = "AND i.published > :since_dt"
+                    params['since_dt'] = since_dt
 
                 if feed_id:
-                    query = query.where(Item.feed_id == feed_id)
+                    feed_filter = "AND i.feed_id = :feed_id"
+                    params['feed_id'] = feed_id
 
-                query = query.order_by(Item.published.desc()).limit(limit)
-                items = session.exec(query).all()
+                # Format query with filters
+                formatted_query = str(query).format(since_filter=since_filter, feed_filter=feed_filter)
+                result_rows = session.execute(text(formatted_query), params).fetchall()
 
                 result = {
                     "ok": True,
                     "data": {
                         "items": [{
-                            "id": i.id,
-                            "title": i.title,
-                            "description": i.description,
-                            "link": i.link,
-                            "published": str(i.published) if i.published else None,
-                            "feed_id": i.feed_id
-                        } for i in items]
+                            "id": row[0],
+                            "title": row[1],
+                            "description": row[2],
+                            "link": row[3],
+                            "published": str(row[4]) if row[4] else None,
+                            "feed_id": row[5],
+                            "category": row[6] or "panorama",
+                            "semantic_tags": {
+                                "actor": row[7] or "Unknown",
+                                "theme": row[8] or "General",
+                                "region": row[9] or "Global"
+                            },
+                            "sentiment": row[10] or "neutral",
+                            "impact": row[11] or 0.0
+                        } for row in result_rows]
                     },
-                    "meta": {"limit": limit, "total": len(items), "dedupe_applied": dedupe},
+                    "meta": {"limit": limit, "total": len(result_rows), "dedupe_applied": dedupe},
                     "errors": []
                 }
 
@@ -425,39 +457,71 @@ class MCPv2Handlers:
         """Search items with advanced filtering"""
         try:
             with Session(engine) as session:
-                query = select(Item).join(Feed)
-
-                # Full-text search simulation
-                query = query.where(Item.title.contains(q) | Item.description.contains(q))
+                # Build WHERE conditions
+                where_conditions = ["(i.title ILIKE :query OR i.description ILIKE :query)"]
+                params = {"query": f"%{q}%", "limit": limit, "offset": offset}
 
                 if feeds:
-                    query = query.where(Item.feed_id.in_(feeds))
+                    where_conditions.append("i.feed_id = ANY(:feeds)")
+                    params['feeds'] = feeds
 
                 if time_range:
                     from datetime import datetime
                     if time_range.get("from"):
                         from_dt = datetime.fromisoformat(time_range["from"].replace('Z', '+00:00'))
-                        query = query.where(Item.published >= from_dt)
+                        where_conditions.append("i.published >= :from_dt")
+                        params['from_dt'] = from_dt
                     if time_range.get("to"):
                         to_dt = datetime.fromisoformat(time_range["to"].replace('Z', '+00:00'))
-                        query = query.where(Item.published <= to_dt)
+                        where_conditions.append("i.published <= :to_dt")
+                        params['to_dt'] = to_dt
 
-                query = query.offset(offset).limit(limit)
-                items = session.exec(query).all()
+                if categories:
+                    where_conditions.append("a.sentiment_json::jsonb->>'category' = ANY(:categories)")
+                    params['categories'] = categories
+
+                where_clause = " AND ".join(where_conditions)
+
+                query = text(f"""
+                    SELECT
+                        i.id, i.title, i.description, i.link, i.published, i.feed_id,
+                        a.sentiment_json::jsonb->>'category' as category,
+                        a.sentiment_json::jsonb->'semantic_tags'->>'actor' as actor,
+                        a.sentiment_json::jsonb->'semantic_tags'->>'theme' as theme,
+                        a.sentiment_json::jsonb->'semantic_tags'->>'region' as region,
+                        a.sentiment_json::jsonb->'overall'->>'label' as sentiment,
+                        (a.sentiment_json::jsonb->'impact'->>'overall')::float as impact
+                    FROM items i
+                    LEFT JOIN item_analysis a ON a.item_id = i.id
+                    WHERE {where_clause}
+                    ORDER BY i.published DESC
+                    OFFSET :offset
+                    LIMIT :limit
+                """)
+
+                result_rows = session.execute(query, params).fetchall()
 
                 result = {
                     "ok": True,
                     "data": {
                         "items": [{
-                            "id": i.id,
-                            "title": i.title,
-                            "description": i.description,
-                            "link": i.link,
-                            "published": str(i.published) if i.published else None,
-                            "feed_id": i.feed_id
-                        } for i in items]
+                            "id": row[0],
+                            "title": row[1],
+                            "description": row[2],
+                            "link": row[3],
+                            "published": str(row[4]) if row[4] else None,
+                            "feed_id": row[5],
+                            "category": row[6] or "panorama",
+                            "semantic_tags": {
+                                "actor": row[7] or "Unknown",
+                                "theme": row[8] or "General",
+                                "region": row[9] or "Global"
+                            },
+                            "sentiment": row[10] or "neutral",
+                            "impact": row[11] or 0.0
+                        } for row in result_rows]
                     },
-                    "meta": {"limit": limit, "offset": offset, "total": len(items), "query": q},
+                    "meta": {"limit": limit, "offset": offset, "total": len(result_rows), "query": q},
                     "errors": []
                 }
 
