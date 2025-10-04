@@ -221,10 +221,56 @@ class ItemComponent(BaseComponent):
         finance_display = finance_col if finance_col.strip() else finance_placeholder
         geo_display = geo_col if geo_col.strip() else geo_placeholder
 
+        # Extract semantic tags from analysis
+        semantic_tags_html = ''
+        category_display = ''
+        if analysis and analysis.get('sentiment_json'):
+            sentiment = analysis.get('sentiment_json', {})
+
+            # Category badge
+            category = sentiment.get('category', 'panorama')
+            category_colors = {
+                'geopolitics_security': 'danger',
+                'economy_markets': 'success',
+                'technology_science': 'info',
+                'politics_society': 'warning',
+                'climate_environment_health': 'primary',
+                'panorama': 'secondary'
+            }
+            category_icons = {
+                'geopolitics_security': '🛡️',
+                'economy_markets': '💹',
+                'technology_science': '🔬',
+                'politics_society': '⚖️',
+                'climate_environment_health': '🌍',
+                'panorama': '📰'
+            }
+            category_color = category_colors.get(category, 'secondary')
+            category_icon = category_icons.get(category, '📰')
+            category_label = category.replace('_', ' ').title()
+            category_display = f'<span class="badge bg-{category_color} me-2">{category_icon} {category_label}</span>'
+
+            # Semantic tags
+            semantic = sentiment.get('semantic_tags', {})
+            if semantic:
+                actor = semantic.get('actor', 'Unknown')
+                theme = semantic.get('theme', 'General')
+                region = semantic.get('region', 'Global')
+
+                semantic_tags_html = f'''
+                <div class="semantic-tags mb-2" style="font-size: 0.85rem;">
+                    {category_display}
+                    <span class="badge bg-light text-dark border me-1">👤 {actor}</span>
+                    <span class="badge bg-light text-dark border me-1">🏷️ {theme}</span>
+                    <span class="badge bg-light text-dark border">🌐 {region}</span>
+                </div>
+                '''
+
         return f'''
         <div class="mb-3" style="display: grid; grid-template-columns: 70% 15% 15%; gap: 0.5rem;">
             <div class="card shadow-sm article-card" data-item-id="{item_data.get('id')}">
                 <div class="card-body">
+                    {semantic_tags_html}
                     <h5 class="card-title mb-2">
                         <a href="{item_data.get('link', '#')}" target="_blank" class="text-decoration-none text-primary">
                             {clean_title}
