@@ -160,6 +160,10 @@ class FeedService(BaseService[Feed, FeedCreate, FeedUpdate]):
 
             # Delete related data in the correct order to avoid foreign key constraints
 
+            # 0. Delete feed_violations first (model has schema mismatch, use raw SQL)
+            from sqlalchemy import text
+            self.session.execute(text("DELETE FROM feed_violations WHERE feed_id = :feed_id"), {"feed_id": feed_id})
+
             # 1. Delete items related to this feed (and their related records)
             items_to_delete = self.session.exec(select(Item).where(Item.feed_id == feed_id)).all()
             for item in items_to_delete:
@@ -211,7 +215,25 @@ class FeedService(BaseService[Feed, FeedCreate, FeedUpdate]):
             for processor_config in processor_configs_to_delete:
                 self.session.delete(processor_config)
 
-            # 8. Finally delete the feed itself
+            # 8. Delete feed metrics
+            from app.models.feed_metrics import FeedMetrics
+            feed_metrics_to_delete = self.session.exec(select(FeedMetrics).where(FeedMetrics.feed_id == feed_id)).all()
+            for metric in feed_metrics_to_delete:
+                self.session.delete(metric)
+
+            # 9. Delete feed limits (violations already deleted in step 0)
+            from app.models.feed_limits import FeedLimit
+            feed_limits_to_delete = self.session.exec(select(FeedLimit).where(FeedLimit.feed_id == feed_id)).all()
+            for limit in feed_limits_to_delete:
+                self.session.delete(limit)
+
+            # 10. Delete pending auto analysis
+            from app.models.auto_analysis import PendingAutoAnalysis
+            pending_analyses_to_delete = self.session.exec(select(PendingAutoAnalysis).where(PendingAutoAnalysis.feed_id == feed_id)).all()
+            for pending in pending_analyses_to_delete:
+                self.session.delete(pending)
+
+            # 11. Finally delete the feed itself
             self.session.delete(feed)
             self.session.commit()
 
