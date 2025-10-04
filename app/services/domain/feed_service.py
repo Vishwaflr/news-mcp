@@ -167,7 +167,13 @@ class FeedService(BaseService[Feed, FeedCreate, FeedUpdate]):
             # 1. Delete items related to this feed (and their related records)
             items_to_delete = self.session.exec(select(Item).where(Item.feed_id == feed_id)).all()
             for item in items_to_delete:
-                # Delete content processing logs first
+                # Delete item_analysis first (no SQLModel, use raw SQL)
+                self.session.execute(text("DELETE FROM item_analysis WHERE item_id = :item_id"), {"item_id": item.id})
+
+                # Delete analysis_run_items (no SQLModel, use raw SQL)
+                self.session.execute(text("DELETE FROM analysis_run_items WHERE item_id = :item_id"), {"item_id": item.id})
+
+                # Delete content processing logs
                 from app.models.content import ContentProcessingLog
                 processing_logs = self.session.exec(select(ContentProcessingLog).where(ContentProcessingLog.item_id == item.id)).all()
                 for log in processing_logs:
