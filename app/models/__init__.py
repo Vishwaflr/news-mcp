@@ -64,6 +64,40 @@ from .auto_analysis import (
     PendingAutoAnalysis,
 )
 
+# Import content distribution models
+from .content_distribution import (
+    SpecialReport,
+    GeneratedContent,
+    DistributionChannel,
+    DistributionLog,
+    PendingContentGeneration,
+)
+
+# Import queue models
+from .run_queue import (
+    QueuedRun,
+)
+
+# Import feed limits and metrics
+from .feed_limits import (
+    FeedLimit,
+    FeedViolation,
+)
+
+from .feed_metrics import (
+    FeedMetrics,
+    QueueMetrics,
+)
+
+# Import research models
+from .research import (
+    ResearchTemplate,
+    ResearchRun,
+    ResearchQuery,
+    ResearchResult,
+    ResearchArticleLink,
+)
+
 # Export all models
 __all__ = [
     # Base classes and enums
@@ -111,4 +145,27 @@ __all__ = [
 
     # Auto-analysis models
     "PendingAutoAnalysis",
+
+    # Content distribution models
+    "SpecialReport",
+    "GeneratedContent",
+    "DistributionChannel",
+    "DistributionLog",
+    "PendingContentGeneration",
+
+    # Queue models
+    "QueuedRun",
+    "QueueMetrics",
+
+    # Feed limits and metrics
+    "FeedLimit",
+    "FeedViolation",
+    "FeedMetrics",
+
+    # Research models
+    "ResearchTemplate",
+    "ResearchRun",
+    "ResearchQuery",
+    "ResearchResult",
+    "ResearchArticleLink",
 ]
