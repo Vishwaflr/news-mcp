@@ -1,10 +1,10 @@
 # ENDPOINTS.md – News-MCP API-Gedächtnis
 
 **Zweck:** Komplette API-Referenz für News-MCP System
-**Version:** 4.0.0
-**Letzte Aktualisierung:** 2025-10-03
-**Total Endpoints:** 246 unique paths (278 total routes including methods)
-**Breakdown:** 176 GET, 78 POST, 17 DELETE, 7 PUT
+**Version:** 4.1.0
+**Letzte Aktualisierung:** 2025-10-04
+**Total Endpoints:** 260+ unique paths (290+ total routes including methods)
+**Breakdown:** 180+ GET, 82+ POST, 18+ DELETE, 8+ PUT
 
 ---
 
@@ -27,8 +27,10 @@
 | [User Settings](#13-user-settings) | 4 | `/api/user-settings` | ✅ Aktiv |
 | [Scheduler](#14-scheduler) | 6 | `/api/scheduler` | ✅ Aktiv |
 | [Feed Limits](#15-feed-limits) | 9 | `/api/feed-limits` | ✅ Aktiv |
+| [Special Reports](#16-special-reports) | 14 | `/api/special-reports`, `/admin/special-reports` | ✅ Aktiv |
+| [Content Generation](#17-content-generation) | 8 | `/api/content-generation` | ✅ Aktiv |
 
-**Documented:** ~170 endpoints (full API has 246+ paths)
+**Documented:** ~190 endpoints (full API has 260+ paths)
 **Note:** This document covers core categories. See `/docs` OpenAPI spec for complete list.
 
 ---
@@ -664,10 +666,91 @@ GET /api/statistics/overview
 
 ---
 
+## 16. Special Reports
+
+**Datei:** `app/api/special_reports.py`, `app/web/views/special_report_views.py`
+**Beschreibung:** LLM-basierte Content Generation für automatisierte Berichte
+
+### Special Reports CRUD
+```http
+GET    /api/special-reports/                    # Liste aller Special Reports
+GET    /api/special-reports/{id}                # Report Details
+POST   /api/special-reports/                    # Report erstellen
+PUT    /api/special-reports/{id}                # Report aktualisieren
+DELETE /api/special-reports/{id}                # Report löschen
+```
+
+### Report Generation
+```http
+POST   /api/special-reports/{id}/generate       # Content Generation triggern
+GET    /api/special-reports/{id}/status         # Generation Status
+GET    /api/special-reports/{id}/history        # Generation History
+```
+
+### Admin Web UI
+```http
+GET    /admin/special-reports                   # Reports Liste (Web UI)
+GET    /admin/special-reports/{id}              # Report Detail Page
+GET    /admin/special-reports/{id}/edit         # Edit Page (Full Editor)
+```
+
+### HTMX Endpoints
+```http
+GET    /htmx/special_reports/list               # HTMX Report List
+POST   /htmx/special_reports/create             # Create via HTMX
+PUT    /htmx/special_reports/{id}/update        # Update via HTMX
+POST   /htmx/special_reports/{id}/test          # Test Article Selection
+GET    /htmx/special_reports/{id}/edit-form     # Edit Form Component
+```
+
+### Kontext
+- LLM-basierte Berichte (OpenAI GPT-4o-mini)
+- Structured Prompts (System Instructions, Output Constraints, Few-shot Examples)
+- Article Selection (Feed-basiert, Impact/Sentiment Filtering, Keyword Matching)
+- Queue-basierte Generation (`pending_content_generation`)
+- Storage in `generated_content`
+
+---
+
+## 17. Content Generation
+
+**Datei:** `app/worker/content_generator_worker.py`, `app/api/content_generation.py`
+**Beschreibung:** Async Content Generation Worker & Job Tracking
+
+### Generation Jobs
+```http
+GET    /api/content-generation/jobs             # Alle Generation Jobs
+GET    /api/content-generation/jobs/{id}        # Job Details
+GET    /api/content-generation/jobs/{id}/result # Generated Content
+```
+
+### Queue Management
+```http
+GET    /api/content-generation/queue            # Pending Jobs in Queue
+POST   /api/content-generation/queue/process    # Trigger Queue Processing
+DELETE /api/content-generation/queue/{id}       # Remove from Queue
+```
+
+### Worker Status
+```http
+GET    /api/content-generation/worker/status    # Worker Health & Stats
+POST   /api/content-generation/worker/pause     # Pause Worker
+POST   /api/content-generation/worker/resume    # Resume Worker
+```
+
+### Kontext
+- Background Worker (läuft separat via `content_generator_worker.py`)
+- Async Processing mit Redis Queue
+- LLM Integration (OpenAI)
+- Structured Output (Markdown/HTML/JSON)
+- Constraint Enforcement (NO code blocks, only prose)
+
+---
+
 ## 📝 Notes
 
 ### API-Versioning
-- Aktuell: **v4.0.0**
+- Aktuell: **v4.1.0**
 - Legacy Endpunkte werden parallel unterstützt
 - Feature Flags steuern Cutover
 

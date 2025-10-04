@@ -1,102 +1,124 @@
 # Documentation Index
 
-This directory contains comprehensive documentation for the News MCP system.
+**Last Updated:** 2025-10-04
+**Structure Version:** 2.0 (Reorganized for clarity)
 
-## 📚 Core Documentation
+This directory contains comprehensive documentation for the News-MCP system.
 
-### Getting Started
+---
+
+## 📚 Quick Navigation
+
+### **Getting Started**
 - **[Main README](../README.md)** - Project overview and quick start
-- **[Developer Setup](../DEVELOPER_SETUP.md)** - Complete development environment setup
-- **[Testing Guide](../TESTING.md)** - Testing strategies and procedures
+- **[Developer Setup](core/DEVELOPER_SETUP.md)** - Complete development environment setup
+- **[Deployment Guide](core/DEPLOYMENT.md)** - Production deployment instructions
 
-### Architecture & Monitoring
-- **[Monitoring & Feature Flags](../MONITORING.md)** - Feature flag system and performance monitoring
-- **[Database ERD](../ERD_DIAGRAM.md)** - Entity relationship diagram
-- **[Data Architecture](../DATA_ARCHITECTURE.md)** - Complete database architecture
+### **Core Documentation**
+Located in `/docs/core/`
+- **[Architecture](core/ARCHITECTURE.md)** - System architecture and design
+- **[Database Schema](core/Database-Schema.md)** - Complete database structure (35 tables)
+- **[Deployment](core/DEPLOYMENT.md)** - Deployment strategies
+- **[Developer Setup](core/DEVELOPER_SETUP.md)** - Development environment
 
-### Technical Configuration
-- **[pyproject.toml](../pyproject.toml)** - Project configuration and dependencies
-- **[Pre-commit Config](../.pre-commit-config.yaml)** - Code quality automation
-- **[Ruff Config](../.ruff.toml)** - Linting and formatting rules
+### **Features Documentation**
+Located in `/docs/features/`
+- **[Auto-Analysis Guide](features/AUTO_ANALYSIS_GUIDE.md)** - Automatic article analysis system
+- **[Sentiment Guide](features/SENTIMENT_GUIDE.md)** - Sentiment analysis scoring
+- **[Special Reports Flow](features/Special-Reports-Flow.md)** - LLM-based report generation
+- **[Feature Flags](features/FEATURE_FLAGS.md)** - Feature flag system
+- **[Feed Management Redesign](features/Feed-Management-Redesign-Plan.md)** - Feed UI V2 lessons learned
 
-## 🔄 Repository Migration Documentation
+### **Guides & Tutorials**
+Located in `/docs/guides/`
+- **[UI Components Guide](guides/UI_COMPONENTS_GUIDE.md)** - Bootstrap 5 + Alpine.js + HTMX patterns
+- **[Worker System](guides/WORKER_README.md)** - Background worker documentation
+- **[Playwright MCP Setup](guides/PLAYWRIGHT_MCP_SETUP.md)** - End-to-end testing setup
+- **[Claude CLI Config](guides/CLAUDE_CLI_PLAYWRIGHT_CONFIG.md)** - Claude Code integration
+- **[Open WebUI Integration](guides/OPEN_WEBUI_INTEGRATION.md)** - WebUI integration guide
 
-The system is currently migrating from Raw SQL to Repository Pattern. Key documents:
+### **Operations**
+Located in `/docs/operations/`
+- **[Backup Strategy](operations/Backup-Strategy.md)** - Database backup procedures
+- **[Database Rebuild 2025-10-04](operations/Database-Rebuild-2025-10-04.md)** - Recovery documentation
+- **[Baseline Metrics](operations/BASELINE_METRICS.md)** - Performance baseline
 
-### Migration Architecture
-- **Feature Flags**: Safe gradual rollout (5% → 100%)
-- **Shadow Comparison**: A/B testing between implementations
-- **Performance Monitoring**: P50/P95/P99 metrics with automatic fallback
-- **Circuit Breaker**: Auto-disable on >5% error rate or >30% latency increase
+---
 
-### Migration Monitoring
-```bash
-# Real-time dashboard
-python monitoring_dashboard.py
+## 📋 Top-Level Documents
 
-# API endpoints
-curl "http://localhost:8000/api/admin/feature-flags/"
-curl "http://localhost:8000/api/admin/feature-flags/metrics/dashboard"
-```
+### **Navigation & Reference**
+- **[CLAUDE.md](../CLAUDE.md)** - Working rules for Claude Code (internal)
+- **[NAVIGATOR.md](../NAVIGATOR.md)** - System overview and roadmap (v4.5.0)
+- **[ENDPOINTS.md](../ENDPOINTS.md)** - Complete API reference (v4.1.0, 260+ endpoints)
+- **[INDEX.md](../INDEX.md)** - File map (optional)
 
-## 🛠️ Auto-Generated Documentation
+### **Project Docs**
+- **[README.md](../README.md)** - Main project documentation
+- **[CONTRIBUTING.md](../CONTRIBUTING.md)** - Contributing guidelines
+- **[SECURITY.md](../SECURITY.md)** - Security policy
 
-The following files are automatically maintained:
+### **Roadmap**
+- **[ROADMAP_OVERVIEW.md](../ROADMAP_OVERVIEW.md)** - High-level roadmap
+- **[ROADMAP_SPRINT1.md](../ROADMAP_SPRINT1.md)** - Sprint 1 details
 
-- **[API Documentation](./API_DOCUMENTATION.md)** - Complete REST API reference (Sep 2025)
-- **[Database Schema](./DATABASE_SCHEMA.md)** - Full database structure with 28 tables (Sep 2025)
-- **[API Examples](./API_EXAMPLES.md)** - Practical examples for all endpoints (Sep 2025)
-- **[Feature Flags Reference](./FEATURE_FLAGS.md)** - Feature flag system documentation (Sep 2025)
-- **[ERD Diagram](./ERD_MERMAID.md)** - Entity Relationship Diagram in Mermaid format (Sep 2025)
+---
 
-## 📁 Specialized Documentation
+## 🗂️ Planning & Analysis Docs
 
-### Component-Specific
-- **[Sentiment Analysis Guide](./SENTIMENT_GUIDE.md)** - ✨ NEW: Understanding sentiment scores, impact, and urgency
-- **[Analysis Control Interface](./ANALYSIS_CONTROL_INTERFACE.md)** - ✨ NEW: Complete interface redesign documentation
-- **[UI Components Guide](./UI_COMPONENTS_GUIDE.md)** - ✨ NEW: Bootstrap 5 + Alpine.js + HTMX patterns
-- **[Schema Import Workaround](./SCHEMA_IMPORT_WORKAROUND.md)** - ✨ NEW: Current technical debt documentation
-- **[MCP Server](../MCP_SERVER_README.md)** - Model Context Protocol server setup
-- **[Worker System](./WORKER_README.md)** - Analysis worker documentation
-- **[Repository Policy](./REPOSITORY_POLICY.md)** - Data access patterns
+These documents guide ongoing refactoring and feature development:
 
-### Platform-Specific
-- **[Windows Bridge Setup](../windows-bridge/)** - Windows integration guides
-- **[Deployment Guide](../DEPLOYMENT.md)** - Production deployment
+- **[CODEBASE_MAP.md](CODEBASE_MAP.md)** - Code structure analysis
+- **[CLEANUP_POLICY.md](CLEANUP_POLICY.md)** - Code quality policies
+- **[REFACTOR_PLAN.md](REFACTOR_PLAN.md)** - Step-by-step refactoring plan
+- **[DEPRECATIONS.md](DEPRECATIONS.md)** - Deprecated features tracker
+- **[GEOPOLITICAL_ANALYSIS_PLAN.md](GEOPOLITICAL_ANALYSIS_PLAN.md)** - Geopolitical feature plan
+- **[GEOPOLITICAL_IMPLEMENTATION_SUMMARY.md](GEOPOLITICAL_IMPLEMENTATION_SUMMARY.md)** - Implementation summary
 
-## 📦 Historical Documentation
+---
 
-Archived documentation is available in **[docs/archive/](./archive/)** including:
-- Historical system fixes and recovery procedures
-- Legacy SQLModel problem analysis
-- Migration decision documentation
+## 📦 Archive
 
-## 🔧 Development Workflow
+Historical documentation and outdated files are in `/docs/archive/`:
 
-### Documentation Maintenance
+- **Old API Docs:** `API_DOCUMENTATION.md`, `API_EXAMPLES.md` (superseded by ENDPOINTS.md)
+- **Old Schema Docs:** `DATABASE_SCHEMA_2025-09-27.md`, `ERD_MERMAID.md` (integrated into Database-Schema.md)
+- **Progress Logs:** `SPRINT1_PROGRESS.md`, `DOCUMENTATION_UPDATE_SUMMARY.md`, `WIKI_UPDATE_SUMMARY.md`
+- **Legacy Fixes:** `FIXES_DOCUMENTATION.md`, `sqlproblem.md`, `PROGRESS.md`
 
-Documentation is automatically updated via GitHub Actions:
+See **[archive/README.md](archive/README.md)** for full archive index.
 
-1. **API docs** regenerated on code changes
-2. **Schema docs** updated on new migrations
-3. **Dependencies** refreshed on package changes
-4. **Validation** ensures no broken links
+---
 
-### Manual Updates
+## 🔍 Technical Debt & Workarounds
 
-For major changes, update these core files:
-- Main README.md architecture section
-- DEVELOPER_SETUP.md for new tools/requirements
-- MONITORING.md for new feature flags or metrics
-- TESTING.md for new testing procedures
+Documents tracking known issues and temporary solutions:
 
-### Quality Standards
+- **[SCHEMA_IMPORT_WORKAROUND.md](SCHEMA_IMPORT_WORKAROUND.md)** - SQLModel circular import workaround
+- **[SCHEMA_REFLECTION_ARCHITECTURE.md](SCHEMA_REFLECTION_ARCHITECTURE.md)** - Schema reflection patterns
+- **[ANALYSIS_CONTROL_INTERFACE.md](ANALYSIS_CONTROL_INTERFACE.md)** - Analysis UI interface docs
 
-All documentation follows:
-- **Markdown standards** with proper headers and formatting
-- **Link validation** to prevent broken internal references
-- **Example validation** to ensure code samples work
-- **Currency checks** to identify outdated content
+---
+
+## 📊 Current System Status
+
+**Version:** 4.5.0 (2025-10-04)
+**Total Tables:** 35
+**Total Endpoints:** 260+
+**Services Running:**
+- ✅ API Server (FastAPI, Port 8000)
+- ✅ Analysis Worker (Background)
+- ✅ Feed Scheduler (RSS Fetching)
+- ✅ Content Generator Worker (LLM Reports)
+
+**Active Features:**
+- ✅ Auto-Analysis (12 feeds)
+- ✅ Special Reports (Phase 3 complete)
+- ✅ Feed Management V2
+- ✅ Sentiment & Impact Analysis
+- ✅ Geopolitical Analysis (17.67% coverage)
+
+---
 
 ## 🎯 Documentation Goals
 
@@ -104,19 +126,21 @@ All documentation follows:
 - ✅ Setup instructions for new developers
 - ✅ Architecture overview for system understanding
 - ✅ Testing procedures for quality assurance
-- ✅ Monitoring guides for operations
+- ✅ Operations guides for production
 
 ### Accuracy
 - ✅ Auto-generated content stays current
 - ✅ Manual validation of examples
-- ✅ Regular review of outdated content
+- ✅ Regular review cycles
 - ✅ Version control for all changes
 
 ### Usability
-- ✅ Clear navigation and indexing
+- ✅ Clear navigation and indexing (NEW: organized by topic)
 - ✅ Progressive disclosure (basic → advanced)
 - ✅ Task-oriented organization
 - ✅ Searchable content structure
+
+---
 
 ## 🚀 Quick Actions
 
@@ -124,19 +148,32 @@ All documentation follows:
 # Setup development environment
 ./scripts/setup-dev.sh
 
-# Run all tests including migration tests
-python -m pytest -m migration
+# Start all services
+./scripts/start-api.sh
+./scripts/start-worker.sh
+./scripts/start-scheduler.sh
 
-# Monitor repository migration
-python monitoring_dashboard.py
+# Run tests
+pytest tests/ -v
+npx playwright test tests/e2e/ --reporter=line
 
-# Validate documentation
-pre-commit run --all-files
+# Check database schema
+psql -h localhost -U cytrex -d news_db -c "\dt"
 
-# Generate fresh API docs
-python -c "from app.main import app; import json; print(json.dumps(app.openapi(), indent=2))" > docs/openapi.json
+# View API documentation
+# Open: http://localhost:8000/docs
 ```
 
 ---
 
-📖 **Tip**: Use GitHub's search functionality to find specific topics across all documentation files.
+## 📞 Need Help?
+
+- **API Questions:** See [ENDPOINTS.md](../ENDPOINTS.md)
+- **Architecture Questions:** See [core/ARCHITECTURE.md](core/ARCHITECTURE.md)
+- **Setup Issues:** See [core/DEVELOPER_SETUP.md](core/DEVELOPER_SETUP.md)
+- **Feature Documentation:** Browse `/docs/features/`
+- **Operational Issues:** See `/docs/operations/`
+
+---
+
+**📖 Tip:** Use GitHub's search functionality (Ctrl/Cmd+K) to find specific topics across all documentation files.

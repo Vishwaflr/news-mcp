@@ -1,9 +1,9 @@
 # NAVIGATOR.md – News-MCP System-Navigator
 
 **Zweck:** Zentrale Orientierung für strukturierte Entwicklung
-**Version:** 4.4.0
-**Stand:** 2025-10-03 (Updated after system recovery)
-**Aktueller Fokus:** Stable Production System - Content Generation Ready, Multi-Service Architecture (API + Worker + Scheduler)
+**Version:** 4.5.0
+**Stand:** 2025-10-04 (Documentation Cleanup & Phase 3 Complete)
+**Aktueller Fokus:** Stable Production System - Content Generation Ready, Special Reports Active, Multi-Service Architecture
 
 ---
 
@@ -39,12 +39,13 @@
 | Templates API | `app/api/templates.py` | ✅ Produktiv |
 | Template Manager | `app/services/dynamic_template_manager.py` | ✅ Hot-Reload |
 | | | |
-| **Content Distribution (Phase 1 ✅)** | | |
-| Content Templates | `app/models/content_distribution.py` | ✅ DB Model (LLM Instructions) |
-| Content Templates API | `app/api/v2/templates.py` | ✅ REST API |
-| Content Templates Views | `app/web/views/template_views.py` | ✅ Web UI |
+| **Content Distribution (Phase 3 ✅)** | | |
+| Special Reports | `app/models/content_distribution.py` | ✅ DB Model (LLM Instructions) |
+| Special Reports API | `app/api/special_reports.py` | ✅ REST API |
+| Special Reports Views | `app/web/views/special_report_views.py` | ✅ Web UI (List/Detail/Edit) |
 | Content Worker | `app/worker/content_generator_worker.py` | ✅ Generation Service |
 | Content Queue | `pending_content_generation` | ✅ Async Processing |
+| Generation Jobs | `generated_content` | ✅ Storage & Delivery |
 | | | |
 | **Processing** | | |
 | Processors API | `app/api/processors.py` | ✅ Produktiv |
