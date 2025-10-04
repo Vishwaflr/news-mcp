@@ -637,7 +637,7 @@ def create_dynamic_tool_endpoint(tool_name: str, tool_info: Dict[str, Any]):
         """Dynamic tool endpoint - uses common tool_dispatch function"""
         try:
             # Convert Pydantic model to dict and filter out None values
-            params_dict = params.dict() if hasattr(params, 'dict') else {}
+            params_dict = params.model_dump() if hasattr(params, 'model_dump') else {}
             # Remove None values to let MCP method use its defaults
             params_dict = {k: v for k, v in params_dict.items() if v is not None}
 
@@ -1364,7 +1364,7 @@ async def mcp_endpoint(request: Request):
         response = await wrapper.handle_request(jsonrpc_request)
 
         # Return JSON-RPC response
-        return JSONResponse(content=response.dict(exclude_none=True))
+        return JSONResponse(content=response.model_dump(exclude_none=True))
 
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON")
