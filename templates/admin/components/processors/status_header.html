@@ -1,0 +1,52 @@
+    <!-- Bootstrap Status Alert -->
+    <div id="bootstrap-status"
+         hx-get="/htmx/processor-bootstrap-status"
+         hx-trigger="load"
+         hx-swap="innerHTML">
+        <div class="alert alert-secondary">
+            <div class="spinner-border spinner-border-sm" role="status"></div>
+            Loading system status...
+        </div>
+    </div>
+
+    <!-- Health Status Metrics Row -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card metric-card">
+                <div class="card-body text-center">
+                    <div class="metric-label">System Health</div>
+                    <div id="health-status-badge"
+                         hx-get="/htmx/processor-health-badge"
+                         hx-trigger="load, every 30s"
+                         hx-swap="innerHTML">
+                        <div class="spinner-border spinner-border-sm mt-2" role="status"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card metric-card">
+                <div class="card-body text-center">
+                    <div class="metric-label">Active Processors</div>
+                    <p class="metric-value" id="active-processors">-</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card metric-card">
+                <div class="card-body text-center">
+                    <div class="metric-label">24h Processed</div>
+                    <p class="metric-value" id="processed-24h">-</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card metric-card">
+                <div class="card-body text-center">
+                    <div class="metric-label">Success Rate</div>
+                    <p class="metric-value" id="success-rate">-</p>
+                </div>
+            </div>
+        </div>
+    </div>
+

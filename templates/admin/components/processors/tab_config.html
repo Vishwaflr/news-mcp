@@ -1,0 +1,83 @@
+        <!-- ========== TAB 2: CONFIGURATION ========== -->
+        <div class="tab-pane fade" id="config" role="tabpanel">
+            <div class="row">
+                <!-- Feed-to-Processor Assignments -->
+                <div class="col-12 mb-4">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <div class="section-header flex-grow-1 mb-0 pb-0">
+                                <h5><i class="bi bi-link-45deg"></i> Feed-to-Processor Assignments</h5>
+                                <small class="text-muted d-block mt-1">View and manage which processor handles each feed</small>
+                            </div>
+                            <button class="btn btn-sm btn-outline-primary"
+                                    hx-get="/htmx/processor-feed-assignments"
+                                    hx-target="#feed-assignments-table"
+                                    hx-swap="innerHTML">
+                                <i class="bi bi-arrow-clockwise"></i> Refresh
+                            </button>
+                        </div>
+                        <div class="card-body"
+                             id="feed-assignments-table"
+                             hx-get="/htmx/processor-feed-assignments"
+                             hx-trigger="load"
+                             hx-swap="innerHTML">
+                            <div class="text-center py-4">
+                                <div class="spinner-border text-primary" role="status"></div>
+                                <p class="mt-3 text-muted">Loading feed assignments...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Feed Configurations (old section kept for compatibility) -->
+                <div class="col-12 mb-4">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <div class="section-header flex-grow-1 mb-0 pb-0">
+                                <h5><i class="bi bi-gear-fill"></i> Advanced Feed Configurations</h5>
+                                <small class="text-muted d-block mt-1">Custom processor settings and overrides</small>
+                            </div>
+                            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newConfigModal">
+                                <i class="bi bi-plus-circle"></i> Add Configuration
+                            </button>
+                        </div>
+                        <div class="card-body"
+                             id="feed-configurations"
+                             hx-get="/htmx/processor-configs"
+                             hx-trigger="load"
+                             hx-swap="innerHTML">
+                            <div class="text-center py-4">
+                                <div class="spinner-border text-primary" role="status"></div>
+                                <p class="mt-3 text-muted">Loading configurations...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Processor Templates -->
+                <div class="col-12 mb-4">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <div class="section-header flex-grow-1 mb-0 pb-0">
+                                <h5><i class="bi bi-collection-fill"></i> Processor Templates</h5>
+                                <small class="text-muted d-block mt-1">Reusable processing configurations for common feed types</small>
+                            </div>
+                            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newTemplateModal">
+                                <i class="bi bi-plus-circle"></i> Create Template
+                            </button>
+                        </div>
+                        <div class="card-body"
+                             id="processor-templates"
+                             hx-get="/htmx/processor-templates"
+                             hx-trigger="load"
+                             hx-swap="innerHTML">
+                            <div class="text-center py-4">
+                                <div class="spinner-border text-primary" role="status"></div>
+                                <p class="mt-3 text-muted">Loading templates...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+

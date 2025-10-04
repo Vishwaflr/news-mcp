@@ -1,0 +1,109 @@
+        <!-- ========== TAB 3: OPERATIONS ========== -->
+        <div class="tab-pane fade" id="operations" role="tabpanel">
+            <div class="row">
+                <!-- Feed Reprocessing -->
+                <div class="col-lg-6 mb-4">
+                    <div class="card warning-card h-100">
+                        <div class="card-header bg-warning bg-opacity-10">
+                            <h5 class="mb-0"><i class="bi bi-arrow-repeat"></i> Feed Reprocessing</h5>
+                            <small class="text-muted">Reprocess all items from a specific feed</small>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Select Feed:</label>
+                                <select class="form-select form-select-lg" id="reprocess-feed-select"
+                                        hx-get="/htmx/feeds-options"
+                                        hx-trigger="load"
+                                        hx-swap="innerHTML">
+                                    <option>Loading feeds...</option>
+                                </select>
+                            </div>
+                            <div class="mb-4">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="force-all">
+                                    <label class="form-check-label" for="force-all">
+                                        <strong>Force reprocess all items</strong>
+                                        <small class="d-block text-muted">Process all items, not just failed ones</small>
+                                    </label>
+                                </div>
+                            </div>
+                            <button class="btn btn-warning btn-lg w-100" onclick="reprocessFeed()">
+                                <i class="bi bi-arrow-repeat"></i> Start Reprocessing
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Single Item Reprocessing -->
+                <div class="col-lg-6 mb-4">
+                    <div class="card info-card h-100">
+                        <div class="card-header bg-info bg-opacity-10">
+                            <h5 class="mb-0"><i class="bi bi-file-earmark-arrow-up"></i> Single Item Reprocessing</h5>
+                            <small class="text-muted">Reprocess a specific item by ID</small>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Item ID:</label>
+                                <input type="number" class="form-control form-control-lg" id="reprocess-item-id"
+                                       placeholder="Enter item ID (e.g., 12345)">
+                                <small class="text-muted">Find item IDs on the Articles page</small>
+                            </div>
+                            <button class="btn btn-info btn-lg w-100 mt-5" onclick="reprocessItem()">
+                                <i class="bi bi-arrow-repeat"></i> Reprocess Item
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reprocessing Results -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="section-header">
+                                <h5><i class="bi bi-list-check"></i> Operation Results</h5>
+                            </div>
+                        </div>
+                        <div class="card-body" id="reprocessing-results">
+                            <div class="alert alert-secondary">
+                                <i class="bi bi-info-circle"></i> No operations performed yet. Start a reprocessing operation above.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+<!-- New Configuration Modal -->
+<div class="modal fade" id="newConfigModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-gear-fill"></i> New Feed Processor Configuration</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="new-config-form">
+                <!-- Form will be loaded here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- New Template Modal -->
+<div class="modal fade" id="newTemplateModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-collection-fill"></i> New Processor Template</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="new-template-form">
+                <!-- Form will be loaded here -->
+            </div>
+        </div>
+    </div>
+</div>
+

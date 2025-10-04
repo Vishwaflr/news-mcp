@@ -1,0 +1,107 @@
+<script>
+    // Load statistics with different time ranges
+    function loadStats(days) {
+        // Update active button
+        document.querySelectorAll('.btn-group .btn').forEach(btn => btn.classList.remove('active'));
+        event.target.classList.add('active');
+
+        // Load statistics
+        htmx.ajax('GET', `/htmx/processor-stats-table?days=${days}`, {target: '#detailed-statistics'});
+    }
+
+    // Reprocess entire feed
+    function reprocessFeed() {
+        const feedSelect = document.getElementById('reprocess-feed-select');
+        const forceAll = document.getElementById('force-all').checked;
+        const feedId = feedSelect.value;
+
+        if (!feedId || feedId === 'Loading feeds...') {
+            showAlert('danger', 'Please select a feed first');
+            return;
+        }
+
+        if (!confirm(`⚠️ Reprocess all items from feed ${feedId}?\n\nThis operation may take several minutes.`)) {
+            return;
+        }
+
+        showAlert('info', '<i class="spinner-border spinner-border-sm me-2"></i> Starting reprocessing operation...');
+
+        const url = `/api/processors/reprocess/feed/${feedId}?force_all=${forceAll}`;
+
+        fetch(url, {method: 'POST'})
+            .then(response => response.json())
+            .then(data => {
+                showAlert('success', `
+                    <strong><i class="bi bi-check-circle"></i> Feed Reprocessing Complete</strong><br>
+                    <div class="mt-2">
+                        <span class="badge bg-primary badge-large">Feed ID: ${data.feed_id}</span>
+                        <span class="badge bg-info badge-large">Total: ${data.total_items}</span>
+                        <span class="badge bg-success badge-large">Success: ${data.processed_count}</span>
+                        <span class="badge bg-danger badge-large">Failed: ${data.failed_count}</span>
+                    </div>
+                `);
+            })
+            .catch(error => {
+                showAlert('danger', `<strong><i class="bi bi-x-circle"></i> Error:</strong> ${error.message}`);
+            });
+    }
+
+    // Reprocess single item
+    function reprocessItem() {
+        const itemId = document.getElementById('reprocess-item-id').value;
+
+        if (!itemId) {
+            showAlert('danger', 'Please enter an item ID');
+            return;
+        }
+
+        if (!confirm(`⚠️ Reprocess item ${itemId}?`)) {
+            return;
+        }
+
+        showAlert('info', '<i class="spinner-border spinner-border-sm me-2"></i> Processing item...');
+
+        fetch(`/api/processors/reprocess/item/${itemId}`, {method: 'POST'})
+            .then(response => response.json())
+            .then(data => {
+                showAlert('success', `
+                    <strong><i class="bi bi-check-circle"></i> Item Reprocessing Complete</strong><br>
+                    <div class="mt-2">
+                        <span class="badge bg-primary badge-large">Item ID: ${data.item_id}</span>
+                        <span class="badge bg-success badge-large">${data.message}</span>
+                    </div>
+                `);
+            })
+            .catch(error => {
+                showAlert('danger', `<strong><i class="bi bi-x-circle"></i> Error:</strong> ${error.message}`);
+            });
+    }
+
+    // Helper function to show alerts
+    function showAlert(type, message) {
+        document.getElementById('reprocessing-results').innerHTML = `
+            <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+    }
+
+    // Update metrics from health API
+    function updateMetrics(data) {
+        if (data.active_processors !== undefined) {
+            document.getElementById('active-processors').textContent = data.active_processors;
+        }
+        if (data.processed_24h !== undefined) {
+            document.getElementById('processed-24h').textContent = data.processed_24h.toLocaleString();
+        }
+        if (data.success_rate !== undefined) {
+            document.getElementById('success-rate').textContent = data.success_rate + '%';
+        }
+    }
+
+    // Auto-refresh health status every 30 seconds
+    setInterval(() => {
+        htmx.ajax('GET', '/htmx/processor-health-badge', {target: '#health-status-badge'});
+    }, 30000);
+</script>
