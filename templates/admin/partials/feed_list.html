@@ -39,6 +39,13 @@
                     <i class="bi bi-x-circle-fill"></i> Error
                 </span>
                 {% endif %}
+
+                <!-- Auto-Analysis Badge -->
+                {% if feed.auto_analyze_enabled %}
+                <span class="badge bg-info" title="Auto-Analysis enabled">
+                    <i class="bi bi-robot"></i> Auto
+                </span>
+                {% endif %}
             </div>
         </div>
 
@@ -48,9 +55,9 @@
                 <i class="bi bi-file-text"></i>
                 <span>{{ feed.total_articles or 0 }} articles</span>
             </div>
-            <div class="feed-meta-item" title="Articles in Last 24h">
+            <div class="feed-meta-item" title="Articles in Last 24 Hours">
                 <i class="bi bi-clock-history"></i>
-                <span>{{ feed.articles_24h or 0 }} today</span>
+                <span>{{ feed.articles_24h or 0 }} last 24h</span>
             </div>
             <div class="feed-meta-item" title="Analysis Coverage">
                 <i class="bi bi-graph-up"></i>
