@@ -1,0 +1,68 @@
+    <!-- Active Runs Table -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Active Runs</h5>
+        </div>
+        <div class="card-body"
+             id="active-runs"
+             hx-get="/htmx/manager-active-runs"
+             hx-trigger="load, every 3s"
+             hx-swap="innerHTML">
+            <div class="text-muted">Loading active runs...</div>
+        </div>
+    </div>
+
+    <!-- Metrics Section -->
+    <h2 class="h4 mb-3 mt-4">📊 Detailed Metrics</h2>
+
+    <!-- Feed Performance -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">🔄 Feed Performance</h5>
+        </div>
+        <div class="card-body">
+            <div class="feed-selector mb-3">
+                <label for="feed-select" class="form-label">Select Feed:</label>
+                <select id="feed-select" class="form-select" onchange="loadFeedMetrics(this.value)">
+                    <option value="">-- Select a Feed --</option>
+                </select>
+            </div>
+            <div id="feed-metrics">
+                <div class="placeholder text-center py-4 text-muted">Select a feed to view metrics</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Queue Performance -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">⚡ Queue Performance</h5>
+        </div>
+        <div class="card-body"
+             id="queue-performance"
+             hx-get="/api/metrics/performance/queue"
+             hx-trigger="load, every 30s">
+            <div class="loading text-center py-4 text-muted">Loading queue metrics...</div>
+        </div>
+    </div>
+
+    <!-- Cost Analysis -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">💰 Cost Analysis</h5>
+        </div>
+        <div class="card-body">
+            <div class="cost-controls mb-3">
+                <label for="cost-days" class="form-label">Time Range:</label>
+                <select id="cost-days" class="form-select" style="max-width: 200px;" onchange="loadCostBreakdown(this.value)">
+                    <option value="1">Last 24 hours</option>
+                    <option value="7" selected>Last 7 days</option>
+                    <option value="30">Last 30 days</option>
+                </select>
+            </div>
+            <div id="cost-breakdown">
+                <div class="loading text-center py-4 text-muted">Loading cost data...</div>
+            </div>
+        </div>
+    </div>
+

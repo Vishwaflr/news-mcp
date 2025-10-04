@@ -1,0 +1,48 @@
+    <!-- Status Cards -->
+    <div class="row g-4 mb-4">
+        <!-- Storage Statistics -->
+        <div class="col-lg-3">
+            <div class="card h-100" id="storage-stats-card">
+                <div class="card-body" id="storage-stats-content">
+                    <div class="text-muted">Loading storage stats...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Current Status -->
+        <div class="col-lg-3">
+            <div class="card h-100"
+                 hx-get="/htmx/manager-status"
+                 hx-trigger="load, every 5s"
+                 hx-swap="innerHTML">
+                <div class="card-body">
+                    <div class="text-muted">Loading status...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Queue Status -->
+        <div class="col-lg-3">
+            <div class="card h-100"
+                 hx-get="/htmx/manager-queue"
+                 hx-trigger="load, every 5s"
+                 hx-swap="innerHTML">
+                <div class="card-body">
+                    <div class="text-muted">Loading queue...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Daily Stats -->
+        <div class="col-lg-3">
+            <div class="card h-100"
+                 hx-get="/htmx/manager-daily-stats"
+                 hx-trigger="load, every 10s"
+                 hx-swap="innerHTML">
+                <div class="card-body">
+                    <div class="text-muted">Loading stats...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
