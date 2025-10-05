@@ -236,16 +236,17 @@ function generateParameterField(param) {
 
     switch (param.type) {
         case 'array':
+            // Use placeholder as default value if provided (newlines work in value, not in placeholder attribute)
+            const defaultValue = param.placeholder || '';
             fieldHTML = `
                 <div class="mb-3">
                     <label class="form-label text-light">${param.display_name} ${required}</label>
                     <textarea
                         name="param_${param.name}"
                         class="form-control"
-                        rows="3"
-                        placeholder="${param.placeholder || ''}"
+                        rows="22"
                         ${param.required ? 'required' : ''}
-                    ></textarea>
+                    >${defaultValue}</textarea>
                     ${helpText}
                 </div>
             `;
