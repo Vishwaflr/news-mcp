@@ -57,6 +57,33 @@
                         </small>
                     </div>
 
+                    <!-- Perplexity Model Selection -->
+                    <h6 class="text-light mt-4 mb-3">Perplexity Configuration</h6>
+
+                    <div class="mb-3">
+                        <label class="form-label text-light">Perplexity Model <span class="text-danger">*</span></label>
+                        <select name="llm_model" class="form-select" required>
+                            <option value="sonar" {% if not template or template.llm_model == 'sonar' %}selected{% endif %}>
+                                Sonar ($1.00/$1.00) ⭐ Default
+                            </option>
+                            <option value="sonar-pro" {% if template and template.llm_model == 'sonar-pro' %}selected{% endif %}>
+                                Sonar Pro ($3.00/$15.00)
+                            </option>
+                            <option value="sonar-reasoning" {% if template and template.llm_model == 'sonar-reasoning' %}selected{% endif %}>
+                                Sonar Reasoning ($1.00/$5.00)
+                            </option>
+                            <option value="sonar-reasoning-pro" {% if template and template.llm_model == 'sonar-reasoning-pro' %}selected{% endif %}>
+                                Sonar Reasoning Pro ($2.00/$8.00)
+                            </option>
+                            <option value="sonar-deep-research" {% if template and template.llm_model == 'sonar-deep-research' %}selected{% endif %}>
+                                Sonar Deep Research ($2.00/$8.00 + $2.00 citations + $5.00/1K queries + $3.00 reasoning)
+                            </option>
+                        </select>
+                        <small class="form-text text-muted">
+                            Prices: Input/Output per 1M tokens
+                        </small>
+                    </div>
+
                     <!-- Research Prompt -->
                     <h6 class="text-light mt-4 mb-3">Research Prompt</h6>
 
@@ -161,9 +188,6 @@ document.getElementById('templateForm').addEventListener('submit', async functio
         alert('Invalid JSON in function_parameters');
         return;
     }
-
-    // Convert temperature to float
-    data.llm_temperature = parseFloat(data.llm_temperature);
 
     const method = '{{ mode }}' === 'create' ? 'POST' : 'PUT';
     const url = e.target.action;

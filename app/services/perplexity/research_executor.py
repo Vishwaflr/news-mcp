@@ -101,11 +101,18 @@ class ResearchExecutor:
             # Load and execute Perplexity function
             function = self.load_function(template.perplexity_function)
 
-            logger.info(f"Executing research function: {template.perplexity_function} with query: {actual_query[:50]}...")
+            # Merge template's Perplexity model into function parameters
+            merged_parameters = template.function_parameters.copy()
+            merged_parameters["model"] = template.llm_model
+
+            logger.info(
+                f"Executing research function: {template.perplexity_function} "
+                f"with model: {template.llm_model} and query: {actual_query[:50]}..."
+            )
 
             perplexity_result = await function(
                 query=actual_query,
-                parameters=template.function_parameters,
+                parameters=merged_parameters,
                 client=self.client
             )
 
@@ -177,9 +184,13 @@ class ResearchExecutor:
             # Load and execute function
             function = self.load_function(template.perplexity_function)
 
+            # Merge template's Perplexity model into function parameters
+            merged_parameters = template.function_parameters.copy()
+            merged_parameters["model"] = template.llm_model
+
             perplexity_result = await function(
                 query=run.query_text,
-                parameters=template.function_parameters,
+                parameters=merged_parameters,
                 client=self.client
             )
 

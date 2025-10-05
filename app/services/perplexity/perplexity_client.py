@@ -191,16 +191,26 @@ class PerplexityClient:
         """
         Calculate cost based on token usage
 
-        Pricing (as of 2025, check https://docs.perplexity.ai/pricing):
-        - sonar: $0.2 / 1M tokens (fast, lightweight)
-        - sonar-pro: $1.0 / 1M tokens (advanced reasoning)
+        Pricing (as of 2025-10, from https://docs.perplexity.ai/pricing):
+        Token Pricing (Input/Output per 1M tokens):
+        - sonar: $1/$1
+        - sonar-pro: $3/$15
+        - sonar-reasoning: $1/$5
+        - sonar-reasoning-pro: $2/$8
+        - sonar-deep-research: $2/$8 + $2 citations + $5/1K queries + $3 reasoning
+
+        Note: Simplified calculation using average of input/output for now
         """
+        # Simplified pricing (average of input/output per 1M tokens)
         pricing = {
-            "sonar": 0.2,
-            "sonar-pro": 1.0
+            "sonar": 1.0,  # ($1 + $1) / 2
+            "sonar-pro": 9.0,  # ($3 + $15) / 2
+            "sonar-reasoning": 3.0,  # ($1 + $5) / 2
+            "sonar-reasoning-pro": 5.0,  # ($2 + $8) / 2
+            "sonar-deep-research": 5.0  # ($2 + $8) / 2 base (additional costs not included)
         }
 
-        cost_per_1m = pricing.get(model, 0.2)
+        cost_per_1m = pricing.get(model, 1.0)
         total_tokens = usage.get("total_tokens", 0)
 
         cost = (total_tokens / 1_000_000) * cost_per_1m
