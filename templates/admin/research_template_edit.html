@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+
+{% block title %}{% if mode == 'create' %}Create{% else %}Edit{% endif %} Research Template - News MCP{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 text-light">
+        <i class="bi bi-search"></i>
+        {% if mode == 'create' %}Create New{% else %}Edit{% endif %} Research Template
+    </h1>
+    <a href="/admin/research" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back to List
+    </a>
+</div>
+
+<div class="row">
+    <!-- Left Panel: Configuration Form -->
+    <div class="col-lg-6">
+        <div class="card border-secondary">
+            <div class="card-header bg-dark border-secondary">
+                <h5 class="mb-0 text-light">Template Configuration</h5>
+            </div>
+            <div class="card-body bg-dark">
+                <form id="templateForm" method="POST" action="{% if mode == 'create' %}/api/research/templates{% else %}/api/research/templates/{{ template.id }}{% endif %}">
+
+                    <!-- Basic Info -->
+                    <div class="mb-3">
+                        <label class="form-label text-light">Name <span class="text-danger">*</span></label>
+                        <input type="text" name="name" class="form-control" value="{{ template.name if template else '' }}" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-light">Description</label>
+                        <textarea name="description" class="form-control" rows="2">{{ template.description if template else '' }}</textarea>
+                    </div>
+
+                    <!-- Perplexity Function -->
+                    <div class="mb-3">
+                        <label class="form-label text-light">Perplexity Function <span class="text-danger">*</span></label>
+                        <select name="perplexity_function" class="form-select" required>
+                            {% for func in available_functions %}
+                            <option value="{{ func }}" {% if template and template.perplexity_function == func %}selected{% endif %}>
+                                {{ func.replace('_', ' ').title() }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <small class="form-text text-muted">
+                            Choose research function type (domain filter, structured output, etc.)
+                        </small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-light">Function Parameters (JSON)</label>
+                        <textarea name="function_parameters" class="form-control font-monospace" rows="4" placeholder='{"domain_filter": ["reuters.com"], "recency_filter": "day"}'>{{ template.function_parameters|tojson if template and template.function_parameters else '{}' }}</textarea>
+                        <small class="form-text text-muted">
+                            Parameters for the selected Perplexity function
+                        </small>
+                    </div>
+
+                    <!-- LLM Configuration -->
+                    <h6 class="text-light mt-4 mb-3">LLM Configuration</h6>
+
+                    <div class="mb-3">
+                        <label class="form-label text-light">LLM Model <span class="text-danger">*</span></label>
+                        <select name="llm_model" class="form-select" required>
+                            <option value="gpt-4-turbo" {% if template and template.llm_model == 'gpt-4-turbo' %}selected{% endif %}>GPT-4 Turbo</option>
+                            <option value="gpt-4o" {% if template and template.llm_model == 'gpt-4o' %}selected{% endif %}>GPT-4o</option>
+                            <option value="gpt-3.5-turbo" {% if template and template.llm_model == 'gpt-3.5-turbo' %}selected{% endif %}>GPT-3.5 Turbo</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-light">LLM Prompt <span class="text-danger">*</span></label>
+                        <textarea name="llm_prompt" class="form-control" rows="5" required>{{ template.llm_prompt if template else 'Analyze the following research findings and provide a comprehensive summary.' }}</textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-light">Temperature</label>
+                        <input type="number" name="llm_temperature" class="form-control" step="0.1" min="0" max="2" value="{{ template.llm_temperature if template else 0.7 }}">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-light">System Instruction</label>
+                        <textarea name="system_instruction" class="form-control" rows="2">{{ template.system_instruction if template else '' }}</textarea>
+                    </div>
+
+                    <!-- Output Configuration -->
+                    <h6 class="text-light mt-4 mb-3">Output Configuration</h6>
+
+                    <div class="mb-3">
+                        <label class="form-label text-light">Output Format</label>
+                        <select name="output_format" class="form-select">
+                            <option value="markdown" {% if not template or template.output_format == 'markdown' %}selected{% endif %}>Markdown</option>
+                            <option value="json" {% if template and template.output_format == 'json' %}selected{% endif %}>JSON</option>
+                            <option value="html" {% if template and template.output_format == 'html' %}selected{% endif %}>HTML</option>
+                        </select>
+                    </div>
+
+                    <!-- Scheduling -->
+                    <h6 class="text-light mt-4 mb-3">Scheduling</h6>
+
+                    <div class="mb-3 form-check form-switch">
+                        <input type="checkbox" name="schedule_enabled" class="form-check-input" id="scheduleEnabled" {% if template and template.schedule_enabled %}checked{% endif %}>
+                        <label class="form-check-label text-light" for="scheduleEnabled">Enable Scheduling</label>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-light">Cron Expression</label>
+                        <input type="text" name="cron_expression" class="form-control font-monospace" placeholder="0 6 * * *" value="{{ template.cron_expression if template else '' }}">
+                        <small class="form-text text-muted">Example: "0 6 * * *" (daily at 6 AM)</small>
+                    </div>
+
+                    <div class="mb-3 form-check form-switch">
+                        <input type="checkbox" name="is_active" class="form-check-input" id="isActive" {% if not template or template.is_active %}checked{% endif %}>
+                        <label class="form-check-label text-light" for="isActive">Active</label>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-save"></i> Save Template
+                        </button>
+                        <a href="/admin/research" class="btn btn-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Panel: Function Code Preview -->
+    <div class="col-lg-6">
+        <div class="card border-secondary">
+            <div class="card-header bg-dark border-secondary">
+                <h5 class="mb-0 text-light">Function Code</h5>
+            </div>
+            <div class="card-body bg-dark">
+                <div class="alert alert-info bg-dark border-info text-light">
+                    <i class="bi bi-info-circle"></i>
+                    Function code is read from <code>app/services/perplexity/functions/</code>.
+                    Edit the Python files directly to modify function behavior.
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label text-light">Selected Function</label>
+                    <div id="selected-function-display" class="p-3 bg-secondary rounded">
+                        <code id="function-name-display" class="text-warning">
+                            {{ template.perplexity_function if template else available_functions[0] }}
+                        </code>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label text-light">Available Functions:</label>
+                    <ul class="list-group bg-dark">
+                        {% for func in available_functions %}
+                        <li class="list-group-item bg-dark text-light border-secondary">
+                            <i class="bi bi-code-square text-primary"></i>
+                            <code>{{ func }}.py</code>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Update function display when dropdown changes
+document.querySelector('select[name="perplexity_function"]').addEventListener('change', function(e) {
+    document.getElementById('function-name-display').textContent = e.target.value;
+});
+
+// Handle form submission
+document.getElementById('templateForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData.entries());
+
+    // Convert checkboxes to booleans
+    data.schedule_enabled = formData.has('schedule_enabled');
+    data.is_active = formData.has('is_active');
+
+    // Parse JSON fields
+    try {
+        data.function_parameters = JSON.parse(data.function_parameters || '{}');
+    } catch (err) {
+        alert('Invalid JSON in function_parameters');
+        return;
+    }
+
+    // Convert temperature to float
+    data.llm_temperature = parseFloat(data.llm_temperature);
+
+    const method = '{{ mode }}' === 'create' ? 'POST' : 'PUT';
+    const url = e.target.action;
+
+    try {
+        const response = await fetch(url, {
+            method: method,
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        });
+
+        if (response.ok) {
+            alert('Template saved successfully!');
+            window.location.href = '/admin/research';
+        } else {
+            const error = await response.json();
+            alert('Error: ' + (error.detail || 'Failed to save template'));
+        }
+    } catch (err) {
+        alert('Network error: ' + err.message);
+    }
+});
+</script>
+
+{% endblock %}

@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block title %}Research Runs - News MCP{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 text-light"><i class="bi bi-clock-history"></i> Research Runs</h1>
+    <a href="/admin/research" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back to Templates
+    </a>
+</div>
+
+<!-- Cost Summary -->
+<div id="cost-summary"
+     hx-get="/htmx/research/analytics/cost-summary?hours=24"
+     hx-trigger="load, every 60s"
+     hx-swap="innerHTML">
+    <div class="text-center py-3">
+        <div class="spinner-border text-primary spinner-border-sm" role="status"></div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card border-secondary mt-4">
+    <div class="card-header bg-dark border-secondary">
+        <h5 class="mb-0 text-light">Filters</h5>
+    </div>
+    <div class="card-body bg-dark">
+        <div class="row">
+            <div class="col-md-4">
+                <label class="form-label text-light">Status</label>
+                <select class="form-select" id="statusFilter">
+                    <option value="">All</option>
+                    <option value="pending">Pending</option>
+                    <option value="running">Running</option>
+                    <option value="completed">Completed</option>
+                    <option value="failed">Failed</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label text-light">Limit</label>
+                <select class="form-select" id="limitFilter">
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                    <option value="200">200</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Runs List -->
+<div class="card border-secondary mt-4">
+    <div class="card-header bg-dark border-secondary">
+        <h5 class="mb-0 text-light">All Runs</h5>
+    </div>
+    <div class="card-body bg-dark p-0">
+        <div class="table-responsive">
+            <table class="table table-dark table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Created</th>
+                        <th>Template</th>
+                        <th>Status</th>
+                        <th>Trigger</th>
+                        <th>Tokens</th>
+                        <th>Cost</th>
+                        <th>Duration</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="runs-list"
+                       hx-get="/htmx/research/runs/list?limit=50"
+                       hx-trigger="load, every 10s"
+                       hx-swap="innerHTML">
+                    <tr>
+                        <td colspan="9" class="text-center py-4">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+// Filter functionality
+document.getElementById('statusFilter').addEventListener('change', updateList);
+document.getElementById('limitFilter').addEventListener('change', updateList);
+
+function updateList() {
+    const status = document.getElementById('statusFilter').value;
+    const limit = document.getElementById('limitFilter').value;
+
+    let url = '/htmx/research/runs/list?limit=' + limit;
+    if (status) url += '&status=' + status;
+
+    htmx.ajax('GET', url, {target: '#runs-list', swap: 'innerHTML'});
+}
+</script>
+
+{% endblock %}

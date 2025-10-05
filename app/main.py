@@ -22,7 +22,7 @@ from app.api.v1 import analysis as analysis_v1, health as health_v1
 
 # View imports
 from app.routes import templates as template_routes, processors_htmx
-from app.web.views import analysis, auto_analysis_views, manager_views, special_report_views, admin_views, feed_views
+from app.web.views import analysis, auto_analysis_views, manager_views, special_report_views, admin_views, feed_views, research_views
 
 # Core imports
 from app.core.logging_config import setup_logging, get_logger
@@ -135,6 +135,7 @@ app.include_router(analysis.router)
 app.include_router(auto_analysis_views.router, prefix="/htmx")
 app.include_router(manager_views.router)
 app.include_router(special_report_views.router)
+app.include_router(research_views.router)  # Research Templates UI
 app.include_router(admin_views.router)  # V2 Feed Management UI
 app.include_router(feed_views.router, prefix="/htmx")  # V2 Feed HTMX Routes
 
