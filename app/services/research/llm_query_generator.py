@@ -84,11 +84,15 @@ Please generate research questions based on these articles."""
             generated_queries = response.choices[0].message.content
             tokens_used = response.usage.total_tokens
 
-            logger.info(f"LLM query generation successful: {tokens_used} tokens used")
+            # Parse queries into list
+            queries_list = self._parse_queries(generated_queries)
+
+            logger.info(f"LLM query generation successful: {tokens_used} tokens used, {len(queries_list)} queries extracted")
 
             return {
                 "ok": True,
                 "generated_queries": generated_queries,
+                "queries_list": queries_list,
                 "metadata": {
                     "model": model,
                     "articles_count": len(articles),
@@ -133,3 +137,32 @@ Impact: {article.get('impact', {}).get('overall', 0.0) if isinstance(article.get
             context_parts.append(context)
 
         return "\n".join(context_parts)
+
+    def _parse_queries(self, generated_text: str) -> List[str]:
+        """
+        Parse numbered list of queries from generated text
+
+        Handles formats like:
+        1. Query one
+        2. Query two
+        """
+        queries = []
+        lines = generated_text.strip().split('\n')
+
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+
+            # Match numbered queries: "1. ", "2. ", etc.
+            import re
+            match = re.match(r'^\d+\.\s+(.+)$', line)
+            if match:
+                query = match.group(1).strip()
+                queries.append(query)
+
+        # Fallback: if no numbered queries found, return whole text as single query
+        if not queries:
+            queries = [generated_text.strip()]
+
+        return queries

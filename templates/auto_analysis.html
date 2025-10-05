@@ -67,10 +67,25 @@
                                 <div class="mb-3">
                                     <label class="form-label small">AI Model</label>
                                     <select class="form-select form-select-sm" name="ai_model">
-                                        <option value="gpt-4.1-nano" selected>gpt-4.1-nano (Cost-optimiert)</option>
-                                        <option value="gpt-4o-mini">gpt-4o-mini</option>
-                                        <option value="gpt-4o">gpt-4o (High Quality)</option>
+                                        <optgroup label="GPT-5 Series (Latest)">
+                                            <option value="gpt-5-nano" {% if config and config.ai_model == 'gpt-5-nano' %}selected{% endif %}>gpt-5-nano ($0.05/$0.40)</option>
+                                            <option value="gpt-5-mini" {% if config and config.ai_model == 'gpt-5-mini' %}selected{% endif %}>gpt-5-mini ($0.25/$2.00)</option>
+                                            <option value="gpt-5" {% if config and config.ai_model == 'gpt-5' %}selected{% endif %}>gpt-5 ($1.25/$10.00)</option>
+                                        </optgroup>
+                                        <optgroup label="GPT-4.1 Series">
+                                            <option value="gpt-4.1-nano" {% if config and config.ai_model == 'gpt-4.1-nano' %}selected{% endif %}>gpt-4.1-nano ($0.10/$0.40)</option>
+                                            <option value="gpt-4.1-mini" {% if config and config.ai_model == 'gpt-4.1-mini' %}selected{% endif %}>gpt-4.1-mini ($0.40/$1.60)</option>
+                                            <option value="gpt-4.1" {% if config and config.ai_model == 'gpt-4.1' %}selected{% endif %}>gpt-4.1 ($2.00/$8.00)</option>
+                                        </optgroup>
+                                        <optgroup label="GPT-4 (Legacy)">
+                                            <option value="gpt-4o-mini" {% if config and config.ai_model == 'gpt-4o-mini' %}selected{% endif %}>gpt-4o-mini ($0.15/$0.60)</option>
+                                            <option value="gpt-4o" {% if config and config.ai_model == 'gpt-4o' %}selected{% endif %}>gpt-4o ($2.50/$10.00)</option>
+                                        </optgroup>
                                     </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label small">Rate per Second</label>
+                                    <input type="number" step="0.1" class="form-control form-control-sm" name="rate_per_second" value="{{ config.rate_per_second if config else 2.0 }}" min="0.1" max="10.0">
                                 </div>
                             </div>
                             <div class="col-md-4">

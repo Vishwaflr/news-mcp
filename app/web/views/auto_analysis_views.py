@@ -210,6 +210,7 @@ def update_auto_analysis_config(
     max_runs_per_day: int = Form(...),
     max_items_per_run: int = Form(...),
     ai_model: str = Form(...),
+    rate_per_second: float = Form(...),
     check_interval: int = Form(...)
 ):
     """Update auto-analysis configuration"""
@@ -219,6 +220,7 @@ def update_auto_analysis_config(
             "max_runs_per_day": max_runs_per_day,
             "max_items_per_run": max_items_per_run,
             "ai_model": ai_model,
+            "rate_per_second": rate_per_second,
             "check_interval": check_interval
         }
 
@@ -249,7 +251,7 @@ def update_auto_analysis_config(
                 <ul class="small">
                     <li>Default: <span id="view-model">{ai_model}</span></li>
                     <li>Cost-optimiert für Auto-Analyse</li>
-                    <li>Rate: 1.0 req/s</li>
+                    <li>Rate: <span id="view-rate">{rate_per_second}</span> req/s</li>
                 </ul>
             </div>
             <div class="col-md-4">

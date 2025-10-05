@@ -33,7 +33,7 @@ async def execute(
     """
     domain_filter = parameters.get("domain_filter", [])
     recency = parameters.get("recency_filter", "month")
-    model = parameters.get("model", "llama-3.1-sonar-small-128k-online")
+    model = parameters.get("model", "sonar")
 
     if not domain_filter:
         raise ValueError("domain_filter is required for domain-filtered research")
@@ -42,8 +42,7 @@ async def execute(
         query=query,
         model=model,
         search_domain_filter=domain_filter,
-        search_recency_filter=recency,
-        return_citations=True
+        search_recency_filter=recency
     )
 
     cost = client.calculate_cost(response["usage"], model)

@@ -55,6 +55,40 @@
     </div>
 </div>
 
+<!-- Query Input Modal -->
+<div class="modal fade" id="queryModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark border-secondary">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title text-light">Execute Research Template</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="execute-form">
+                    <input type="hidden" id="template-id-input" name="template_id">
+                    <div class="mb-3">
+                        <label for="query-input" class="form-label text-light">Research Query</label>
+                        <textarea
+                            id="query-input"
+                            name="query"
+                            class="form-control bg-dark text-light border-secondary"
+                            rows="3"
+                            placeholder="Enter your research query (e.g., 'Latest developments in renewable energy 2025')"
+                            required></textarea>
+                        <small class="text-muted">This query will be sent to Perplexity with the template's filters</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" onclick="executeResearch()">
+                    <i class="bi bi-play-fill"></i> Execute
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Execution Result -->
 <div id="execution-result" class="mt-3"></div>
 
@@ -97,6 +131,35 @@
 </div>
 
 <script>
+// Open query modal for execution
+function openQueryModal(templateId) {
+    document.getElementById('template-id-input').value = templateId;
+    document.getElementById('query-input').value = '';
+    const modal = new bootstrap.Modal(document.getElementById('queryModal'));
+    modal.show();
+}
+
+// Execute research with query
+function executeResearch() {
+    const templateId = document.getElementById('template-id-input').value;
+    const query = document.getElementById('query-input').value.trim();
+
+    if (!query) {
+        alert('Please enter a research query');
+        return;
+    }
+
+    // Close modal
+    bootstrap.Modal.getInstance(document.getElementById('queryModal')).hide();
+
+    // Execute with HTMX
+    htmx.ajax('POST', `/htmx/research/templates/${templateId}/execute`, {
+        target: '#execution-result',
+        swap: 'innerHTML',
+        values: { query: query }
+    });
+}
+
 // Auto-refresh after execution
 document.body.addEventListener('htmx:afterSwap', function(evt) {
     if (evt.detail.target.id === 'execution-result') {

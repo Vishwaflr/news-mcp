@@ -25,11 +25,12 @@ class PerplexityClient:
     async def search(
         self,
         query: str,
-        model: str = "llama-3.1-sonar-small-128k-online",
+        model: str = "sonar",
         search_domain_filter: Optional[List[str]] = None,
         search_recency_filter: Optional[str] = None,
         return_images: bool = False,
         return_related_questions: bool = False,
+        return_citations: bool = True,
         temperature: float = 0.2,
         max_tokens: Optional[int] = None
     ) -> Dict[str, Any]:
@@ -66,11 +67,18 @@ class PerplexityClient:
                     "content": query
                 }
             ],
-            "temperature": temperature,
-            "return_citations": True,
-            "return_images": return_images,
-            "return_related_questions": return_related_questions
+            "temperature": temperature
         }
+
+        # Optional parameters
+        if return_citations:
+            payload["return_citations"] = return_citations
+
+        if return_images:
+            payload["return_images"] = return_images
+
+        if return_related_questions:
+            payload["return_related_questions"] = return_related_questions
 
         if search_domain_filter:
             payload["search_domain_filter"] = search_domain_filter
@@ -126,7 +134,7 @@ class PerplexityClient:
         self,
         query: str,
         response_format: Dict[str, Any],
-        model: str = "llama-3.1-sonar-small-128k-online",
+        model: str = "sonar",
         **kwargs
     ) -> Dict[str, Any]:
         """
@@ -184,14 +192,12 @@ class PerplexityClient:
         Calculate cost based on token usage
 
         Pricing (as of 2025, check https://docs.perplexity.ai/pricing):
-        - sonar-small: $0.2 / 1M tokens
-        - sonar-medium: $0.6 / 1M tokens
-        - sonar-large: $1.0 / 1M tokens
+        - sonar: $0.2 / 1M tokens (fast, lightweight)
+        - sonar-pro: $1.0 / 1M tokens (advanced reasoning)
         """
         pricing = {
-            "llama-3.1-sonar-small-128k-online": 0.2,
-            "llama-3.1-sonar-large-128k-online": 1.0,
-            "llama-3.1-sonar-huge-128k-online": 5.0
+            "sonar": 0.2,
+            "sonar-pro": 1.0
         }
 
         cost_per_1m = pricing.get(model, 0.2)

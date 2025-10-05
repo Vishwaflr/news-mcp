@@ -46,7 +46,7 @@ async def execute(
     """
     track_performance = parameters.get("track_performance", True)
     include_token_breakdown = parameters.get("include_token_breakdown", True)
-    model = parameters.get("model", "llama-3.1-sonar-small-128k-online")
+    model = parameters.get("model", "sonar")
     domain_filter = parameters.get("domain_filter", [])
     recency_filter = parameters.get("recency_filter")
 
@@ -56,8 +56,7 @@ async def execute(
         query=query,
         model=model,
         search_domain_filter=domain_filter if domain_filter else None,
-        search_recency_filter=recency_filter,
-        return_citations=True
+        search_recency_filter=recency_filter
     )
 
     end_time = datetime.utcnow()

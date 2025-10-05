@@ -36,9 +36,20 @@
                     <div class="col-md-6">
                         <label class="form-label small mb-1">Model</label>
                         <select class="form-select form-select-sm" name="analysis_model">
-                            <option value="gpt-4o-mini" selected>gpt-4o-mini</option>
-                            <option value="gpt-4o">gpt-4o</option>
-                            <option value="gpt-4-turbo">gpt-4-turbo</option>
+                            <optgroup label="GPT-5 Series (Latest)">
+                                <option value="gpt-5-nano">gpt-5-nano ($0.05/$0.40)</option>
+                                <option value="gpt-5-mini">gpt-5-mini ($0.25/$2.00)</option>
+                                <option value="gpt-5">gpt-5 ($1.25/$10.00)</option>
+                            </optgroup>
+                            <optgroup label="GPT-4.1 Series">
+                                <option value="gpt-4.1-nano">gpt-4.1-nano ($0.10/$0.40)</option>
+                                <option value="gpt-4.1-mini">gpt-4.1-mini ($0.40/$1.60)</option>
+                                <option value="gpt-4.1">gpt-4.1 ($2.00/$8.00)</option>
+                            </optgroup>
+                            <optgroup label="GPT-4 (Legacy)">
+                                <option value="gpt-4o-mini">gpt-4o-mini ($0.15/$0.60)</option>
+                                <option value="gpt-4o">gpt-4o ($2.50/$10.00)</option>
+                            </optgroup>
                         </select>
                     </div>
                 </div>

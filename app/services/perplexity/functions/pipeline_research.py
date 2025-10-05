@@ -53,7 +53,7 @@ async def execute(
     """
     steps = parameters.get("steps", [])
     max_depth = parameters.get("max_depth", 3)
-    model = parameters.get("model", "llama-3.1-sonar-small-128k-online")
+    model = parameters.get("model", "sonar")
 
     if not steps:
         raise ValueError("steps is required for pipeline research")
@@ -76,8 +76,7 @@ async def execute(
         # Execute step
         response = await client.search(
             query=prompt,
-            model=model,
-            return_citations=True
+            model=model
         )
 
         step_tokens = response["usage"].get("total_tokens", 0)

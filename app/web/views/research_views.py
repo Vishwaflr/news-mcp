@@ -134,7 +134,7 @@ async def htmx_templates_list(
             <td>{status_badge}</td>
             <td>
                 <div class="btn-group btn-group-sm">
-                    <button class="btn btn-success" hx-post="/htmx/research/templates/{template.id}/execute" hx-target="#execution-result" hx-swap="innerHTML">
+                    <button class="btn btn-success" onclick="openQueryModal({template.id})">
                         <i class="bi bi-play-fill"></i> Execute
                     </button>
                     <a href="/admin/research/templates/{template.id}/edit" class="btn btn-primary">
@@ -219,13 +219,28 @@ async def htmx_runs_list(
 @router.post("/htmx/research/templates/{template_id}/execute", response_class=HTMLResponse)
 async def htmx_execute_template(
     template_id: int,
+    request: Request,
     session: Session = Depends(get_session)
 ):
     """HTMX: Execute a research template"""
     try:
+        # Get query from form data
+        form = await request.form()
+        query = form.get("query", "").strip()
+
+        if not query:
+            return """
+            <div class="alert alert-danger alert-dismissible fade show">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                <strong>Error:</strong> Query is required
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            """
+
         executor = ResearchExecutor()
         run = await executor.execute_template(
             template_id=template_id,
+            query=query,
             trigger_type="manual",
             triggered_by="web_ui"
         )

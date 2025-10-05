@@ -37,7 +37,7 @@ async def execute(
         }
     """
     json_schema = parameters.get("json_schema")
-    model = parameters.get("model", "llama-3.1-sonar-small-128k-online")
+    model = parameters.get("model", "sonar")
 
     if not json_schema:
         raise ValueError("json_schema is required for structured research")

@@ -13,6 +13,7 @@ class Settings(BaseSettings):
 
     # LLM Analysis Configuration
     openai_api_key: Optional[str] = None
+    perplexity_api_key: Optional[str] = None
     analysis_model: str = "gpt-4o-mini"
     analysis_batch_limit: int = 200
     analysis_rps: float = 1.0

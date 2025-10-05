@@ -81,12 +81,15 @@ class ResearchExecutor:
         if not template.is_active:
             raise ValueError(f"Template is inactive: {template.name}")
 
+        # Use provided query or template llm_prompt as fallback
+        actual_query = query or template.llm_prompt
+
         # Create run record
         run = ResearchRun(
             template_id=template_id,
             status="pending",
             trigger_type=trigger_type,
-            query_text=query or template.llm_prompt,
+            query_text=actual_query,
             triggered_by=triggered_by
         )
         run = ResearchRunRepo.create(run)
@@ -98,10 +101,10 @@ class ResearchExecutor:
             # Load and execute Perplexity function
             function = self.load_function(template.perplexity_function)
 
-            logger.info(f"Executing research function: {template.perplexity_function}")
+            logger.info(f"Executing research function: {template.perplexity_function} with query: {actual_query[:50]}...")
 
             perplexity_result = await function(
-                query=query or template.llm_prompt,
+                query=actual_query,
                 parameters=template.function_parameters,
                 client=self.client
             )

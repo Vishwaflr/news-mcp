@@ -37,7 +37,7 @@ async def execute(
     recency_filter = parameters.get("recency_filter")
     domain_filter = parameters.get("domain_filter", [])
     return_related = parameters.get("return_related_questions", False)
-    model = parameters.get("model", "llama-3.1-sonar-small-128k-online")
+    model = parameters.get("model", "sonar")
 
     if not recency_filter:
         raise ValueError("recency_filter is required for time-filtered research")
@@ -51,7 +51,6 @@ async def execute(
         model=model,
         search_recency_filter=recency_filter,
         search_domain_filter=domain_filter if domain_filter else None,
-        return_citations=True,
         return_related_questions=return_related
     )
 

@@ -15,7 +15,7 @@ CONFIG_FILE = os.path.join(os.path.dirname(__file__), "../../config/auto_analysi
 DEFAULT_CONFIG = {
     "max_runs_per_day": 50,  # Increased from 10
     "max_items_per_run": 100,  # Increased from 50
-    "ai_model": "gpt-4.1-nano",
+    "ai_model": "gpt-5-nano",
     "check_interval": 60,
     "rate_per_second": 2.0
 }
