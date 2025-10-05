@@ -231,7 +231,9 @@ class AnalysisWorker:
 
             # Process items for running runs
             if run["status"] == "running":
-                processed_count = self.orchestrator.process_run_items(run)
+                # Run async orchestrator method
+                import asyncio
+                processed_count = asyncio.run(self.orchestrator.process_run_items(run))
 
                 if processed_count > 0:
                     logger.info(f"Processed {processed_count} items for run {run_id}")

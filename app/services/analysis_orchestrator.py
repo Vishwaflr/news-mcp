@@ -52,7 +52,7 @@ class AnalysisOrchestrator:
         logger.info(f"Starting run {run['id']}")
         return self.queue_repo.update_run_status(run["id"], "running")
 
-    def process_run_items(self, run: Dict[str, Any]) -> int:
+    async def process_run_items(self, run: Dict[str, Any]) -> int:
         """Process a batch of items for a run"""
         run_id = run["id"]
         params = run["params"]
@@ -98,11 +98,30 @@ class AnalysisOrchestrator:
                     logger.info(f"Skipped item {item_id} - already analyzed in {previous_run}")
                     continue
 
-                # Get item content
+                # Get item content (includes feed_id for scraping)
                 item_content = self.queue_repo.get_item_content(item_id)
                 if not item_content:
                     self._mark_item_failed(queue_id, "ENODATA", "Item content not found")
                     continue
+
+                # NEW: Auto-scrape full content if enabled for this feed
+                from app.services.auto_scraper_service import AutoScraperService
+                from sqlmodel import Session
+                from app.database import engine
+                from app.models.core import Feed, Item
+
+                with Session(engine) as scrape_session:
+                    feed = scrape_session.get(Feed, item_content["feed_id"])
+                    item = scrape_session.get(Item, item_id)
+
+                    if feed and item:
+                        auto_scraper = AutoScraperService(scrape_session)
+                        scrape_success = await auto_scraper.scrape_for_analysis(item, feed)
+
+                        # Update item_content with scraped content if successful
+                        if scrape_success and item.content:
+                            item_content["content"] = item.content
+                            logger.info(f"Auto-scraped item {item_id}: {item.scrape_word_count} words")
 
                 # Process the item
                 if params.get("dry_run", False):

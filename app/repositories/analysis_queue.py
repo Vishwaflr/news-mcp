@@ -79,11 +79,11 @@ class AnalysisQueueRepo:
 
     @staticmethod
     def get_item_content(item_id: int) -> Optional[Dict[str, Any]]:
-        """Get item content for analysis"""
+        """Get item content for analysis (includes feed_id for scraping)"""
         with Session(engine) as session:
             try:
                 result = session.execute(text("""
-                    SELECT id, title, description, content, link, created_at
+                    SELECT id, title, description, content, link, created_at, feed_id
                     FROM items
                     WHERE id = :item_id
                 """), {"item_id": item_id}).first()
@@ -95,7 +95,8 @@ class AnalysisQueueRepo:
                         "description": result[2],
                         "content": result[3],
                         "link": result[4],
-                        "created_at": result[5]
+                        "created_at": result[5],
+                        "feed_id": result[6]  # NEW: For scraping integration
                     }
                 return None
 
