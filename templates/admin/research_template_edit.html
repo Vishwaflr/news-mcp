@@ -236,8 +236,8 @@ function generateParameterField(param) {
 
     switch (param.type) {
         case 'array':
-            // Use placeholder as default value if provided (newlines work in value, not in placeholder attribute)
-            const defaultValue = param.placeholder || '';
+            // Convert \n to actual newlines for textarea content
+            const defaultValue = (param.placeholder || '').replace(/\\n/g, '\n');
             fieldHTML = `
                 <div class="mb-3">
                     <label class="form-label text-light">${param.display_name} ${required}</label>
