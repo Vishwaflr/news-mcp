@@ -24,6 +24,7 @@ from app.services.dynamic_template_manager import get_dynamic_template_manager
 from app.services.auto_analysis_service import AutoAnalysisService
 from app.services.pending_analysis_processor import PendingAnalysisProcessor
 from .v2_handlers import MCPv2Handlers
+from .resources import NewsResourceProvider
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -46,7 +47,22 @@ class ComprehensiveNewsServer:
     def __init__(self):
         self.server = Server("news-mcp-comprehensive")
         self.v2_handlers = MCPv2Handlers()
+        self.resource_provider = NewsResourceProvider()
         self._setup_tools()
+        self._setup_resources()
+
+    def _setup_resources(self):
+        """Register MCP Resources for automatic feature discovery"""
+
+        @self.server.list_resources()
+        async def list_resources():
+            """Return list of available resources"""
+            return self.resource_provider.list_resources()
+
+        @self.server.read_resource()
+        async def read_resource(uri: str) -> str:
+            """Return resource content"""
+            return self.resource_provider.read_resource(uri)
 
     def _setup_tools(self):
         """Register all MCP tools"""
@@ -477,6 +493,123 @@ class ComprehensiveNewsServer:
                     }
                 ),
 
+                # Research Pipeline Tools
+                Tool(
+                    name="research_filter_articles",
+                    description="Filter articles for research based on categories, semantic tags, impact, sentiment. Returns matching articles for analysis. Example: Filter last 30 days with categories=['geopolitics_security'] and actors=['Trump'] to get relevant articles for research.",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "timeframe": {"type": "string", "enum": ["last_24h", "last_7d", "last_30d"], "default": "last_24h", "description": "Time range"},
+                            "categories": {"type": "array", "items": {"type": "string"}, "description": "Filter by categories"},
+                            "actors": {"type": "array", "items": {"type": "string"}, "description": "Filter by actors (partial match)"},
+                            "themes": {"type": "array", "items": {"type": "string"}, "description": "Filter by themes (partial match)"},
+                            "regions": {"type": "array", "items": {"type": "string"}, "description": "Filter by regions (partial match)"},
+                            "sentiment": {"type": "array", "items": {"type": "string", "enum": ["positive", "neutral", "negative"]}, "description": "Filter by sentiment"},
+                            "impact_min": {"type": "number", "minimum": 0, "maximum": 1, "description": "Minimum impact score"},
+                            "impact_max": {"type": "number", "minimum": 0, "maximum": 1, "description": "Maximum impact score"},
+                            "max_articles": {"type": "integer", "default": 20, "maximum": 100, "description": "Max articles to return"},
+                            "order_by": {"type": "string", "enum": ["published_desc", "impact_desc", "created_desc"], "default": "published_desc", "description": "Sort order"}
+                        }
+                    }
+                ),
+                Tool(
+                    name="research_generate_queries",
+                    description="Generate research queries using LLM based on filtered articles. Takes article filter config and user prompt, returns research questions. Example: Use with prompt='Generate questions about geopolitical implications' to create targeted research queries.",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "filter_config": {
+                                "type": "object",
+                                "description": "Article filter configuration (same as research_filter_articles)",
+                                "properties": {
+                                    "timeframe": {"type": "string"},
+                                    "categories": {"type": "array", "items": {"type": "string"}},
+                                    "actors": {"type": "array", "items": {"type": "string"}},
+                                    "themes": {"type": "array", "items": {"type": "string"}},
+                                    "regions": {"type": "array", "items": {"type": "string"}},
+                                    "sentiment": {"type": "array", "items": {"type": "string"}},
+                                    "impact_min": {"type": "number"},
+                                    "impact_max": {"type": "number"},
+                                    "max_articles": {"type": "integer"},
+                                    "order_by": {"type": "string"}
+                                }
+                            },
+                            "prompt": {"type": "string", "description": "User prompt for LLM to generate queries"},
+                            "model": {"type": "string", "enum": ["gpt-4o-mini", "gpt-4o"], "default": "gpt-4o-mini", "description": "LLM model for query generation"}
+                        },
+                        "required": ["filter_config", "prompt"]
+                    }
+                ),
+                Tool(
+                    name="research_execute_full",
+                    description="Execute full research pipeline: Filter articles → Generate queries with LLM → Execute research with Perplexity. Returns complete research results with citations. Example: Full research on recent geopolitical events with custom prompt.",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "filter_config": {
+                                "type": "object",
+                                "description": "Article filter configuration",
+                                "properties": {
+                                    "timeframe": {"type": "string"},
+                                    "categories": {"type": "array", "items": {"type": "string"}},
+                                    "actors": {"type": "array", "items": {"type": "string"}},
+                                    "themes": {"type": "array", "items": {"type": "string"}},
+                                    "regions": {"type": "array", "items": {"type": "string"}},
+                                    "sentiment": {"type": "array", "items": {"type": "string"}},
+                                    "impact_min": {"type": "number"},
+                                    "impact_max": {"type": "number"},
+                                    "max_articles": {"type": "integer"},
+                                    "order_by": {"type": "string"}
+                                }
+                            },
+                            "prompt": {"type": "string", "description": "Research prompt for LLM query generation"},
+                            "llm_model": {"type": "string", "enum": ["gpt-4o-mini", "gpt-4o"], "default": "gpt-4o-mini", "description": "LLM model for query generation"},
+                            "perplexity_model": {"type": "string", "enum": ["sonar", "sonar-pro", "sonar-reasoning"], "default": "sonar", "description": "Perplexity model for research"}
+                        },
+                        "required": ["filter_config", "prompt"]
+                    }
+                ),
+
+                # Discovery Tools
+                Tool(
+                    name="get_schemas",
+                    description="Get JSON Schema definitions for data structures (items, analysis, etc). Use to understand API response formats and validate data. Example: get_schemas(schema_name='item_with_analysis') to see analyzed article structure.",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "schema_name": {
+                                "type": "string",
+                                "enum": ["item_basic", "item_with_analysis", "sentiment", "geopolitical", "analysis"],
+                                "description": "Specific schema name (optional, returns all if not provided)"
+                            }
+                        }
+                    }
+                ),
+                Tool(
+                    name="get_example_data",
+                    description="Get real example responses to understand data structures. Returns actual data from the system showing expected formats. Example: get_example_data(example_type='item_with_analysis') to see a real analyzed article.",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "example_type": {
+                                "type": "string",
+                                "enum": ["item_with_analysis", "item_basic", "feed_health", "analysis_run"],
+                                "description": "Type of example to retrieve"
+                            }
+                        },
+                        "required": ["example_type"]
+                    }
+                ),
+                Tool(
+                    name="get_usage_guide",
+                    description="Get comprehensive usage guide explaining all metrics, best practices, field interpretations, and common workflows. No parameters needed - returns full guide.",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {}
+                    }
+                ),
+
                 # MCP v2 Tools - Scheduler Control
                 Tool(
                     name="scheduler_set_interval",
@@ -764,6 +897,13 @@ class ComprehensiveNewsServer:
                     return await self.v2_handlers.analysis_run(**arguments)
                 elif name == "analysis_history":
                     return await self.v2_handlers.analysis_history(**arguments)
+                # Research Pipeline Handlers
+                elif name == "research_filter_articles":
+                    return await self._research_filter_articles(**arguments)
+                elif name == "research_generate_queries":
+                    return await self._research_generate_queries(**arguments)
+                elif name == "research_execute_full":
+                    return await self._research_execute_full(**arguments)
                 elif name == "scheduler_set_interval":
                     return await self.v2_handlers.scheduler_set_interval(**arguments)
                 elif name == "scheduler_heartbeat":
@@ -3247,6 +3387,115 @@ class ComprehensiveNewsServer:
             return [TextContent(type="text", text=safe_json_dumps({
                 "error": str(e),
                 "message": "Failed to get auto-analysis stats"
+            }, indent=2))]
+
+    # Research Pipeline Handlers
+    async def _research_filter_articles(self, **kwargs) -> List[TextContent]:
+        """Filter articles for research based on criteria"""
+        try:
+            import httpx
+
+            # Build filter config from kwargs
+            filter_config = {}
+            if "timeframe" in kwargs:
+                filter_config["timeframe"] = kwargs["timeframe"]
+            if "categories" in kwargs:
+                filter_config["categories"] = kwargs["categories"]
+            if "actors" in kwargs:
+                filter_config["actors"] = kwargs["actors"]
+            if "themes" in kwargs:
+                filter_config["themes"] = kwargs["themes"]
+            if "regions" in kwargs:
+                filter_config["regions"] = kwargs["regions"]
+            if "sentiment" in kwargs:
+                filter_config["sentiment"] = kwargs["sentiment"]
+            if "impact_min" in kwargs:
+                filter_config["impact_min"] = kwargs["impact_min"]
+            if "impact_max" in kwargs:
+                filter_config["impact_max"] = kwargs["impact_max"]
+            if "max_articles" in kwargs:
+                filter_config["max_articles"] = kwargs["max_articles"]
+            if "order_by" in kwargs:
+                filter_config["order_by"] = kwargs["order_by"]
+
+            # Call API endpoint
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    f"{settings.mcp_api_base_url}/api/research/filter/articles",
+                    json=filter_config
+                )
+                response.raise_for_status()
+                result = response.json()
+
+            return [TextContent(type="text", text=safe_json_dumps(result, indent=2))]
+
+        except Exception as e:
+            logger.error(f"Error filtering articles for research: {e}")
+            return [TextContent(type="text", text=safe_json_dumps({
+                "ok": False,
+                "error": str(e)
+            }, indent=2))]
+
+    async def _research_generate_queries(self, filter_config: Dict[str, Any], prompt: str, model: str = None, **kwargs) -> List[TextContent]:
+        """Generate research queries using LLM based on filtered articles"""
+        try:
+            import httpx
+
+            request_data = {
+                "filter_config": filter_config,
+                "prompt": prompt
+            }
+            if model:
+                request_data["model"] = model
+
+            # Call API endpoint
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(
+                    f"{settings.mcp_api_base_url}/api/research/generate-queries",
+                    json=request_data
+                )
+                response.raise_for_status()
+                result = response.json()
+
+            return [TextContent(type="text", text=safe_json_dumps(result, indent=2))]
+
+        except Exception as e:
+            logger.error(f"Error generating research queries: {e}")
+            return [TextContent(type="text", text=safe_json_dumps({
+                "ok": False,
+                "error": str(e)
+            }, indent=2))]
+
+    async def _research_execute_full(self, filter_config: Dict[str, Any], prompt: str, llm_model: str = None, perplexity_model: str = None, **kwargs) -> List[TextContent]:
+        """Execute full research pipeline: Filter → LLM → Perplexity"""
+        try:
+            import httpx
+
+            request_data = {
+                "filter_config": filter_config,
+                "prompt": prompt
+            }
+            if llm_model:
+                request_data["llm_model"] = llm_model
+            if perplexity_model:
+                request_data["perplexity_model"] = perplexity_model
+
+            # Call API endpoint (this takes longer, increase timeout)
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                response = await client.post(
+                    f"{settings.mcp_api_base_url}/api/research/execute-research",
+                    json=request_data
+                )
+                response.raise_for_status()
+                result = response.json()
+
+            return [TextContent(type="text", text=safe_json_dumps(result, indent=2))]
+
+        except Exception as e:
+            logger.error(f"Error executing full research pipeline: {e}")
+            return [TextContent(type="text", text=safe_json_dumps({
+                "ok": False,
+                "error": str(e)
             }, indent=2))]
 
     async def run(self, host: str = "0.0.0.0", port: int = 8001):

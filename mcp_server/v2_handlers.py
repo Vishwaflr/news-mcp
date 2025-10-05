@@ -529,3 +529,412 @@ class MCPv2Handlers:
         except Exception as e:
             logger.error(f"Error searching items: {e}")
             return [TextContent(type="text", text=f"Error searching items: {str(e)}")]
+
+    # Discovery Tools
+    async def get_schemas(self, schema_name: Optional[str] = None) -> List[TextContent]:
+        """Get JSON Schema definitions for data structures
+
+        Returns schema definitions for understanding API response formats.
+        """
+        try:
+            from .schemas import SCHEMAS, SCHEMA_VERSION
+
+            if schema_name:
+                if schema_name not in SCHEMAS:
+                    available = list(SCHEMAS.keys())
+                    return [TextContent(
+                        type="text",
+                        text=f"Schema '{schema_name}' not found.\n\nAvailable schemas: {', '.join(available)}"
+                    )]
+                schema_data = {schema_name: SCHEMAS[schema_name]}
+            else:
+                schema_data = SCHEMAS
+
+            result = {
+                "schema_version": SCHEMA_VERSION,
+                "schemas": schema_data
+            }
+
+            return [TextContent(type="text", text=safe_json_dumps(result, indent=2))]
+
+        except Exception as e:
+            logger.error(f"Error getting schemas: {e}")
+            return [TextContent(type="text", text=f"Error getting schemas: {str(e)}")]
+
+    async def get_example_data(self, example_type: str) -> List[TextContent]:
+        """Get real example data for understanding structures
+
+        Returns actual data from the system to show expected formats.
+
+        Args:
+            example_type: Type of example (item_with_analysis, item_basic, feed_health, analysis_run)
+        """
+        try:
+            with Session(engine) as session:
+                if example_type == "item_with_analysis":
+                    # Get a real analyzed article
+                    from sqlalchemy import text
+                    query = text("""
+                        SELECT
+                            i.id, i.title, i.description, i.link, i.published,
+                            ia.sentiment_label, ia.sentiment_score,
+                            ia.impact_score, ia.urgency_score
+                        FROM items i
+                        JOIN item_analysis ia ON i.id = ia.item_id
+                        WHERE ia.sentiment_score IS NOT NULL
+                        LIMIT 1
+                    """)
+                    row = session.execute(query).fetchone()
+
+                    if row:
+                        example = {
+                            "example_type": example_type,
+                            "example": {
+                                "id": row[0],
+                                "title": row[1],
+                                "description": row[2],
+                                "link": row[3],
+                                "published": str(row[4]) if row[4] else None,
+                                "analysis": {
+                                    "sentiment": {
+                                        "label": row[5],
+                                        "score": float(row[6]) if row[6] else None
+                                    },
+                                    "impact_score": float(row[7]) if row[7] else None,
+                                    "urgency_score": float(row[8]) if row[8] else None
+                                }
+                            },
+                            "note": "This is real data from the system. Use it to understand expected data structure."
+                        }
+                    else:
+                        example = {
+                            "example_type": example_type,
+                            "error": "No analyzed articles found in system",
+                            "suggestion": "Run analysis_run first to generate analyzed data"
+                        }
+
+                elif example_type == "item_basic":
+                    # Get a basic article (no analysis)
+                    item = session.exec(select(Item).limit(1)).first()
+                    if item:
+                        example = {
+                            "example_type": example_type,
+                            "example": {
+                                "id": item.id,
+                                "title": item.title,
+                                "description": item.description,
+                                "link": item.link,
+                                "published": str(item.published) if item.published else None,
+                                "feed_id": item.feed_id,
+                                "guid": item.guid
+                            }
+                        }
+                    else:
+                        example = {"example_type": example_type, "error": "No articles in system"}
+
+                elif example_type == "feed_health":
+                    # Get feed with health metrics
+                    from sqlalchemy import text
+                    query = text("""
+                        SELECT
+                            f.id, f.title, f.url, f.status,
+                            fh.success_rate_7d, fh.avg_response_time_ms,
+                            fh.consecutive_failure_count, fh.last_successful_fetch
+                        FROM feeds f
+                        LEFT JOIN feed_health fh ON f.id = fh.feed_id
+                        LIMIT 1
+                    """)
+                    row = session.execute(query).fetchone()
+
+                    if row:
+                        example = {
+                            "example_type": example_type,
+                            "example": {
+                                "feed": {
+                                    "id": row[0],
+                                    "title": row[1],
+                                    "url": row[2],
+                                    "status": row[3]
+                                },
+                                "health": {
+                                    "success_rate_7d": float(row[4]) if row[4] else None,
+                                    "avg_response_time_ms": float(row[5]) if row[5] else None,
+                                    "consecutive_failures": row[6] or 0,
+                                    "last_successful_fetch": str(row[7]) if row[7] else None
+                                }
+                            }
+                        }
+                    else:
+                        example = {"example_type": example_type, "error": "No feeds in system"}
+
+                elif example_type == "analysis_run":
+                    # Get an analysis run
+                    from sqlalchemy import text
+                    query = text("""
+                        SELECT
+                            id, status, model, created_at, completed_at,
+                            queued_count, processed_count, failed_count,
+                            estimated_cost, triggered_by
+                        FROM analysis_runs
+                        LIMIT 1
+                    """)
+                    row = session.execute(query).fetchone()
+
+                    if row:
+                        example = {
+                            "example_type": example_type,
+                            "example": {
+                                "id": row[0],
+                                "status": row[1],
+                                "model": row[2],
+                                "created_at": str(row[3]) if row[3] else None,
+                                "completed_at": str(row[4]) if row[4] else None,
+                                "queued_count": row[5],
+                                "processed_count": row[6],
+                                "failed_count": row[7],
+                                "estimated_cost": float(row[8]) if row[8] else None,
+                                "triggered_by": row[9]
+                            }
+                        }
+                    else:
+                        example = {"example_type": example_type, "error": "No analysis runs in system"}
+
+                else:
+                    return [TextContent(
+                        type="text",
+                        text=f"Unknown example type: {example_type}\n\nAvailable: item_with_analysis, item_basic, feed_health, analysis_run"
+                    )]
+
+                return [TextContent(type="text", text=safe_json_dumps(example, indent=2))]
+
+        except Exception as e:
+            logger.error(f"Error getting example data: {e}")
+            return [TextContent(type="text", text=f"Error getting example data: {str(e)}")]
+
+    async def get_usage_guide(self) -> List[TextContent]:
+        """Get comprehensive usage guide
+
+        Returns detailed guide explaining all metrics, best practices, and interpretations.
+        """
+        guide = """# News-MCP Usage Guide
+
+## Field Interpretations
+
+### Sentiment Scores
+- **Range:** -1.0 to +1.0
+- **Below -0.5:** Strong negative sentiment (bad news, crises, conflicts)
+- **-0.5 to -0.2:** Moderately negative
+- **-0.2 to +0.2:** Neutral (factual reporting)
+- **+0.2 to +0.5:** Moderately positive
+- **Above +0.5:** Strong positive sentiment (achievements, breakthroughs)
+
+**Example Usage:**
+```python
+# Get positive news only
+latest_articles(min_sentiment=0.3, limit=20)
+
+# Get crisis/negative news
+latest_articles(max_sentiment=-0.5, limit=20)
+```
+
+### Impact Score
+- **Range:** 0.0 to 1.0
+- **0.0-0.3:** Low impact (routine news, minor updates)
+- **0.3-0.6:** Medium impact (notable events, sector-specific news)
+- **0.6-1.0:** High impact (major events, market-moving news, breaking developments)
+
+**Example Usage:**
+```python
+# High-impact news only
+latest_articles(min_impact=0.7, limit=10)
+
+# Medium-impact technology news
+search_articles(query="technology", min_impact=0.4, max_impact=0.7)
+```
+
+### Geopolitical Metrics (17.67% of analyzed articles)
+
+**stability_score (-1.0 to +1.0):**
+- **Below -0.7:** Severe destabilization (wars, coups, major conflicts)
+- **-0.7 to -0.3:** Moderate destabilization (protests, sanctions, tensions)
+- **-0.3 to +0.3:** Stable situation
+- **Above +0.3:** Stabilizing effect (peace deals, cooperation)
+
+**escalation_potential (0.0 to 1.0):**
+- **0.0-0.3:** Low escalation risk
+- **0.3-0.7:** Moderate escalation risk
+- **0.7-1.0:** High escalation risk (likely to worsen)
+
+**security_relevance (0.0 to 1.0):**
+- **0.0-0.3:** Low security concern
+- **0.3-0.7:** Moderate security concern
+- **0.7-1.0:** Critical security issue
+
+## Best Practices
+
+### Article Discovery
+1. **Start broad, then filter:**
+   ```python
+   latest_articles(limit=100)  # See what's available
+   latest_articles(min_impact=0.5, limit=20)  # Filter for important news
+   ```
+
+2. **Use categories for focus:**
+   ```python
+   # First check available categories
+   # Read resource: news-mcp://data/available-categories
+
+   latest_articles(category="Technology", limit=30)
+   ```
+
+3. **Combine filters:**
+   ```python
+   # High-impact positive tech news
+   latest_articles(
+       category="Technology",
+       min_sentiment=0.3,
+       min_impact=0.6,
+       limit=10
+   )
+   ```
+
+### Analysis Runs
+1. **Always preview first:**
+   ```python
+   # Check cost before running
+   preview = analysis_preview(model="gpt-5-nano", selector={"latest": 100})
+   # If estimated_cost acceptable, then run
+   analysis_run(model="gpt-5-nano", selector={"latest": 100})
+   ```
+
+2. **Choose appropriate model:**
+   - `gpt-5-nano`: Cheapest ($0.05/$0.40) - good for bulk analysis
+   - `gpt-5-mini`: Balanced ($0.25/$2.00) - good quality/cost ratio
+   - `gpt-4.1-nano`: Fast and cheap ($0.10/$0.40)
+   - `gpt-4o`: Most expensive ($2.50/$10.00) - highest quality
+
+3. **Use auto-analysis for routine processing:**
+   ```python
+   # Enable per feed
+   update_feed(feed_id=12, auto_analyze_enabled=True)
+   # New articles will be analyzed automatically using gpt-5-nano
+   ```
+
+### Research Pipeline
+1. **Filter articles strategically:**
+   ```python
+   # Get high-impact articles on specific topic
+   research_filter_articles(
+       timeframe="last_7d",
+       categories=["Politics", "Security"],
+       impact_min=0.6,
+       max_articles=20
+   )
+   ```
+
+2. **Use full pipeline for deep research:**
+   ```python
+   # Filters → Generates queries → Executes research
+   research_execute_full(
+       filter_config={
+           "timeframe": "last_7d",
+           "impact_min=0.7
+       },
+       prompt="Analyze geopolitical implications and security risks",
+       perplexity_model="sonar-pro"  # Use "sonar" for speed, "sonar-pro" for depth
+   )
+   ```
+
+## Common Patterns
+
+### Daily News Briefing
+```python
+# 1. Check system status
+get_dashboard()
+
+# 2. Get top stories from last 24h
+latest_articles(
+    since_hours=24,
+    min_impact=0.6,
+    sort_by="impact_score",
+    limit=10
+)
+
+# 3. Check trending topics
+trending_topics(hours=24, min_frequency=5, top_n=20)
+```
+
+### Feed Health Monitoring
+```python
+# 1. Get overall health
+system_health()
+
+# 2. Check specific feed issues
+feeds_health()  # Get all with health indicators
+
+# 3. Diagnose problems
+feed_diagnostics(feed_id=<failing_feed_id>)
+```
+
+### Cost-Effective Analysis
+```python
+# 1. Analyze only unanalyzed articles
+analysis_run(model="gpt-5-nano", selector={"smart": True})
+
+# 2. Use auto-analysis for continuous coverage
+# (Processes new items automatically)
+update_feed(feed_id=X, auto_analyze_enabled=True)
+```
+
+## Country & Alliance Codes
+
+### Common Country Codes (ISO 3166-1 alpha-2)
+- `US` = United States
+- `IL` = Israel
+- `PS` = Palestine
+- `UA` = Ukraine
+- `RU` = Russia
+- `CN` = China
+- `DE` = Germany
+- `FR` = France
+- `GB` = United Kingdom
+
+### Alliance Codes
+- `NATO` = North Atlantic Treaty Organization
+- `EU` = European Union
+- `BRICS` = Brazil, Russia, India, China, South Africa
+- `G7` = Group of Seven (major advanced economies)
+- `G20` = Group of Twenty
+- `ASEAN` = Association of Southeast Asian Nations
+- `Arab_League` = League of Arab States
+- `AU` = African Union
+
+## Troubleshooting
+
+### "No analyzed articles found"
+**Solution:** Run analysis first:
+```python
+analysis_run(model="gpt-5-nano", selector={"latest": 100})
+```
+
+### "Feed health is FAIL"
+**Solutions:**
+1. Check diagnostics: `feed_diagnostics(feed_id=X)`
+2. Test feed URL: `test_feed(url="...")`
+3. Pause and fix: `update_feed(feed_id=X, status="PAUSED")`
+
+### "Cost too high"
+**Solutions:**
+1. Reduce scope: Use smaller `latest` number
+2. Use cheaper model: `gpt-5-nano` instead of `gpt-4o`
+3. Enable auto-analysis: Spreads cost over time
+
+## Additional Resources
+
+- **System Overview:** Read resource `news-mcp://system-overview`
+- **Feature Guides:** `news-mcp://features/<area>`
+- **Live Data:** `news-mcp://data/*`
+- **Workflows:** `news-mcp://workflows/common`
+"""
+
+        return [TextContent(type="text", text=guide)]

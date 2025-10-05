@@ -169,7 +169,9 @@ class HTTPMCPServerWrapper:
                                 "listChanged": True
                             },
                             "prompts": {},
-                            "resources": {}
+                            "resources": {
+                                "listChanged": True
+                            }
                         }
                     }
                 )
@@ -181,9 +183,26 @@ class HTTPMCPServerWrapper:
                 )
 
             elif request.method == "resources/list":
+                # Get resources from MCP server
+                resources = await self._get_resources_list()
                 return JSONRPCResponse(
                     id=request.id,
-                    result={"resources": []}
+                    result={"resources": resources}
+                )
+
+            elif request.method == "resources/read":
+                # Read a specific resource
+                if not request.params:
+                    raise ValueError("Missing parameters for resource read")
+
+                resource_uri = request.params.get("uri")
+                if not resource_uri:
+                    raise ValueError("Missing resource URI")
+
+                content = await self._read_resource(resource_uri)
+                return JSONRPCResponse(
+                    id=request.id,
+                    result={"contents": [{"uri": resource_uri, "text": content}]}
                 )
 
             else:
@@ -220,6 +239,52 @@ class HTTPMCPServerWrapper:
         except Exception as e:
             logger.error(f"Error getting tools list: {e}")
             return []
+
+    async def _get_resources_list(self) -> list:
+        """Get list of available resources from MCP server"""
+        try:
+            global mcp_server_instance
+            if mcp_server_instance is None:
+                return []
+
+            # Call list_resources from the comprehensive server
+            from mcp_server.resources import NewsResourceProvider
+            resources = NewsResourceProvider.list_resources()
+
+            # Convert Resource objects to dicts for JSON serialization
+            # Handle AnyUrl type by converting to string
+            return [
+                {
+                    "uri": str(r.uri) if hasattr(r.uri, '__str__') else r.uri,
+                    "name": str(r.name),
+                    "description": str(r.description) if r.description else "",
+                    "mimeType": str(r.mimeType) if r.mimeType else "text/plain"
+                }
+                for r in resources
+            ]
+
+        except Exception as e:
+            logger.error(f"Error getting resources list: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            return []
+
+    async def _read_resource(self, uri: str) -> str:
+        """Read a specific resource from MCP server"""
+        try:
+            global mcp_server_instance
+            if mcp_server_instance is None:
+                raise ValueError("MCP server not initialized")
+
+            # Call read_resource from the comprehensive server
+            from mcp_server.resources import NewsResourceProvider
+            content = NewsResourceProvider.read_resource(uri)
+
+            return content
+
+        except Exception as e:
+            logger.error(f"Error reading resource {uri}: {e}")
+            raise ValueError(f"Failed to read resource: {str(e)}")
 
     async def _call_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Call a specific tool on the MCP server"""
