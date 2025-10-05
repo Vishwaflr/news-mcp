@@ -49,6 +49,14 @@ class Feed(SQLModel, table=True):
     archived_at: Optional[datetime] = None
     is_critical: bool = Field(default=False)
 
+    # Scraper settings (Phase 2.1)
+    scrape_full_content: bool = Field(default=False)
+    scrape_method: str = Field(default="auto")  # "auto", "httpx", "playwright"
+    scrape_error_count: int = Field(default=0)
+    scrape_last_error: Optional[str] = None
+    scrape_last_error_at: Optional[datetime] = None
+    scrape_auto_disabled_at: Optional[datetime] = None  # When auto-scraping was disabled due to errors
+
     # Relationships
     source: "Source" = Relationship(back_populates="feeds")
     feed_type: Optional["FeedType"] = Relationship(back_populates="feeds")
@@ -68,7 +76,7 @@ class Item(SQLModel, table=True):
     title: str
     link: str = Field(index=True)
     description: Optional[str] = None
-    content: Optional[str] = None
+    content: Optional[str] = None  # RSS content or scraped full content
     author: Optional[str] = None
     published: Optional[datetime] = None
     guid: Optional[str] = Field(index=True)
@@ -76,6 +84,11 @@ class Item(SQLModel, table=True):
     feed_id: int = Field(foreign_key="feeds.id")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     # No updated_at - items are immutable once created
+
+    # Scraper metadata (Phase 2.1)
+    scraped_at: Optional[datetime] = None
+    scrape_status: Optional[str] = None  # "success", "paywall", "error", "timeout", null (not scraped)
+    scrape_word_count: Optional[int] = None
 
     # Relationships
     feed: Feed = Relationship(back_populates="items")
