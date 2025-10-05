@@ -8,6 +8,55 @@ from datetime import datetime
 from app.services.perplexity.perplexity_client import PerplexityClient
 
 
+# Schema definition for dynamic form generation
+SCHEMA = {
+    "name": "analytics_research",
+    "display_name": "Analytics Research",
+    "description": "Research with comprehensive performance and cost tracking",
+    "icon": "bi-graph-up",
+    "parameters": [
+        {
+            "name": "track_performance",
+            "display_name": "Track Performance Metrics",
+            "type": "boolean",
+            "default": True,
+            "required": False,
+            "description": "Include execution time and performance data"
+        },
+        {
+            "name": "include_token_breakdown",
+            "display_name": "Include Token Breakdown",
+            "type": "boolean",
+            "default": True,
+            "required": False,
+            "description": "Show detailed prompt/completion token counts"
+        },
+        {
+            "name": "domain_filter",
+            "display_name": "Domain Filter (Optional)",
+            "type": "array",
+            "item_type": "string",
+            "required": False,
+            "description": "Optionally restrict to specific domains",
+            "placeholder": "reuters.com\napnews.com"
+        },
+        {
+            "name": "recency_filter",
+            "display_name": "Time Range (Optional)",
+            "type": "enum",
+            "options": [
+                {"value": "day", "label": "Last 24 hours"},
+                {"value": "week", "label": "Last week"},
+                {"value": "month", "label": "Last month"},
+                {"value": "year", "label": "Last year"}
+            ],
+            "required": False,
+            "description": "How recent the content should be"
+        }
+    ]
+}
+
+
 async def execute(
     query: str,
     parameters: Dict[str, Any],

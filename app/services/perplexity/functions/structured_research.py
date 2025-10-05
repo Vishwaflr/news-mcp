@@ -7,6 +7,39 @@ from typing import Dict, Any
 from app.services.perplexity.perplexity_client import PerplexityClient
 
 
+# Schema definition for dynamic form generation
+SCHEMA = {
+    "name": "structured_research",
+    "display_name": "Structured Research",
+    "description": "Get research results in structured JSON format for automated processing",
+    "icon": "bi-code-square",
+    "parameters": [
+        {
+            "name": "json_schema",
+            "display_name": "Output JSON Schema",
+            "type": "json",
+            "required": True,
+            "description": "Define the structure of the JSON output",
+            "placeholder": '''{
+  "type": "object",
+  "properties": {
+    "summary": {"type": "string"},
+    "key_points": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "sources": {"type": "array"}
+  }
+}''',
+            "help_text": "Define a JSON Schema that describes the expected output structure",
+            "validation": {
+                "type": "json_schema"
+            }
+        }
+    ]
+}
+
+
 async def execute(
     query: str,
     parameters: Dict[str, Any],

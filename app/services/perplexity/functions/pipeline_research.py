@@ -7,6 +7,57 @@ from typing import Dict, Any, List
 from app.services.perplexity.perplexity_client import PerplexityClient
 
 
+# Schema definition for dynamic form generation
+SCHEMA = {
+    "name": "pipeline_research",
+    "display_name": "Pipeline Research",
+    "description": "Multi-step research pipeline with sequential analysis phases",
+    "icon": "bi-diagram-3",
+    "parameters": [
+        {
+            "name": "steps",
+            "display_name": "Pipeline Steps (JSON)",
+            "type": "json",
+            "required": True,
+            "description": "Define the research pipeline steps",
+            "placeholder": '''[
+  {
+    "name": "aspect_discovery",
+    "prompt_template": "What are the key aspects of {query}?",
+    "extract_keywords": true
+  },
+  {
+    "name": "deep_analysis",
+    "prompt_template": "Analyze {aspect} in detail",
+    "depends_on": "aspect_discovery"
+  },
+  {
+    "name": "synthesis",
+    "prompt_template": "Synthesize findings: {results}",
+    "combine_previous": true
+  }
+]''',
+            "help_text": "Each step runs sequentially, using results from previous steps",
+            "validation": {
+                "type": "json"
+            }
+        },
+        {
+            "name": "max_depth",
+            "display_name": "Maximum Pipeline Depth",
+            "type": "number",
+            "default": 3,
+            "required": False,
+            "description": "Maximum number of steps allowed",
+            "validation": {
+                "min": 1,
+                "max": 10
+            }
+        }
+    ]
+}
+
+
 async def execute(
     query: str,
     parameters: Dict[str, Any],

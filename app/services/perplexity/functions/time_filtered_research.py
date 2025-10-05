@@ -7,6 +7,48 @@ from typing import Dict, Any
 from app.services.perplexity.perplexity_client import PerplexityClient
 
 
+# Schema definition for dynamic form generation
+SCHEMA = {
+    "name": "time_filtered_research",
+    "display_name": "Time-Filtered Research",
+    "description": "Focus on recent or historical content within specific timeframes",
+    "icon": "bi-clock-history",
+    "parameters": [
+        {
+            "name": "recency_filter",
+            "display_name": "Time Range",
+            "type": "enum",
+            "options": [
+                {"value": "day", "label": "Last 24 hours"},
+                {"value": "week", "label": "Last week"},
+                {"value": "month", "label": "Last month"},
+                {"value": "year", "label": "Last year"}
+            ],
+            "required": True,
+            "description": "How recent the content should be"
+        },
+        {
+            "name": "domain_filter",
+            "display_name": "Domain Filter (Optional)",
+            "type": "array",
+            "item_type": "string",
+            "required": False,
+            "description": "Optionally restrict to specific domains",
+            "placeholder": "reuters.com\napnews.com",
+            "help_text": "Leave empty to search all sources"
+        },
+        {
+            "name": "return_related_questions",
+            "display_name": "Include Related Questions",
+            "type": "boolean",
+            "default": False,
+            "required": False,
+            "description": "Get suggested follow-up questions"
+        }
+    ]
+}
+
+
 async def execute(
     query: str,
     parameters: Dict[str, Any],

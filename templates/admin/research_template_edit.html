@@ -49,12 +49,12 @@
                         </small>
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label text-light">Function Parameters (JSON)</label>
-                        <textarea name="function_parameters" class="form-control font-monospace" rows="4" placeholder='{"domain_filter": ["reuters.com"], "recency_filter": "day"}'>{{ template.function_parameters|tojson if template and template.function_parameters else '{}' }}</textarea>
-                        <small class="form-text text-muted">
-                            Parameters for the selected Perplexity function
-                        </small>
+                    <!-- Dynamic Function Parameters (generated from schema) -->
+                    <div id="dynamicParametersContainer">
+                        <div class="alert alert-info bg-dark border-info text-light">
+                            <i class="bi bi-info-circle"></i>
+                            Select a function above to configure its parameters
+                        </div>
                     </div>
 
                     <!-- Perplexity Model Selection -->
@@ -175,6 +175,249 @@
 </div>
 
 <script>
+// Global variable to store current function parameters
+let currentFunctionParameters = {};
+
+// Load function schema and generate dynamic form
+async function loadFunctionSchema(functionName) {
+    if (!functionName) return;
+
+    try {
+        const response = await fetch(`/api/research/functions/${functionName}/schema`);
+        const schema = await response.json();
+
+        // Generate dynamic form from schema
+        const formHTML = generateDynamicForm(schema);
+        document.getElementById('dynamicParametersContainer').innerHTML = formHTML;
+
+        // Load existing values if in edit mode
+        {% if template and template.function_parameters %}
+        loadExistingParameters({{ template.function_parameters|tojson }});
+        {% endif %}
+
+    } catch (err) {
+        console.error('Failed to load function schema:', err);
+        document.getElementById('dynamicParametersContainer').innerHTML = `
+            <div class="alert alert-danger bg-dark border-danger text-light">
+                <i class="bi bi-exclamation-triangle"></i>
+                Failed to load function parameters
+            </div>
+        `;
+    }
+}
+
+// Generate dynamic form from schema
+function generateDynamicForm(schema) {
+    if (!schema.parameters || schema.parameters.length === 0) {
+        return `
+            <div class="alert alert-info bg-dark border-info text-light">
+                <i class="bi bi-info-circle"></i>
+                This function has no configurable parameters
+            </div>
+        `;
+    }
+
+    let html = `<h6 class="text-light mb-3"><i class="${schema.icon || 'bi-gear'}"></i> ${schema.display_name} Parameters</h6>`;
+    html += `<p class="text-muted small">${schema.description}</p>`;
+
+    schema.parameters.forEach(param => {
+        html += generateParameterField(param);
+    });
+
+    return html;
+}
+
+// Generate individual parameter field based on type
+function generateParameterField(param) {
+    const required = param.required ? '<span class="text-danger">*</span>' : '';
+    const helpText = param.help_text ? `<small class="form-text text-muted">${param.help_text}</small>` : '';
+
+    let fieldHTML = '';
+
+    switch (param.type) {
+        case 'array':
+            fieldHTML = `
+                <div class="mb-3">
+                    <label class="form-label text-light">${param.display_name} ${required}</label>
+                    <textarea
+                        name="param_${param.name}"
+                        class="form-control"
+                        rows="3"
+                        placeholder="${param.placeholder || ''}"
+                        ${param.required ? 'required' : ''}
+                    ></textarea>
+                    ${helpText}
+                </div>
+            `;
+            break;
+
+        case 'enum':
+            const options = param.options.map(opt => {
+                const selected = opt.value === param.default ? 'checked' : '';
+                return `
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio"
+                            name="param_${param.name}"
+                            value="${opt.value}"
+                            id="${param.name}_${opt.value}"
+                            ${selected}
+                            ${param.required ? 'required' : ''}>
+                        <label class="form-check-label text-light" for="${param.name}_${opt.value}">
+                            ${opt.label}
+                        </label>
+                    </div>
+                `;
+            }).join('');
+            fieldHTML = `
+                <div class="mb-3">
+                    <label class="form-label text-light">${param.display_name} ${required}</label>
+                    ${options}
+                    ${helpText}
+                </div>
+            `;
+            break;
+
+        case 'boolean':
+            const checked = param.default ? 'checked' : '';
+            fieldHTML = `
+                <div class="mb-3 form-check form-switch">
+                    <input class="form-check-input" type="checkbox"
+                        name="param_${param.name}"
+                        id="param_${param.name}"
+                        ${checked}>
+                    <label class="form-check-label text-light" for="param_${param.name}">
+                        ${param.display_name}
+                    </label>
+                    ${helpText}
+                </div>
+            `;
+            break;
+
+        case 'number':
+            fieldHTML = `
+                <div class="mb-3">
+                    <label class="form-label text-light">${param.display_name} ${required}</label>
+                    <input type="number"
+                        name="param_${param.name}"
+                        class="form-control"
+                        value="${param.default || ''}"
+                        ${param.validation && param.validation.min ? `min="${param.validation.min}"` : ''}
+                        ${param.validation && param.validation.max ? `max="${param.validation.max}"` : ''}
+                        ${param.required ? 'required' : ''}>
+                    ${helpText}
+                </div>
+            `;
+            break;
+
+        case 'json':
+            fieldHTML = `
+                <div class="mb-3">
+                    <label class="form-label text-light">${param.display_name} ${required}</label>
+                    <textarea
+                        name="param_${param.name}"
+                        class="form-control font-monospace"
+                        rows="8"
+                        placeholder="${param.placeholder || ''}"
+                        ${param.required ? 'required' : ''}
+                    ></textarea>
+                    ${helpText}
+                </div>
+            `;
+            break;
+
+        default:
+            fieldHTML = `
+                <div class="mb-3">
+                    <label class="form-label text-light">${param.display_name} ${required}</label>
+                    <input type="text"
+                        name="param_${param.name}"
+                        class="form-control"
+                        placeholder="${param.placeholder || ''}"
+                        ${param.required ? 'required' : ''}>
+                    ${helpText}
+                </div>
+            `;
+    }
+
+    return fieldHTML;
+}
+
+// Load existing parameters into dynamic form
+function loadExistingParameters(params) {
+    Object.keys(params).forEach(key => {
+        const value = params[key];
+        const field = document.querySelector(`[name="param_${key}"]`);
+
+        if (field) {
+            if (field.type === 'checkbox') {
+                field.checked = value;
+            } else if (field.type === 'radio') {
+                const radio = document.querySelector(`[name="param_${key}"][value="${value}"]`);
+                if (radio) radio.checked = true;
+            } else if (Array.isArray(value)) {
+                field.value = value.join('\n');
+            } else if (typeof value === 'object') {
+                field.value = JSON.stringify(value, null, 2);
+            } else {
+                field.value = value;
+            }
+        }
+    });
+}
+
+// Collect dynamic parameters from form
+function collectDynamicParameters() {
+    const params = {};
+    const fields = document.querySelectorAll('[name^="param_"]');
+
+    fields.forEach(field => {
+        const paramName = field.name.replace('param_', '');
+
+        if (field.type === 'checkbox') {
+            params[paramName] = field.checked;
+        } else if (field.type === 'radio') {
+            if (field.checked) {
+                params[paramName] = field.value;
+            }
+        } else if (field.classList.contains('font-monospace')) {
+            // JSON field
+            try {
+                params[paramName] = JSON.parse(field.value || '{}');
+            } catch (err) {
+                // If JSON parsing fails, treat as string
+                params[paramName] = field.value;
+            }
+        } else if (field.tagName === 'TEXTAREA') {
+            // Array field (one item per line)
+            const lines = field.value.split('\n').map(l => l.trim()).filter(l => l);
+            if (lines.length > 0) {
+                params[paramName] = lines;
+            }
+        } else if (field.type === 'number') {
+            params[paramName] = parseFloat(field.value);
+        } else {
+            if (field.value) {
+                params[paramName] = field.value;
+            }
+        }
+    });
+
+    return params;
+}
+
+// Listen for function dropdown changes
+document.querySelector('select[name="perplexity_function"]').addEventListener('change', function(e) {
+    loadFunctionSchema(e.target.value);
+});
+
+// Load schema on page load if function is already selected
+document.addEventListener('DOMContentLoaded', function() {
+    const selectedFunction = document.querySelector('select[name="perplexity_function"]').value;
+    if (selectedFunction) {
+        loadFunctionSchema(selectedFunction);
+    }
+});
+
 // Handle test button click
 document.getElementById('testButton').addEventListener('click', async function() {
     const button = this;
@@ -192,7 +435,7 @@ document.getElementById('testButton').addEventListener('click', async function()
     const formData = new FormData(document.getElementById('templateForm'));
     const data = {
         perplexity_function: formData.get('perplexity_function'),
-        function_parameters: JSON.parse(formData.get('function_parameters') || '{}'),
+        function_parameters: collectDynamicParameters(), // Use dynamic parameters
         llm_model: formData.get('llm_model'),
         llm_prompt: formData.get('llm_prompt')
     };
@@ -254,13 +497,8 @@ document.getElementById('templateForm').addEventListener('submit', async functio
     data.schedule_enabled = formData.has('schedule_enabled');
     data.is_active = formData.has('is_active');
 
-    // Parse JSON fields
-    try {
-        data.function_parameters = JSON.parse(data.function_parameters || '{}');
-    } catch (err) {
-        alert('Invalid JSON in function_parameters');
-        return;
-    }
+    // Use dynamic parameters (already collected)
+    data.function_parameters = collectDynamicParameters();
 
     const method = '{{ mode }}' === 'create' ? 'POST' : 'PUT';
     const url = e.target.action;

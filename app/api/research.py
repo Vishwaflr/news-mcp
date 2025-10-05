@@ -260,3 +260,44 @@ async def list_available_functions():
         "functions": functions,
         "count": len(functions)
     }
+
+
+@router.get("/functions/{function_name}/schema")
+async def get_function_schema(function_name: str):
+    """
+    Get schema for a Perplexity function
+
+    This endpoint returns the parameter schema for a function,
+    enabling dynamic form generation in the frontend.
+    """
+    executor = ResearchExecutor()
+
+    try:
+        # Load the function module
+        function = executor.load_function(function_name)
+
+        # Get the module (not just the execute function)
+        import importlib.util
+        import os
+        module_path = os.path.join(executor.functions_dir, f"{function_name}.py")
+        spec = importlib.util.spec_from_file_location(function_name, module_path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        # Check if module has SCHEMA
+        if hasattr(module, "SCHEMA"):
+            return module.SCHEMA
+        else:
+            # Fallback for functions without schema
+            return {
+                "name": function_name,
+                "display_name": function_name.replace('_', ' ').title(),
+                "description": "No schema defined for this function",
+                "parameters": []
+            }
+
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=f"Function not found: {function_name}")
+    except Exception as e:
+        logger.error(f"Error loading function schema: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to load schema: {str(e)}")

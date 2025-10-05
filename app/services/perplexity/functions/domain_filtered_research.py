@@ -7,6 +7,45 @@ from typing import Dict, Any, List
 from app.services.perplexity.perplexity_client import PerplexityClient
 
 
+# Schema definition for dynamic form generation
+SCHEMA = {
+    "name": "domain_filtered_research",
+    "display_name": "Domain-Filtered Research",
+    "description": "Search only within specified trusted domains (e.g., reuters.com, .gov)",
+    "icon": "bi-funnel",
+    "parameters": [
+        {
+            "name": "domain_filter",
+            "display_name": "Trusted Domains",
+            "type": "array",
+            "item_type": "string",
+            "required": True,
+            "description": "List of domains to restrict search results",
+            "placeholder": "reuters.com\napnews.com\n.gov\n.edu",
+            "help_text": "Enter one domain per line. Use .gov, .edu for top-level domains.",
+            "validation": {
+                "min_items": 1,
+                "pattern": r"^[a-zA-Z0-9.-]+$"
+            }
+        },
+        {
+            "name": "recency_filter",
+            "display_name": "Time Range",
+            "type": "enum",
+            "options": [
+                {"value": "day", "label": "Last 24 hours"},
+                {"value": "week", "label": "Last week"},
+                {"value": "month", "label": "Last month"},
+                {"value": "year", "label": "Last year"}
+            ],
+            "default": "month",
+            "required": False,
+            "description": "How recent the content should be"
+        }
+    ]
+}
+
+
 async def execute(
     query: str,
     parameters: Dict[str, Any],
