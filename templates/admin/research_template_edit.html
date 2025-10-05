@@ -57,57 +57,15 @@
                         </small>
                     </div>
 
-                    <!-- LLM Configuration -->
-                    <h6 class="text-light mt-4 mb-3">LLM Configuration</h6>
+                    <!-- Research Prompt -->
+                    <h6 class="text-light mt-4 mb-3">Research Prompt</h6>
 
                     <div class="mb-3">
-                        <label class="form-label text-light">LLM Model <span class="text-danger">*</span></label>
-                        <select name="llm_model" class="form-select" required>
-                            <!-- GPT-5 Models (2025) -->
-                            <option value="gpt-5" {% if template and template.llm_model == 'gpt-5' %}selected{% endif %}>GPT-5 ($1.25/$10.00)</option>
-                            <option value="gpt-5-mini" {% if template and template.llm_model == 'gpt-5-mini' %}selected{% endif %}>GPT-5 Mini ($0.25/$2.00)</option>
-                            <option value="gpt-5-nano" {% if not template or template.llm_model == 'gpt-5-nano' %}selected{% endif %}>GPT-5 Nano ($0.05/$0.40) ⭐ Default</option>
-                            <option value="gpt-5-chat-latest" {% if template and template.llm_model == 'gpt-5-chat-latest' %}selected{% endif %}>GPT-5 Chat Latest ($1.25/$10.00)</option>
-                            <option value="gpt-5-codex" {% if template and template.llm_model == 'gpt-5-codex' %}selected{% endif %}>GPT-5 Codex ($1.25/$10.00)</option>
-
-                            <!-- GPT-4.1 Models -->
-                            <option value="gpt-4.1" {% if template and template.llm_model == 'gpt-4.1' %}selected{% endif %}>GPT-4.1 ($2.00/$8.00)</option>
-                            <option value="gpt-4.1-mini" {% if template and template.llm_model == 'gpt-4.1-mini' %}selected{% endif %}>GPT-4.1 Mini ($0.40/$1.60)</option>
-                            <option value="gpt-4.1-nano" {% if template and template.llm_model == 'gpt-4.1-nano' %}selected{% endif %}>GPT-4.1 Nano ($0.10/$0.40)</option>
-
-                            <!-- GPT-4o Models -->
-                            <option value="gpt-4o" {% if template and template.llm_model == 'gpt-4o' %}selected{% endif %}>GPT-4o ($2.50/$10.00)</option>
-                            <option value="gpt-4o-2024-05-13" {% if template and template.llm_model == 'gpt-4o-2024-05-13' %}selected{% endif %}>GPT-4o (2024-05-13) ($5.00/$15.00)</option>
-                            <option value="gpt-4o-mini" {% if template and template.llm_model == 'gpt-4o-mini' %}selected{% endif %}>GPT-4o Mini ($0.15/$0.60)</option>
-                        </select>
-                        <small class="form-text text-muted">Prices: Input/Output per 1M tokens</small>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label text-light">LLM Prompt <span class="text-danger">*</span></label>
-                        <textarea name="llm_prompt" class="form-control" rows="5" required>{{ template.llm_prompt if template else 'Analyze the following research findings and provide a comprehensive summary.' }}</textarea>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label text-light">Temperature</label>
-                        <input type="number" name="llm_temperature" class="form-control" step="0.1" min="0" max="2" value="{{ template.llm_temperature if template else 0.7 }}">
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label text-light">System Instruction</label>
-                        <textarea name="system_instruction" class="form-control" rows="2">{{ template.system_instruction if template else '' }}</textarea>
-                    </div>
-
-                    <!-- Output Configuration -->
-                    <h6 class="text-light mt-4 mb-3">Output Configuration</h6>
-
-                    <div class="mb-3">
-                        <label class="form-label text-light">Output Format</label>
-                        <select name="output_format" class="form-select">
-                            <option value="markdown" {% if not template or template.output_format == 'markdown' %}selected{% endif %}>Markdown</option>
-                            <option value="json" {% if template and template.output_format == 'json' %}selected{% endif %}>JSON</option>
-                            <option value="html" {% if template and template.output_format == 'html' %}selected{% endif %}>HTML</option>
-                        </select>
+                        <label class="form-label text-light">Prompt Template</label>
+                        <textarea name="llm_prompt" class="form-control" rows="5" placeholder="Enter your research prompt here...">{{ template.llm_prompt if template else '' }}</textarea>
+                        <small class="form-text text-muted">
+                            This prompt will be sent to Perplexity for research. Later: auto-generated by LLM.
+                        </small>
                     </div>
 
                     <!-- Scheduling -->
