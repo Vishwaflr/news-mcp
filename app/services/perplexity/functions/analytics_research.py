@@ -37,8 +37,13 @@ SCHEMA = {
             "type": "array",
             "item_type": "string",
             "required": False,
-            "description": "Optionally restrict to specific domains",
-            "placeholder": "reuters.com\napnews.com"
+            "description": "Optionally restrict to specific domains (max 20)",
+            "placeholder": "reuters.com\napnews.com\nbbc.com\naljazeera.com\ndw.com\nfrance24.com\ntheguardian.com\nwashingtonpost.com\nnytimes.com\ncnn.com\nbloomberg.com\nft.com\npolitico.com\nforeignpolicy.com\neuobserver.com\nrferl.org\ndefensenews.com\neuronews.com\nosce.org\ntheconversation.com",
+            "help_text": "Enter one domain per line (max 20).",
+            "validation": {
+                "max_items": 20,
+                "pattern": r"^[a-zA-Z0-9.-]+$"
+            }
         },
         {
             "name": "recency_filter",

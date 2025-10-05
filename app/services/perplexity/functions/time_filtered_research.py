@@ -33,9 +33,13 @@ SCHEMA = {
             "type": "array",
             "item_type": "string",
             "required": False,
-            "description": "Optionally restrict to specific domains",
-            "placeholder": "reuters.com\napnews.com",
-            "help_text": "Leave empty to search all sources"
+            "description": "Optionally restrict to specific domains (max 20)",
+            "placeholder": "reuters.com\napnews.com\nbbc.com\naljazeera.com\ndw.com\nfrance24.com\ntheguardian.com\nwashingtonpost.com\nnytimes.com\ncnn.com\nbloomberg.com\nft.com\npolitico.com\nforeignpolicy.com\neuobserver.com\nrferl.org\ndefensenews.com\neuronews.com\nosce.org\ntheconversation.com",
+            "help_text": "Leave empty to search all sources, or enter up to 20 domains (one per line).",
+            "validation": {
+                "max_items": 20,
+                "pattern": r"^[a-zA-Z0-9.-]+$"
+            }
         },
         {
             "name": "return_related_questions",

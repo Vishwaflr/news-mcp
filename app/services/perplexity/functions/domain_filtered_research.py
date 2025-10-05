@@ -20,11 +20,12 @@ SCHEMA = {
             "type": "array",
             "item_type": "string",
             "required": True,
-            "description": "List of domains to restrict search results",
-            "placeholder": "reuters.com\napnews.com\n.gov\n.edu",
-            "help_text": "Enter one domain per line. Use .gov, .edu for top-level domains.",
+            "description": "List of domains to restrict search results (max 20 domains)",
+            "placeholder": "reuters.com\napnews.com\nbbc.com\naljazeera.com\ndw.com\nfrance24.com\ntheguardian.com\nwashingtonpost.com\nnytimes.com\ncnn.com\nbloomberg.com\nft.com\npolitico.com\nforeignpolicy.com\neuobserver.com\nrferl.org\ndefensenews.com\neuronews.com\nosce.org\ntheconversation.com",
+            "help_text": "Enter one domain per line (max 20). Curated list of trusted international news sources provided as default.",
             "validation": {
                 "min_items": 1,
+                "max_items": 20,
                 "pattern": r"^[a-zA-Z0-9.-]+$"
             }
         },
