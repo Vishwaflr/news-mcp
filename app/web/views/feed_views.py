@@ -647,6 +647,29 @@ def get_feed_edit_form(feed_id: int, session: Session = Depends(get_session)):
                     </div>
                 </div>
             </div>
+
+            <hr class="my-4">
+            <h6 class="mb-3"><i class="bi bi-globe me-2"></i>Content Scraping</h6>
+
+            <div class="mb-3">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" name="scrape_full_content" id="scrape_full_content"
+                           {'checked' if feed.scrape_full_content else ''}>
+                    <label class="form-check-label" for="scrape_full_content">
+                        <strong>Scrape Full Content</strong>
+                        <div class="text-muted small">Extract full article text from URLs (increases fetch time)</div>
+                    </label>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Scrape Method</label>
+                <select class="form-select" name="scrape_method">
+                    <option value="auto" {'selected' if feed.scrape_method == 'auto' else ''}>Auto (httpx → Playwright fallback)</option>
+                    <option value="httpx" {'selected' if feed.scrape_method == 'httpx' else ''}>httpx only (fast)</option>
+                </select>
+                <div class="form-text">Auto mode falls back to Playwright for JavaScript-heavy sites</div>
+            </div>
         </div>
         <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>

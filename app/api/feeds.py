@@ -177,6 +177,8 @@ def update_feed_form(
     categories: Optional[list[int]] = Form(None),
     auto_analyze_enabled: Optional[str] = Form(None),
     auto_analysis_only: Optional[str] = Form(None),
+    scrape_full_content: Optional[str] = Form(None),
+    scrape_method: Optional[str] = Form(None),
     session: Session = Depends(get_session)
 ):
 
@@ -199,6 +201,16 @@ def update_feed_form(
     else:
         # Checkbox unchecked = False
         update_data['auto_analyze_enabled'] = False
+
+    # Handle scraper settings - checkbox and select
+    if scrape_full_content is not None:
+        update_data['scrape_full_content'] = scrape_full_content == "on"
+    else:
+        # Checkbox unchecked = False
+        update_data['scrape_full_content'] = False
+
+    if scrape_method is not None:
+        update_data['scrape_method'] = scrape_method
 
     # Handle category assignment
     if categories is not None:

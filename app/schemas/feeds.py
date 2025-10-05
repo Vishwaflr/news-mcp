@@ -34,6 +34,8 @@ class FeedUpdate(BaseModel):
     fetch_interval_minutes: Optional[int] = Field(None, ge=5, le=1440)
     status: Optional[FeedStatus] = None
     auto_analyze_enabled: Optional[bool] = None
+    scrape_full_content: Optional[bool] = None
+    scrape_method: Optional[str] = Field(None, pattern="^(auto|httpx|playwright)$")
 
 
 class FeedResponse(BaseModel):
