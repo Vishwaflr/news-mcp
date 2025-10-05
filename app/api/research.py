@@ -56,6 +56,13 @@ class ExecuteRequest(BaseModel):
     triggered_by: Optional[str] = None
 
 
+class TemplateTestRequest(BaseModel):
+    perplexity_function: str
+    function_parameters: dict = {}
+    llm_model: str
+    llm_prompt: str
+
+
 # Template Endpoints
 @router.get("/templates", response_model=List[ResearchTemplate])
 async def list_templates(
@@ -117,6 +124,52 @@ async def delete_template(template_id: int):
 
 
 # Execution Endpoints
+@router.post("/templates/test")
+async def test_template(data: TemplateTestRequest):
+    """
+    Test a research template configuration without saving it
+    Returns immediate results for preview in the UI
+    """
+    executor = ResearchExecutor()
+
+    try:
+        # Load the function
+        function = executor.load_function(data.perplexity_function)
+
+        # Merge model into parameters
+        merged_parameters = data.function_parameters.copy()
+        merged_parameters["model"] = data.llm_model
+
+        logger.info(
+            f"Testing research function: {data.perplexity_function} "
+            f"with model: {data.llm_model}"
+        )
+
+        # Execute function directly (no database record)
+        result = await function(
+            query=data.llm_prompt,
+            parameters=merged_parameters,
+            client=executor.client
+        )
+
+        # Return simplified result for UI
+        return {
+            "query": data.llm_prompt,
+            "content": result.get("content", ""),
+            "citations": result.get("citations", []),
+            "tokens_used": result.get("tokens_used", 0),
+            "cost_usd": result.get("cost_usd", 0.0),
+            "model": data.llm_model,
+            "function": data.perplexity_function
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Template test failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Test failed: {str(e)}")
+
+
 @router.post("/templates/{template_id}/execute", response_model=ResearchRun)
 async def execute_template(
     template_id: int,

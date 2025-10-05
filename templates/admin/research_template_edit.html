@@ -126,38 +126,48 @@
         </div>
     </div>
 
-    <!-- Right Panel: Function Code Preview -->
+    <!-- Right Panel: Test Results -->
     <div class="col-lg-6">
         <div class="card border-secondary">
-            <div class="card-header bg-dark border-secondary">
-                <h5 class="mb-0 text-light">Function Code</h5>
+            <div class="card-header bg-dark border-secondary d-flex justify-content-between align-items-center">
+                <h5 class="mb-0 text-light">Test Research</h5>
+                <button type="button" id="testButton" class="btn btn-sm btn-primary">
+                    <i class="bi bi-play-circle"></i> Run Test
+                </button>
             </div>
             <div class="card-body bg-dark">
-                <div class="alert alert-info bg-dark border-info text-light">
+                <div id="testResults" class="alert alert-info bg-dark border-info text-light">
                     <i class="bi bi-info-circle"></i>
-                    Function code is read from <code>app/services/perplexity/functions/</code>.
-                    Edit the Python files directly to modify function behavior.
+                    Click "Run Test" to execute the research with current configuration and see results.
                 </div>
 
-                <div class="mb-3">
-                    <label class="form-label text-light">Selected Function</label>
-                    <div id="selected-function-display" class="p-3 bg-secondary rounded">
-                        <code id="function-name-display" class="text-warning">
-                            {{ template.perplexity_function if template else available_functions[0] }}
-                        </code>
+                <div id="testOutput" class="d-none">
+                    <!-- Test results will be displayed here -->
+                    <div class="mb-3">
+                        <label class="form-label text-light">Query Used:</label>
+                        <div id="testQuery" class="p-2 bg-secondary rounded font-monospace small"></div>
                     </div>
-                </div>
 
-                <div class="mb-3">
-                    <label class="form-label text-light">Available Functions:</label>
-                    <ul class="list-group bg-dark">
-                        {% for func in available_functions %}
-                        <li class="list-group-item bg-dark text-light border-secondary">
-                            <i class="bi bi-code-square text-primary"></i>
-                            <code>{{ func }}.py</code>
-                        </li>
-                        {% endfor %}
-                    </ul>
+                    <div class="mb-3">
+                        <label class="form-label text-light">Result Content:</label>
+                        <div id="testContent" class="p-3 bg-secondary rounded" style="max-height: 400px; overflow-y: auto;"></div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-light">Citations:</label>
+                        <div id="testCitations" class="p-2 bg-secondary rounded"></div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="form-label text-light">Tokens Used:</label>
+                            <div id="testTokens" class="p-2 bg-secondary rounded"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-light">Cost (USD):</label>
+                            <div id="testCost" class="p-2 bg-secondary rounded"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -165,9 +175,72 @@
 </div>
 
 <script>
-// Update function display when dropdown changes
-document.querySelector('select[name="perplexity_function"]').addEventListener('change', function(e) {
-    document.getElementById('function-name-display').textContent = e.target.value;
+// Handle test button click
+document.getElementById('testButton').addEventListener('click', async function() {
+    const button = this;
+    const originalHTML = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Testing...';
+
+    // Hide previous results
+    document.getElementById('testResults').classList.remove('d-none');
+    document.getElementById('testOutput').classList.add('d-none');
+    document.getElementById('testResults').className = 'alert alert-info bg-dark border-info text-light';
+    document.getElementById('testResults').innerHTML = '<i class="bi bi-hourglass-split"></i> Running research test...';
+
+    // Collect form data
+    const formData = new FormData(document.getElementById('templateForm'));
+    const data = {
+        perplexity_function: formData.get('perplexity_function'),
+        function_parameters: JSON.parse(formData.get('function_parameters') || '{}'),
+        llm_model: formData.get('llm_model'),
+        llm_prompt: formData.get('llm_prompt')
+    };
+
+    try {
+        const response = await fetch('/api/research/templates/test', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            // Show success
+            document.getElementById('testResults').className = 'alert alert-success bg-dark border-success text-light';
+            document.getElementById('testResults').innerHTML = '<i class="bi bi-check-circle"></i> Test completed successfully!';
+
+            // Show results
+            document.getElementById('testOutput').classList.remove('d-none');
+            document.getElementById('testQuery').textContent = result.query || data.llm_prompt;
+            document.getElementById('testContent').innerHTML = result.content || 'No content';
+
+            // Display citations
+            const citations = result.citations || [];
+            if (citations.length > 0) {
+                const citationHTML = citations.map((c, i) =>
+                    `<div class="mb-2"><strong>${i+1}.</strong> <a href="${c}" target="_blank" class="text-primary">${c}</a></div>`
+                ).join('');
+                document.getElementById('testCitations').innerHTML = citationHTML;
+            } else {
+                document.getElementById('testCitations').innerHTML = '<em class="text-muted">No citations</em>';
+            }
+
+            document.getElementById('testTokens').textContent = result.tokens_used || 'N/A';
+            document.getElementById('testCost').textContent = result.cost_usd ? `$${result.cost_usd.toFixed(6)}` : 'N/A';
+        } else {
+            // Show error
+            document.getElementById('testResults').className = 'alert alert-danger bg-dark border-danger text-light';
+            document.getElementById('testResults').innerHTML = `<i class="bi bi-exclamation-triangle"></i> Test failed: ${result.detail || 'Unknown error'}`;
+        }
+    } catch (err) {
+        document.getElementById('testResults').className = 'alert alert-danger bg-dark border-danger text-light';
+        document.getElementById('testResults').innerHTML = `<i class="bi bi-exclamation-triangle"></i> Network error: ${err.message}`;
+    } finally {
+        button.disabled = false;
+        button.innerHTML = originalHTML;
+    }
 });
 
 // Handle form submission
