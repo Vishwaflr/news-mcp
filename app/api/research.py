@@ -1,130 +1,209 @@
 """
 Research API Endpoints
-Endpoints for LLM-driven Perplexity research pipeline
+REST API for Perplexity-based research templates and runs
 """
-from typing import Dict, Any, List
-from fastapi import APIRouter, Depends, HTTPException
+from typing import List, Optional
+from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
-from sqlmodel import Session
-from app.database import get_session
-from app.services.research.article_filter import ArticleFilterService
-from app.services.research.llm_query_generator import LLMQueryGeneratorService
+from app.models.research import ResearchTemplate, ResearchRun
+from app.repositories.research_template_repo import ResearchTemplateRepo
+from app.repositories.research_run_repo import ResearchRunRepo
+from app.services.perplexity.research_executor import ResearchExecutor
 from app.core.logging_config import get_logger
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/api/research", tags=["research"])
 
 
-class GenerateQueriesRequest(BaseModel):
-    filter_config: Dict[str, Any]
-    prompt: str
-    model: str = None
+# Request/Response Models
+class TemplateCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    perplexity_function: str
+    function_parameters: dict = {}
+    llm_model: str
+    llm_prompt: str
+    llm_temperature: float = 0.7
+    system_instruction: Optional[str] = None
+    output_format: str = "markdown"
+    output_schema: Optional[dict] = None
+    schedule_enabled: bool = False
+    cron_expression: Optional[str] = None
+    is_active: bool = True
+    created_by: Optional[str] = None
+    tags: Optional[dict] = []
 
 
-@router.post("/filter/test")
-async def test_article_filter(
-    filter_config: Dict[str, Any],
-    session: Session = Depends(get_session)
-) -> Dict[str, Any]:
-    """
-    Test article filter with given configuration
+class TemplateUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    perplexity_function: Optional[str] = None
+    function_parameters: Optional[dict] = None
+    llm_model: Optional[str] = None
+    llm_prompt: Optional[str] = None
+    llm_temperature: Optional[float] = None
+    system_instruction: Optional[str] = None
+    output_format: Optional[str] = None
+    output_schema: Optional[dict] = None
+    schedule_enabled: Optional[bool] = None
+    cron_expression: Optional[str] = None
+    is_active: Optional[bool] = None
 
-    Returns preview with sample articles and total count
-    """
+
+class ExecuteRequest(BaseModel):
+    query: Optional[str] = None
+    trigger_type: str = "manual"
+    triggered_by: Optional[str] = None
+
+
+# Template Endpoints
+@router.get("/templates", response_model=List[ResearchTemplate])
+async def list_templates(
+    active_only: bool = False,
+    scheduled_only: bool = False,
+    limit: int = 100,
+    offset: int = 0
+):
+    """List all research templates"""
+    return ResearchTemplateRepo.list_all(
+        active_only=active_only,
+        scheduled_only=scheduled_only,
+        limit=limit,
+        offset=offset
+    )
+
+
+@router.get("/templates/{template_id}", response_model=ResearchTemplate)
+async def get_template(template_id: int):
+    """Get a specific template"""
+    template = ResearchTemplateRepo.get_by_id(template_id)
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    return template
+
+
+@router.post("/templates", response_model=ResearchTemplate)
+async def create_template(data: TemplateCreate):
+    """Create a new research template"""
+    # Check if name already exists
+    existing = ResearchTemplateRepo.get_by_name(data.name)
+    if existing:
+        raise HTTPException(status_code=400, detail="Template name already exists")
+
+    template = ResearchTemplate(**data.model_dump())
+    return ResearchTemplateRepo.create(template)
+
+
+@router.put("/templates/{template_id}", response_model=ResearchTemplate)
+async def update_template(template_id: int, data: TemplateUpdate):
+    """Update a template"""
+    updates = {k: v for k, v in data.model_dump().items() if v is not None}
+
+    template = ResearchTemplateRepo.update(template_id, **updates)
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    return template
+
+
+@router.delete("/templates/{template_id}")
+async def delete_template(template_id: int):
+    """Delete a template"""
+    success = ResearchTemplateRepo.delete(template_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    return {"success": True, "message": f"Template {template_id} deleted"}
+
+
+# Execution Endpoints
+@router.post("/templates/{template_id}/execute", response_model=ResearchRun)
+async def execute_template(
+    template_id: int,
+    data: ExecuteRequest,
+    background_tasks: BackgroundTasks
+):
+    """Execute a research template"""
+    executor = ResearchExecutor()
+
     try:
-        service = ArticleFilterService(session)
-
-        # Validate config
-        is_valid, error = service.validate_filter_config(filter_config)
-        if not is_valid:
-            raise HTTPException(status_code=400, detail=error)
-
-        # Get preview (first 10 articles)
-        preview = service.get_filter_preview(filter_config, limit=10)
-
-        return preview
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error testing article filter: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/filter/articles")
-async def filter_articles(
-    filter_config: Dict[str, Any],
-    session: Session = Depends(get_session)
-) -> Dict[str, Any]:
-    """
-    Get full list of articles matching filter criteria
-    """
-    try:
-        service = ArticleFilterService(session)
-
-        # Validate config
-        is_valid, error = service.validate_filter_config(filter_config)
-        if not is_valid:
-            raise HTTPException(status_code=400, detail=error)
-
-        # Get articles
-        articles = service.filter_by_criteria(filter_config)
-
-        return {
-            "ok": True,
-            "count": len(articles),
-            "articles": articles
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error filtering articles: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/generate-queries")
-async def generate_queries(
-    request: GenerateQueriesRequest,
-    session: Session = Depends(get_session)
-) -> Dict[str, Any]:
-    """
-    Generate research queries using LLM based on filtered articles
-
-    Accepts filter configuration and user prompt, filters articles,
-    then calls LLM to generate research questions.
-    """
-    try:
-        # Validate and filter articles
-        filter_service = ArticleFilterService(session)
-
-        is_valid, error = filter_service.validate_filter_config(request.filter_config)
-        if not is_valid:
-            raise HTTPException(status_code=400, detail=f"Invalid filter config: {error}")
-
-        articles = filter_service.filter_by_criteria(request.filter_config)
-
-        if not articles:
-            return {
-                "ok": False,
-                "error": "No articles found matching filter criteria",
-                "generated_queries": None
-            }
-
-        logger.info(f"Generating queries for {len(articles)} filtered articles")
-
-        # Generate queries with LLM
-        llm_service = LLMQueryGeneratorService()
-        result = llm_service.generate_queries(
-            articles=articles,
-            user_prompt=request.prompt,
-            model=request.model
+        run = await executor.execute_template(
+            template_id=template_id,
+            query=data.query,
+            trigger_type=data.trigger_type,
+            triggered_by=data.triggered_by
         )
+        return run
 
-        return result
-
-    except HTTPException:
-        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Error generating queries: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Template execution failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Execution failed: {str(e)}")
+
+
+# Run Endpoints
+@router.get("/runs", response_model=List[ResearchRun])
+async def list_runs(
+    template_id: Optional[int] = None,
+    status: Optional[str] = None,
+    limit: int = 100,
+    offset: int = 0
+):
+    """List research runs"""
+    return ResearchRunRepo.list_all(
+        template_id=template_id,
+        status=status,
+        limit=limit,
+        offset=offset
+    )
+
+
+@router.get("/runs/{run_id}", response_model=ResearchRun)
+async def get_run(run_id: int):
+    """Get a specific run"""
+    run = ResearchRunRepo.get_by_id(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+    return run
+
+
+@router.get("/runs/pending", response_model=List[ResearchRun])
+async def get_pending_runs(limit: int = 10):
+    """Get pending runs ready for execution"""
+    return ResearchRunRepo.get_pending_runs(limit=limit)
+
+
+@router.get("/runs/active", response_model=List[ResearchRun])
+async def get_active_runs():
+    """Get currently running executions"""
+    return ResearchRunRepo.get_active_runs()
+
+
+@router.delete("/runs/{run_id}")
+async def delete_run(run_id: int):
+    """Delete a run"""
+    success = ResearchRunRepo.delete(run_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    return {"success": True, "message": f"Run {run_id} deleted"}
+
+
+# Analytics Endpoints
+@router.get("/analytics/cost-summary")
+async def get_cost_summary(hours: int = 24):
+    """Get cost summary for recent runs"""
+    return ResearchRunRepo.get_cost_summary(hours=hours)
+
+
+@router.get("/analytics/functions")
+async def list_available_functions():
+    """List all available Perplexity functions"""
+    executor = ResearchExecutor()
+    functions = executor.list_available_functions()
+
+    return {
+        "functions": functions,
+        "count": len(functions)
+    }
