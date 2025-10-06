@@ -13,11 +13,21 @@
 ### Core Functionality
 - **RSS Feed Management**: Automatic collection and processing of RSS feeds
 - **Auto-Analysis System**: Automatic AI analysis of new feed items (Phase 2 ✅)
+- **Auto-Scraping**: Full-text article extraction with trafilatura
+  - Automatic scraping for feeds with `enable_scraping=true`
+  - Triggered during sentiment analysis workflow
+  - Stores scraped content in `items.scraped_content` (JSONB)
+  - Error tracking and safety mechanisms (3-retry limit, timeout protection)
 - **AI-Powered Analysis**: Multi-dimensional sentiment analysis with OpenAI GPT
   - **Sentiment Scoring**: Overall, market, and thematic sentiment (-1.0 to +1.0)
   - **Geopolitical Analysis**: 13-field assessment including stability, security, diplomatic impact
   - **Impact & Urgency**: Quantified metrics for prioritization (0.0 to 1.0)
   - **Market Indicators**: Bullish/bearish/neutral sentiment, volatility assessment
+- **Perplexity Research**: Advanced web research with curated domain filtering
+  - Dynamic parameter forms for research templates
+  - Time-filtered research with Top-20 domain curation
+  - Enhanced error handling and retry logic
+  - Real-time test functionality in template editor
 - **Real-time Dashboard**: Live monitoring of feed status and analysis runs
 - **Advanced Analytics**: Detailed statistics and performance metrics
 - **Template System**: Dynamic feed templates for flexible configuration
@@ -682,6 +692,13 @@ This project is licensed under the GNU General Public License v3.0 - see the [LI
 
 ---
 
-**Current Version**: v4.1.0 - Content Generation System & Enhanced Documentation
+**Current Version**: v4.2.0 - Auto-Scraping & Research Enhancements
 
 **Status**: ✅ Production Ready - Stable Multi-Service Architecture (API + Worker + Scheduler)
+
+**Recent Updates:**
+- ✅ Auto-scraping integration with sentiment analysis workflow
+- ✅ Perplexity Research with curated domain filtering
+- ✅ Enhanced error handling and retry logic
+- ✅ Dynamic parameter forms for research templates
+- ✅ Comprehensive testing infrastructure (Playwright E2E + pytest)

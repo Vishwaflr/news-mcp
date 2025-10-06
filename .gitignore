@@ -1,5 +1,3 @@
-# News MCP - Git Ignore Configuration
-
 # Python
 __pycache__/
 *.py[cod]
@@ -18,211 +16,51 @@ parts/
 sdist/
 var/
 wheels/
-share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-MANIFEST
 
 # Virtual Environment
 venv/
 env/
 ENV/
-env.bak/
-venv.bak/
-.venv/
 
-# IDEs
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# OS
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# Environment Variables
-.env
-.env.local
-.env.production
-.env.staging
-.env.development
+# Logs
+*.log
+logs/
 
 # Database
 *.db
 *.sqlite
-*.sqlite3
-news.db
 
-# Logs
-*.log
-logs/
-/tmp/news-mcp*.log
+# Environment
+.env
+.env.local
+
+# MCP Config (contains tokens)
+.mcp.json
+
+# OS
+.DS_Store
+Thumbs.db
 
 # Testing
 .pytest_cache/
 .coverage
 htmlcov/
-.tox/
-.nox/
-
-# Documentation builds
-docs/_build/
-.readthedocs.yml
-
-# Jupyter Notebooks
-.ipynb_checkpoints
-
-# pyenv
-.python-version
-
-# Celery
-celerybeat-schedule
-celerybeat.pid
-
-# SageMath parsed files
-*.sage.py
-
-# Rope project settings
-.ropeproject
-
-# mkdocs documentation
-/site
-
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
-# Pyre type checker
-.pyre/
-
-# pytype static type analyzer
-.pytype/
-
-# News MCP Specific
-# Runtime data (PostgreSQL)
-/data/postgres/
-!/data/.gitkeep
-/backups/
-/uploads/
-
-# QM Agent files
-.qmagent_*
-
-# Temporary test files
-test_*.py
-add_test_*.py
-quick_*.py
-*_test.html
-*test.html
-temp_files/
-tests/manual/
-
-# Invalid files
-=*
-
-# DBeaver IDE files
-.dbeaver/
-
-# Configuration files with secrets (keep .env.example)
-config.local.yaml
-secrets.yaml
-
-# PID files
-*.pid
-
-# SSL certificates
-*.pem
-*.key
-*.crt
-
-# Docker
-docker-compose.override.yml
-.dockerignore
-
-# Monitoring
-prometheus.yml
-grafana/
+test-results/
+playwright-report/
+*.png
+*.jpg
+*.jpeg
 
 # Temporary files
-tmp/
-temp/
-.tmp/
-
-# Node.js (if using for frontend tooling)
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Static files cache
-staticfiles/
-media/
-
-# Backup files
+*.tmp
 *.bak
-*.backup
-*.old
-
-# Editor specific
-.vimrc.local
-
-# MacOS
-.AppleDouble
-.LSOverride
-Icon
-
-# Windows
-desktop.ini
-$RECYCLE.BIN/
-*.cab
-*.msi
-*.msix
-*.msm
-*.msp
-*.lnkCLAUDE.md
-
-# Internal Documentation (not for public repo)
-NAVIGATOR.md
-ENDPOINTS.md
-INDEX.md
-
-# Archived planning documents
-docs/archive/PROGRESS.md
-docs/archive/IMPLEMENTATION_PLAN*.md
-
-# Local archive for removed files
-.archive/
-docs/archive/REFACTORING_PLAN.md
-docs/archive/ANALYSIS_API_CONSOLIDATION.md
-docs/archive/README_QMAGENT.md
-docs/archive/TEST_REPORT_AUTO_ANALYSIS.md
-docs/archive/GO_LIVE_CHECKLIST*.md
-docs/archive/REPOSITORY_POLICY.md
-
-# Runtime files
-*.pid
-.*.pid
-
-# QMAgent temporary files
-.qmagent_*
-
-# Test and development files
-tests/manual/
-
-# Backup files
-*.backup*
-*.bak
-
-# Config directory (runtime state)
-config/mcp_server_config.json
-config/rollout_state.json
-.env.worker
