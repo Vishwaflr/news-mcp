@@ -1,9 +1,13 @@
 """
 Time-Filtered Research Function
-Searches with specific time constraints (recent vs historical)
+Searches with specific time constraints using date filters (better for citations)
 Priority: Important - for time-sensitive analysis
+
+NOTE: Uses search_after_date_filter instead of search_recency_filter
+to improve citation availability while maintaining time constraints.
 """
 from typing import Dict, Any
+from datetime import datetime, timedelta
 from app.services.perplexity.perplexity_client import PerplexityClient
 
 
@@ -11,21 +15,22 @@ from app.services.perplexity.perplexity_client import PerplexityClient
 SCHEMA = {
     "name": "time_filtered_research",
     "display_name": "Time-Filtered Research",
-    "description": "Focus on recent or historical content within specific timeframes",
+    "description": "Focus on recent content with improved citation support",
     "icon": "bi-clock-history",
     "parameters": [
         {
-            "name": "recency_filter",
-            "display_name": "Time Range",
+            "name": "timeframe_days",
+            "display_name": "Timeframe (Days)",
             "type": "enum",
             "options": [
-                {"value": "day", "label": "Last 24 hours"},
-                {"value": "week", "label": "Last week"},
-                {"value": "month", "label": "Last month"},
-                {"value": "year", "label": "Last year"}
+                {"value": "1", "label": "Last 24 hours"},
+                {"value": "7", "label": "Last 7 days"},
+                {"value": "30", "label": "Last 30 days"},
+                {"value": "365", "label": "Last year"}
             ],
             "required": True,
-            "description": "How recent the content should be"
+            "description": "How many days back to search",
+            "default": "7"
         },
         {
             "name": "domain_filter",
@@ -59,15 +64,15 @@ async def execute(
     client: PerplexityClient
 ) -> Dict[str, Any]:
     """
-    Execute time-filtered research using Perplexity
+    Execute time-filtered research using date filters (better citation support)
 
     Parameters:
-        query: Research question
+        query: Research question (automatically enhanced with "find sources" for better citations)
         parameters: {
-            "recency_filter": "day",  # Required: "day", "week", "month", "year"
+            "timeframe_days": "7",  # Required: Number of days (1, 7, 30, 365)
             "domain_filter": [],  # Optional: Restrict to specific domains
             "return_related_questions": true,  # Optional: Get related questions
-            "model": "llama-3.1-sonar-small-128k-online"  # Optional
+            "model": "sonar"  # Optional
         }
 
     Returns:
@@ -77,25 +82,35 @@ async def execute(
             "related_questions": ["Q1", "Q2"],  # If requested
             "tokens_used": 1500,
             "cost_usd": 0.0003,
-            "time_filter": "day"
+            "timeframe_days": 7,
+            "search_after_date": "10/01/2025"
         }
     """
-    recency_filter = parameters.get("recency_filter")
+    timeframe_days = parameters.get("timeframe_days")
     domain_filter = parameters.get("domain_filter", [])
     return_related = parameters.get("return_related_questions", False)
     model = parameters.get("model", "sonar")
 
-    if not recency_filter:
-        raise ValueError("recency_filter is required for time-filtered research")
+    if not timeframe_days:
+        raise ValueError("timeframe_days is required for time-filtered research")
 
-    valid_recency = ["day", "week", "month", "year"]
-    if recency_filter not in valid_recency:
-        raise ValueError(f"recency_filter must be one of: {valid_recency}")
+    # Convert timeframe to date filter
+    try:
+        days = int(timeframe_days)
+    except ValueError:
+        raise ValueError(f"timeframe_days must be a number, got: {timeframe_days}")
+
+    # Calculate date filter (format: MM/DD/YYYY as per Perplexity API docs)
+    cutoff_date = datetime.now() - timedelta(days=days)
+    date_filter = cutoff_date.strftime("%m/%d/%Y")
+
+    # Enhance query with citation-friendly phrasing
+    enhanced_query = f"{query} - find recent sources and cite references"
 
     response = await client.search(
-        query=query,
+        query=enhanced_query,
         model=model,
-        search_recency_filter=recency_filter,
+        search_after_date_filter=date_filter,  # Use date filter instead of recency_filter
         search_domain_filter=domain_filter if domain_filter else None,
         return_related_questions=return_related
     )
@@ -108,9 +123,11 @@ async def execute(
         "model": model,
         "tokens_used": response["usage"].get("total_tokens", 0),
         "cost_usd": cost,
-        "time_filter": recency_filter,
+        "timeframe_days": days,
+        "search_after_date": date_filter,
         "metadata": {
-            "recency_filter": recency_filter,
+            "timeframe_days": days,
+            "search_after_date": date_filter,
             "domain_filter": domain_filter,
             "prompt_tokens": response["usage"].get("prompt_tokens", 0),
             "completion_tokens": response["usage"].get("completion_tokens", 0)

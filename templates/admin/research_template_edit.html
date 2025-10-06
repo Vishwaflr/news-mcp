@@ -236,17 +236,52 @@ function generateParameterField(param) {
 
     switch (param.type) {
         case 'array':
-            // Convert \n to actual newlines for textarea content
-            const defaultValue = (param.placeholder || '').replace(/\\n/g, '\n');
+            // Use placeholder as default content (already contains real newlines from API)
+            const defaultValue = param.placeholder || '';
+            const itemCount = defaultValue ? defaultValue.split('\n').filter(line => line.trim()).length : 0;
+            const fieldId = `array_field_${param.name}`;
+            const toggleId = `toggle_${param.name}`;
+            const labelId = `label_${param.name}`;
+            const isEnabled = defaultValue.trim() !== ''; // Enabled if has content
             fieldHTML = `
                 <div class="mb-3">
-                    <label class="form-label text-light">${param.display_name} ${required}</label>
-                    <textarea
-                        name="param_${param.name}"
-                        class="form-control"
-                        rows="22"
-                        ${param.required ? 'required' : ''}
-                    >${defaultValue}</textarea>
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <label class="form-label text-light mb-0">${param.display_name} ${required}</label>
+                        <div class="d-flex align-items-center">
+                            <span class="badge bg-secondary me-2">${itemCount} items</span>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input"
+                                       type="checkbox"
+                                       id="${toggleId}"
+                                       ${isEnabled ? 'checked' : ''}
+                                       onchange="
+                                           const textarea = document.getElementById('${fieldId}');
+                                           const collapseDiv = document.getElementById('${fieldId}_collapse');
+                                           const label = document.getElementById('${labelId}');
+                                           if (this.checked) {
+                                               collapseDiv.classList.add('show');
+                                               label.textContent = 'Enabled';
+                                           } else {
+                                               collapseDiv.classList.remove('show');
+                                               textarea.value = '';
+                                               label.textContent = 'Disabled';
+                                           }
+                                       ">
+                                <label class="form-check-label text-light" for="${toggleId}" id="${labelId}">
+                                    ${isEnabled ? 'Enabled' : 'Disabled'}
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="collapse ${isEnabled ? 'show' : ''}" id="${fieldId}_collapse">
+                        <textarea
+                            id="${fieldId}"
+                            name="param_${param.name}"
+                            class="form-control"
+                            rows="22"
+                            ${param.required ? 'required' : ''}
+                        >${defaultValue}</textarea>
+                    </div>
                     ${helpText}
                 </div>
             `;

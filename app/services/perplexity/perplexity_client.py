@@ -28,6 +28,7 @@ class PerplexityClient:
         model: str = "sonar",
         search_domain_filter: Optional[List[str]] = None,
         search_recency_filter: Optional[str] = None,
+        search_after_date_filter: Optional[str] = None,
         return_images: bool = False,
         return_related_questions: bool = False,
         return_citations: bool = True,
@@ -41,7 +42,8 @@ class PerplexityClient:
             query: The search query
             model: Perplexity model to use
             search_domain_filter: List of domains to filter results (e.g., ["reuters.com", ".gov"])
-            search_recency_filter: Time filter ("day", "week", "month", "year")
+            search_recency_filter: Time filter ("day", "week", "month", "year") - WARNING: May reduce citations
+            search_after_date_filter: Only content published after this date (MM/DD/YYYY) - Better for citations
             return_images: Whether to return images
             return_related_questions: Whether to return related questions
             temperature: Sampling temperature
@@ -86,6 +88,9 @@ class PerplexityClient:
         if search_recency_filter:
             payload["search_recency_filter"] = search_recency_filter
 
+        if search_after_date_filter:
+            payload["search_after_date_filter"] = search_after_date_filter
+
         if max_tokens:
             payload["max_tokens"] = max_tokens
 
@@ -99,9 +104,20 @@ class PerplexityClient:
                 response.raise_for_status()
                 data = response.json()
 
-                # Extract content and citations
-                content = data["choices"][0]["message"]["content"]
-                citations = data.get("citations", [])
+                # Extract content and citations (new API uses search_results)
+                message = data["choices"][0]["message"]
+                content = message["content"]
+
+                # Perplexity provides citations in two formats:
+                # 1. search_results: Detailed objects with title, url, snippet (preferred)
+                # 2. citations: Simple array of URLs (fallback/legacy)
+                search_results = data.get("search_results", [])
+                citations_from_search = [result.get("url") for result in search_results if result.get("url")]
+
+                # Fallback to legacy citations field if search_results is empty
+                citations_legacy = data.get("citations", [])
+                citations = citations_from_search if citations_from_search else citations_legacy
+
                 usage = data.get("usage", {})
 
                 result = {
@@ -117,7 +133,7 @@ class PerplexityClient:
                 if return_related_questions and "related_questions" in data:
                     result["related_questions"] = data["related_questions"]
 
-                logger.info(f"Perplexity search completed: {usage.get('total_tokens', 0)} tokens used")
+                logger.info(f"Perplexity search completed: {usage.get('total_tokens', 0)} tokens used, {len(citations)} citations")
                 return result
 
         except httpx.HTTPStatusError as e:

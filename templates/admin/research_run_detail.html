@@ -147,6 +147,30 @@
 </div>
 {% endif %}
 
+<!-- Citations -->
+{% if run.result_metadata and run.result_metadata.get('citations') %}
+<div class="card border-secondary mb-4">
+    <div class="card-header bg-dark border-secondary">
+        <h5 class="mb-0 text-light">
+            <i class="bi bi-link-45deg"></i> Citations
+            <span class="badge bg-primary ms-2">{{ run.result_metadata.get('citations')|length }}</span>
+        </h5>
+    </div>
+    <div class="card-body bg-dark">
+        <ol class="list-group list-group-numbered">
+            {% for citation in run.result_metadata.get('citations', []) %}
+            <li class="list-group-item bg-secondary text-light border-0 mb-2">
+                <a href="{{ citation }}" target="_blank" class="text-info text-decoration-none">
+                    {{ citation }}
+                    <i class="bi bi-box-arrow-up-right ms-1"></i>
+                </a>
+            </li>
+            {% endfor %}
+        </ol>
+    </div>
+</div>
+{% endif %}
+
 <!-- Result Metadata -->
 {% if run.result_metadata %}
 <div class="card border-secondary mb-4">
