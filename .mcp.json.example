@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["@playwright/mcp"],
+      "env": {
+        "NODE_PATH": "/home/cytrex/news-mcp/node_modules"
+      }
+    }
+  }
+}

@@ -1,0 +1,117 @@
+{% if result.success %}
+<!-- Success Result -->
+<div class="card bg-dark text-light border-success">
+    <div class="card-header bg-success text-white">
+        <div class="d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-check-circle me-2"></i>Scrape Successful</h5>
+            <span class="badge bg-light text-success">{{ result.scrape_status }}</span>
+        </div>
+    </div>
+    <div class="card-body">
+        <!-- Metadata -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-6">
+                <h6 class="text-muted">Title</h6>
+                <p class="text-light">{{ result.title or 'No title extracted' }}</p>
+            </div>
+            <div class="col-md-3">
+                <h6 class="text-muted">Word Count</h6>
+                <p class="text-light"><strong>{{ result.word_count }}</strong> words</p>
+            </div>
+            <div class="col-md-3">
+                <h6 class="text-muted">Scraped At</h6>
+                <p class="text-light">{{ result.scraped_at.strftime('%H:%M:%S') }}</p>
+            </div>
+        </div>
+
+        {% if result.author or result.published_date %}
+        <div class="row g-3 mb-4">
+            {% if result.author %}
+            <div class="col-md-6">
+                <h6 class="text-muted">Author</h6>
+                <p class="text-light">{{ result.author }}</p>
+            </div>
+            {% endif %}
+            {% if result.published_date %}
+            <div class="col-md-6">
+                <h6 class="text-muted">Published Date</h6>
+                <p class="text-light">{{ result.published_date.strftime('%Y-%m-%d %H:%M') }}</p>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% if result.images %}
+        <div class="mb-4">
+            <h6 class="text-muted">Extracted Images ({{ result.images|length }})</h6>
+            <div class="d-flex flex-wrap gap-2">
+                {% for img_url in result.images[:5] %}
+                <img src="{{ img_url }}" alt="Article image" class="img-thumbnail bg-dark border-secondary" style="max-width: 120px; max-height: 120px; object-fit: cover;">
+                {% endfor %}
+                {% if result.images|length > 5 %}
+                <div class="d-flex align-items-center text-muted">
+                    +{{ result.images|length - 5 }} more
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Content Preview -->
+        <div class="mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="text-muted mb-0">Content Preview</h6>
+                <button class="btn btn-sm btn-outline-light" onclick="document.getElementById('full-content').classList.toggle('d-none')">
+                    <i class="bi bi-arrows-expand me-1"></i>Toggle Full Content
+                </button>
+            </div>
+            <div class="bg-black p-3 rounded border border-secondary" style="max-height: 200px; overflow-y: auto;">
+                <pre class="text-light mb-0" style="white-space: pre-wrap; font-size: 0.9rem;">{{ result.content[:500] }}{% if result.content|length > 500 %}...{% endif %}</pre>
+            </div>
+        </div>
+
+        <!-- Full Content (Collapsible) -->
+        <div id="full-content" class="d-none">
+            <h6 class="text-muted mb-2">Full Content</h6>
+            <div class="bg-black p-3 rounded border border-secondary" style="max-height: 600px; overflow-y: auto;">
+                <pre class="text-light mb-0" style="white-space: pre-wrap; font-size: 0.9rem;">{{ result.content }}</pre>
+            </div>
+        </div>
+
+        <!-- Copy Button -->
+        <div class="mt-3">
+            <button class="btn btn-outline-primary btn-sm" onclick="navigator.clipboard.writeText(document.querySelector('#full-content pre').innerText || '{{ result.content|e }}')">
+                <i class="bi bi-clipboard me-1"></i>Copy Content
+            </button>
+        </div>
+    </div>
+</div>
+
+{% elif result.scrape_status == 'paywall' %}
+<!-- Paywall Detected -->
+<div class="alert alert-warning" role="alert">
+    <h5 class="alert-heading"><i class="bi bi-lock me-2"></i>Paywall Detected</h5>
+    <p>This article appears to be behind a paywall or requires a subscription.</p>
+    <hr>
+    <p class="mb-0"><strong>URL:</strong> {{ result.url }}</p>
+</div>
+
+{% elif result.scrape_status == 'timeout' %}
+<!-- Timeout -->
+<div class="alert alert-danger" role="alert">
+    <h5 class="alert-heading"><i class="bi bi-clock-history me-2"></i>Request Timeout</h5>
+    <p>The request took too long to complete. The server might be slow or unreachable.</p>
+    <hr>
+    <p class="mb-0"><strong>Error:</strong> {{ result.error }}</p>
+</div>
+
+{% else %}
+<!-- Error -->
+<div class="alert alert-danger" role="alert">
+    <h5 class="alert-heading"><i class="bi bi-exclamation-triangle me-2"></i>Scraping Failed</h5>
+    <p><strong>Status:</strong> {{ result.scrape_status }}</p>
+    <p><strong>Error:</strong> {{ result.error }}</p>
+    <hr>
+    <p class="mb-0"><strong>URL:</strong> {{ result.url }}</p>
+</div>
+{% endif %}
